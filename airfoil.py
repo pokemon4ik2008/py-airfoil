@@ -20,6 +20,7 @@
 from euclid import *
 import time
 from pyglet.gl import *
+from pyglet.window import key
 
 ##[3]Spitfire Mk.XIV
 ##
@@ -308,3 +309,4 @@ class Airfoil:
     def printDetails(self):
         print self.__print_line
         self.__print_line = "" 
+
