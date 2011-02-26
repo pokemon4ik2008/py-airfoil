@@ -29,7 +29,7 @@ import ctypes
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
 from pyglet.window import key
-from airfoil import Airfoil
+from control import MyAirfoil, KeyMap
 from euclid import *
 from terrain import FractalTerrainMesh
                 
@@ -181,7 +181,12 @@ if __name__ == '__main__':
         terrain.compile(wireframe=opt.wireframe)
         r = 0.0
 
-        plane = Airfoil()
+        plane = MyAirfoil(keys, dict([(KeyMap.THRUST_UP, key.PAGEUP),
+				      (KeyMap.THRUST_DOWN, key.PAGEDOWN),
+				      (KeyMap.PITCH_UP, key.DOWN),
+				      (KeyMap.PITCH_DOWN, key.UP),
+				      (KeyMap.ROLL_RIGHT, key.RIGHT),
+				      (KeyMap.ROLL_LEFT, key.LEFT)]))
         plane.changeThrust(20000)
 
         label = pyglet.text.Label('bla',
@@ -244,42 +249,12 @@ if __name__ == '__main__':
                 PrintToScreen('adj = ' + plane.adjust.__str__())
                 PrintToScreen('airspeed = ' + plane.getAirSpeed().__str__())
                                 
+		plane.eventCheck()
+                if keys[key._1]:
+			currentCamera = CameraType[0]
+		if keys[key._2]:
+			currentCamera = CameraType[1]
 
-                # Handle key presses
-                thrustAdjust = 100
-                if keys[key.PAGEUP]:
-                        plane.changeThrust(thrustAdjust)
-                if keys[key.PAGEDOWN]:
-                        plane.changeThrust(-thrustAdjust)
-                if keys[key.SPACE]:
-                        plane.reset()
-                if keys[key.F1]:
-                        currentCamera = CameraType[0]
-                if keys[key.F2]:
-                        currentCamera = CameraType[1]
-
-                if keys[key.DOWN]:
-                        plane.adjustPitch(0.01)
-                elif keys[key.UP]:
-                        plane.adjustPitch(-0.01)
-                else:
-                        ratio = plane.getElevatorRatio()
-                        if ratio > 0.0:
-                                plane.adjustPitch(-0.01)
-                        elif ratio < 0.0:
-                                plane.adjustPitch(0.01)
-                        
-                if keys[key.RIGHT]:
-                        plane.adjustRoll(0.01)
-                elif keys[key.LEFT]:
-                        plane.adjustRoll(-0.01)
-                else:
-                        ratio = plane.getAileronRatio()
-                        if ratio > 0.0:
-                                plane.adjustRoll(-0.01)
-                        elif ratio < 0.0:
-                                plane.adjustRoll(0.01)
-                        
                 drawText()
                         
                 dt = clock.tick()                
