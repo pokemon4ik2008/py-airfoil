@@ -164,30 +164,31 @@ if __name__ == '__main__':
         terrain.compile(wireframe=opt.wireframe)
         r = 0.0
 
-	player_keys=[Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-				 (Controller.CAM_FIXED, KeyAction(key._1)),
-				 (Controller.CAM_FOLLOW, KeyAction(key._2)), 
-				 (Controller.PITCH, MouseAction(-1).setDim(MouseAction.Y)),
-				 (Controller.ROLL, MouseAction(-1).setDim(MouseAction.X)),
-				 (Controller.CAM_ZOOM, MouseAction(-1).setDim(MouseAction.Z))], 
-				win)]
+	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+				       (Controller.PITCH, KeyAction(key.S, key.W)),
+				       (Controller.ROLL, KeyAction(key.A, key.D)),
+				       (Controller.CAM_FIXED, KeyAction(key._9)),
+				       (Controller.CAM_FOLLOW, KeyAction(key._0)),
+				       (Controller.CAM_ZOOM, KeyAction(key.Z, key.X))], 
+				      win)]
 	if opt.two_player == True:
-		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-					       (Controller.PITCH, KeyAction(key.S, key.W)),
-					       (Controller.ROLL, KeyAction(key.A, key.D)),
-					       (Controller.CAM_FIXED, KeyAction(key._9)),
-					       (Controller.CAM_FOLLOW, KeyAction(key._0)),
-					       (Controller.CAM_ZOOM, KeyAction(key.Z, key.X))], 
-					      win))
+		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
+					 (Controller.CAM_FIXED, KeyAction(key._1)),
+					 (Controller.CAM_FOLLOW, KeyAction(key._2)), 
+					 (Controller.PITCH, MouseAction(-1).setDim(MouseAction.Y)),
+					 (Controller.ROLL, MouseAction(-1).setDim(MouseAction.X)),
+					 (Controller.CAM_ZOOM, MouseAction(-1).setDim(MouseAction.Z))], 
+					win))
+		
 
 	planes = []
 	init_positions = [Point3(-1300,0,0), Point3(-1200,0,0)]
-	init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 16.0 /180.0 * math.pi, 0.0)
+        init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi)
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
 		pos=init_positions[i]
 		plane = MyAirfoil(pos, init_attitude, controller)
-		plane.changeThrust(20000)
+		plane.changeThrust(14000)
 		planes.append(plane)
 
 		view = View(controller, win, plane, len(player_keys), opt)
@@ -217,8 +218,8 @@ if __name__ == '__main__':
 			view.printToScreen('pos = ' + str(my_plane.getPos()))
 			view.printToScreen('vel = ' + str(my_plane.getVelocity()))
 			view.printToScreen('thrust = ' + str(my_plane.getThrust()))
-			view.printToScreen('adj = ' + str(my_plane.adjust))
 			view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
+			view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 			glCallList(t)
 			for plane in planes:

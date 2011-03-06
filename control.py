@@ -167,12 +167,6 @@ class MyAirfoil(Airfoil):
         pitchAdjust = 0.01
         if events[Controller.PITCH]!=0:
             self.adjustPitch(events[Controller.PITCH]*pitchAdjust)
-        else:
-            ratio = self.getElevatorRatio()
-            if ratio > 0.0:
-                self.adjustPitch(-0.01)
-            elif ratio < 0.0:
-                self.adjustPitch(0.01)
         
         rollAdjust = 0.01
         if events[Controller.ROLL]!=0:
