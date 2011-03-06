@@ -64,10 +64,16 @@ class View:
         self.__width=self.__win.width
         self.__height=self.__win.height/self.__num_players
         (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.__plane_id))
+        if self.__num_players==1:
+            f_size=16
+            width_offset=self.__win.width*0.5
+        else:
+            f_size=24
+            width_offset=self.__win.width*0.75
         self.__label = pyglet.text.Label('bla',
                           font_name='Times New Roman',
-                          font_size=24,
-                          x= - self.__win.width*0.75, y=self.__win.height/2.0,
+                          font_size=f_size,
+                          x= - width_offset, y=self.__win.height/2.0,
                           anchor_x='left', anchor_y='top')
         #x= - self.__win.width/2.0, y=self.__win.height/2.0,
 

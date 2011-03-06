@@ -120,10 +120,13 @@ class Controller:
 
     def setMouseActions(self):
         mouse_controls=[Controller.NO_ACTION, Controller.NO_ACTION, Controller.NO_ACTION]
-        for (control, action) in self.__controls.items():
-            if isinstance(action, MouseAction):
-                mouse_controls[action.dim()]=control
-
+        try:
+            for (control, action) in self.__controls.items():
+                if isinstance(action, MouseAction):
+                    assert action.dim() < len(mouse_controls)
+                    mouse_controls[action.dim()]=control
+        except AssertionError:
+            print >> sys.stderr, 'size of dim too big for: '+str(action)
         return mouse_controls
 
     def clearMouseEvents(self, controls):
@@ -157,15 +160,12 @@ class MyAirfoil(Airfoil):
     def eventCheck(self):
         interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL]
         events = self.__controls.eventCheck(interesting_events)
-        #print "id: "+str(self.getId())+" ctrl: "+str(self.__controls)+" roll: "+str(events[Controller.ROLL])
 
-        # Handle key presses
         thrustAdjust = 100
         self.changeThrust(events[Controller.THRUST]*thrustAdjust)
         
         pitchAdjust = 0.01
         if events[Controller.PITCH]!=0:
-            print "eventCheck: "+str(events[Controller.PITCH]*pitchAdjust)
             self.adjustPitch(events[Controller.PITCH]*pitchAdjust)
         else:
             ratio = self.getElevatorRatio()

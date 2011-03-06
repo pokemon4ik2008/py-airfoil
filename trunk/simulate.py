@@ -95,6 +95,8 @@ if __name__ == '__main__':
                 help='Render mesh as wireframe')
         option('-z', '--width', dest='width', type='int', default=3000,
                 help='Overall width of the generated terrain')
+        option('-2', '--two', dest='two_player', action='store_true', default=False,
+                help='Two player split screen action')
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
         
@@ -168,14 +170,15 @@ if __name__ == '__main__':
 				 (Controller.PITCH, MouseAction(-1).setDim(MouseAction.Y)),
 				 (Controller.ROLL, MouseAction(-1).setDim(MouseAction.X)),
 				 (Controller.CAM_ZOOM, MouseAction(-1).setDim(MouseAction.Z))], 
-				win),
-		     Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-				 (Controller.PITCH, KeyAction(key.S, key.W)),
-				 (Controller.ROLL, KeyAction(key.A, key.D)),
-				 (Controller.CAM_FIXED, KeyAction(key._9)),
-				 (Controller.CAM_FOLLOW, KeyAction(key._0)),
-				 (Controller.CAM_ZOOM, KeyAction(key.Z, key.X))], 
 				win)]
+	if opt.two_player == True:
+		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+					       (Controller.PITCH, KeyAction(key.S, key.W)),
+					       (Controller.ROLL, KeyAction(key.A, key.D)),
+					       (Controller.CAM_FIXED, KeyAction(key._9)),
+					       (Controller.CAM_FOLLOW, KeyAction(key._0)),
+					       (Controller.CAM_ZOOM, KeyAction(key.Z, key.X))], 
+					      win))
 
 	planes = []
 	init_positions = [Point3(-1300,0,0), Point3(-1200,0,0)]
