@@ -48,11 +48,10 @@ class Airfoil:
         self.__pos = pos
         self.__attitude = attitude
         self.__thrust = 0
-        self.bank = 0
         self.__lastClock = time.time()
         self.__velocity = Vector3(0,0,0)
-        self.adjust = 0
         self.__print_line = ""
+        self.__wasOnGround = False
 
         # Roll
         self.__aileronRatio = 0.0
@@ -72,6 +71,9 @@ class Airfoil:
         self.__MAX_ROLL_ANGULAR_ACCEL = self.__MAX_PITCH_ANGULAR_ACCEL # rad / s / s
         self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 70 # the speed at which our flaps etc. start having maximum effect
         self.printLiftCoeffTable()
+        self.__centreOfGravity = Vector3(0.2, 0.0, 0.0)
+        self.__elevatorTrimRatio = 0.0
+        self.__elevatorEqualisationRatio = 0.01
 
         self.__id=Airfoil.__PlaneCount
         Airfoil.__PlaneCount+=1
@@ -121,11 +123,33 @@ class Airfoil:
         
         #print 'angular change : ', angularChange
 
+    def __updateInternalMoment(self, timeDiff):
+        if not self.__wasOnGround:
+            cog = (self.__attitude * self.__centreOfGravity).normalize()
+            rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize()
+            angularChange = self.__centreOfGravity.magnitude() * timeDiff
+            self.log('att = ' + self.__attitude.__str__() + ' cog = ' + cog.__str__() + 'rotAxis = ' + rotAxis.__str__())
+            internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
+            #self.log(internalRotation.__str__())
+            self.__attitude = internalRotation * self.__attitude 
+            #self.__attitude =  Quaternion.new_rotate_euler( 0.0, -angularChange, 0.0) * self.__attitude
+            return
+
     def getElevatorRatio(self):
         return self.__elevatorRatio
 
     def getAileronRatio(self):
         return self.__aileronRatio
+
+    def setElevatorTrimRatio(self, newValue):
+        maxTrimRatio = 1.0
+        if newValue > maxTrimRatio:
+            self.__elevatorTrimRatio = maxTrimRatio
+        elif newValue < -maxTrimRatio:
+            self.__elevatorTrimRatio = -maxTrimRatio
+        else:
+            self.__elevatorTrimRatio = newValue            
+        return
 
     def adjustRoll(self, adj):
         #+/- 1.0
@@ -189,7 +213,7 @@ class Airfoil:
     def getDragForce(self, angleOfAttack, zenithAngle, vel):
         resistanceVector = Vector3(2.0, 500.0, 9.0)
         drag = Airfoil.getDragCoeff(angleOfAttack) * 0.5 * rho * vel * vel * self.__S
-        localAdjust = 50 + self.adjust
+        localAdjust = 50.0
         drag += resistanceVector.x * math.cos(angleOfAttack) * math.sin(zenithAngle) * localAdjust
         drag += resistanceVector.y * math.sin(angleOfAttack) * math.cos(zenithAngle) * localAdjust
         drag += resistanceVector.z * math.sin(angleOfAttack) * math.sin(zenithAngle) * localAdjust
@@ -197,7 +221,7 @@ class Airfoil:
             drag = drag * -1.0
         
         # front facing
-        self.log('drag = {0:.2f} {1:.2f} {2:.2f}'.format(drag , angleOfAttack/math.pi*180.0 , zenithAngle/math.pi*180.0 ))
+        #self.log('drag = {0:.2f} {1:.2f} {2:.2f}'.format(drag , angleOfAttack/math.pi*180.0 , zenithAngle/math.pi*180.0 ))
         return drag
 
     def getWeightForce(self):        
@@ -223,8 +247,6 @@ class Airfoil:
         side = 50.0
         pos = self.getPos()       
         att = self.getAttitude()
-        adjAtt = Quaternion.new_rotate_euler( 0.0, 0.0, 0.0)
-        att = att * adjAtt
 
         vlist = [Vector3(0,0,0),
                  Vector3(-side/2.0, -side/2.0, 0),
@@ -259,10 +281,20 @@ class Airfoil:
         j = (att * vlist[4]) /8.0
         glVertex3f(j.x, j.y, j.z)        
         j = (att * vlist[5]) /8.0
-        glVertex3f(j.x, j.y, j.z)
-         
+        glVertex3f(j.x, j.y, j.z)        
         glEnd()
         return
+
+    def __collisionDetect(self):
+        # Check collision with ground
+        if self.__pos.y <= 0.0:
+            self.__pos.y = 0.0
+            self.__velocity.y = 0.0
+            if not self.__wasOnGround:
+                self.__hitGround()
+        else:
+            self.__wasOnGround = False
+
 
     def update(self):
         # Determine time since last frame
@@ -282,8 +314,17 @@ class Airfoil:
             # TODO: what happens if plane goes backwards (eg. during stall?)
             angleOfAttack = -angleOfAttack
 
+        # Automatically bring elevators back to trim value if no user adjustment was made
+        if self.__pendingElevatorAdjustment == 0.0:
+            if self.__elevatorRatio > self.__elevatorTrimRatio:
+                self.adjustPitch(-self.__elevatorEqualisationRatio)
+            elif self.__elevatorRatio < self.__elevatorTrimRatio:
+                self.adjustPitch(self.__elevatorEqualisationRatio)
+
+
         self.__updatePitch(timeDiff)
         self.__updateRoll(timeDiff)
+        self.__updateInternalMoment(timeDiff)
 
         #Thrust, acts || to nose vector
         dv = self.getThrustForce() * timeDiff / self.__mass #dv, the change in velocity due to thrust               
@@ -310,13 +351,14 @@ class Airfoil:
                 
         #print "vel: "+str(self.__velocity)
         self.__pos += (self.__velocity * timeDiff)
-        if self.__pos.y < 20.0:
-            #craft has hit the ground, stop it from falling further
-            self.__pos.y = 20.0
-            self.__velocity.y = 0.0
-        #print "id: "+str(self.getId())+" pos: "+str(self.__pos)+" vel: "+str(self.__velocity)
-            
+        self.__collisionDetect()
         self.printDetails()
+
+    def __hitGround(self):
+        print 'hit ground'
+        self.__wasOnGround = True      
+        # Point the craft along the ground plane
+        self.__attitude = Quaternion.new_rotate_euler(self.getHeading(),0,0)   
 
     def log(self, line):
         self.__print_line += "[" + line + "]"
@@ -326,3 +368,20 @@ class Airfoil:
             print self.__print_line
             self.__print_line = "" 
 
+    def getHeading(self):
+        noseVector = self.__attitude * Vector3(1.0,0.0,0.0)
+        return math.pi * 2 - self.__getAngleForXY(noseVector.x, noseVector.z)
+
+    def __getAngleForXY(self, x, y):
+        angle = 0.0
+        if x == 0:
+            angle = 90.0
+        else:
+            angle = math.atan(math.fabs(y/x))
+        if x <= 0.0 and y >= 0.0:
+            angle = math.pi - angle
+        elif x <= 0.0 and y < 0.0:
+            angle = math.pi + angle
+        elif x > 0.0 and y < 0.0:
+            angle = math.pi * 2 - angle
+        return angle        

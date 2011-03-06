@@ -36,7 +36,7 @@ class FixedCam(Camera):
     def activate(self):
         att = self._plane.getAttitude()
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
-        cameraAjust = att * adjAtt * Vector3(-100.0,50.0, 2.0)
+        cameraAjust = att * adjAtt * Vector3(-100.0,10.0, 2.0)
         pos = self._plane.getPos()
         eye = pos + cameraAjust
         zen = att * adjAtt * Vector3(0.0,1.0,0.0)
@@ -118,7 +118,7 @@ class View:
 
     def drawText(self):
             glPushMatrix()
-            glTranslatef(-100, 0, -650)
+            glTranslatef(-200, 0, -750)
             self.__label.color = (0, 0, 0, 255)
             self.__label.text = self.__screenMessage                
             self.__label.draw()
