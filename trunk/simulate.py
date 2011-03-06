@@ -175,9 +175,9 @@ if __name__ == '__main__':
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
 					 (Controller.CAM_FIXED, KeyAction(key._1)),
 					 (Controller.CAM_FOLLOW, KeyAction(key._2)), 
-					 (Controller.PITCH, MouseAction(-1).setDim(MouseAction.Y)),
-					 (Controller.ROLL, MouseAction(-1).setDim(MouseAction.X)),
-					 (Controller.CAM_ZOOM, MouseAction(-1).setDim(MouseAction.Z))], 
+					 (Controller.PITCH, MouseAction(-0.00010).setDim(MouseAction.Y)),
+					 (Controller.ROLL, MouseAction(-0.00010).setDim(MouseAction.X)),
+					 (Controller.CAM_ZOOM, MouseAction(-0.00014).setDim(MouseAction.Z))], 
 					win))
 		
 
