@@ -1,4 +1,5 @@
 from pyglet.window import key
+from time import time
 
 from airfoil import Airfoil
 
@@ -116,7 +117,7 @@ class Controller:
                           (Controller.CAM_FIXED, 0),
                           (Controller.CAM_FOLLOW, 0),
                           (Controller.NO_ACTION, 0)]);
-        self.__first_mouse_motion = True
+        self.__last_mouse_time = None
 
     def setMouseActions(self):
         mouse_controls=[Controller.NO_ACTION, Controller.NO_ACTION, Controller.NO_ACTION]
@@ -136,13 +137,17 @@ class Controller:
 
     def __accum_mouse_motion(self, dx, dy, dz):
         #print "accum_mouse_motion: "+str(dx)+" "+str(dy)+" "+str(dz)
-        if self.__first_mouse_motion:
+        if self.__last_mouse_time is None:
             # first dx or dy seems to be an offsset from the window origin
             # this is too large so we ignore it
-            self.__first_mouse_motion = False
+            self.__last_mouse_time = time()
             return
 
-        self.__vals.update([(action, self.__vals[action] + self.__controls[action].getState(delta)) 
+        now=time()
+        period=now-self.__last_mouse_time
+        self.__last_mouse_time=now
+        self.__vals.update([(action, self.__vals[action] + 
+                             self.__controls[action].getState(delta/float(period))) 
                             for (action, delta) in zip(self.__mouse_controls, [dx, dy, dz]) 
                             if action != Controller.NO_ACTION])
 
