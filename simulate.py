@@ -33,7 +33,8 @@ from control import *
 from euclid import *
 from terrain import FractalTerrainMesh
 from view import View
-                
+     
+
 global listNum
 listNum = glGenLists(1)
 def genListNum():
@@ -153,7 +154,6 @@ if __name__ == '__main__':
 	       glEnable(GL_FOG)     
 	print "width: "+str(win_width)+" height: "+str(win_height)
 	resize(win.width, win.height)
-
         clock = pyglet.clock.Clock(30)
 
         terrain = FractalTerrainMesh(

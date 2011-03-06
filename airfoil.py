@@ -21,7 +21,8 @@ from euclid import *
 import time
 from pyglet.gl import *
 from pyglet.window import key
-
+from util import *
+import pdb
 ##[3]Spitfire Mk.XIV
 ##
 ##Weight: 3,850 kg
@@ -74,6 +75,7 @@ class Airfoil:
         self.__centreOfGravity = Vector3(0.2, 0.0, 0.0)
         self.__elevatorTrimRatio = 0.0
         self.__elevatorEqualisationRatio = 0.01
+        self.__aileronEqualisationRatio = 0.01
 
         self.__id=Airfoil.__PlaneCount
         Airfoil.__PlaneCount+=1
@@ -98,37 +100,44 @@ class Airfoil:
             return vel/self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD    
 
     def __updateRoll(self, timeDiff):
-        angularVelocityDelta = self.__pendingAileronAdjustment * self.__MAX_ROLL_ANGULAR_ACCEL * self.__getSpeedRatio()
-        self.__rollAngularVelocity += angularVelocityDelta       #accumulate the new angular velocity
-        self.__aileronRatio += self.__pendingAileronAdjustment #accumulate the new roll ratio
-        #print 'pending ',self.__pendingAileronAdjustment, 'ratio ',self.__aileronRatio
-        self.__pendingAileronAdjustment = 0                     #reset the pending roll adjustment
-
-        # Adjust the crafts pitch
-        angularChange = self.__rollAngularVelocity * timeDiff
-        self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, 0.0, angularChange)
+        self.__aileronRatio += self.__pendingAileronAdjustment #accumulate the new roll ratio        
+        if self.__aileronRatio == 0.0:
+            # When ailerons are at 0 set the angular velocity to 0 also. This is
+            # to get rid of any accumulated error in the angularVelocity.
+            self.__rollAngularVelocity = 0.0
+        else: 
+            angularVelocityDelta = self.__pendingAileronAdjustment * self.__MAX_ROLL_ANGULAR_ACCEL * self.__getSpeedRatio()
+            self.__rollAngularVelocity += angularVelocityDelta       #accumulate the new angular velocity
         
-        #print 'angular change : ', angularChange
+            # Adjust the crafts roll
+            angularChange = self.__rollAngularVelocity * timeDiff
+            self.log('roll = ' + angularChange.__str__())
+            self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, 0.0, angularChange)
+        
+        self.__pendingAileronAdjustment = 0.0                     #reset the pending roll adjustment
+
 
     def __updatePitch(self, timeDiff):
+        self.__elevatorRatio += self.__pendingElevatorAdjustment #accumulate the new pitch ratio
         angularVelocityDelta = self.__pendingElevatorAdjustment * self.__MAX_PITCH_ANGULAR_ACCEL * self.__getSpeedRatio()
         self.__pitchAngularVelocity += angularVelocityDelta       #accumulate the new angular velocity
-        self.__elevatorRatio += self.__pendingElevatorAdjustment #accumulate the new pitch ratio
-        #print 'pending ',self.__pendingElevatorAdjustment, 'ratio ',self.__elevatorRatio
-        self.__pendingElevatorAdjustment = 0                     #reset the pending pitch adjustment
-
+        if self.__elevatorRatio == 0.0:
+            # When elevators are at 0 set the angular velocity to 0 also. This is
+            # to get rid of any accumulated error in the angularVelocity.
+            self.__pitchAngularVelocity = 0.0
+        
         # Adjust the crafts pitch
         angularChange = self.__pitchAngularVelocity * timeDiff
+        self.log('pitch = ' + angularChange.__str__())
         self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, angularChange, 0.0)
-        
-        #print 'angular change : ', angularChange
+        self.__pendingElevatorAdjustment = 0.0                     #reset the pending pitch adjustment        
 
     def __updateInternalMoment(self, timeDiff):
         if not self.__wasOnGround:
             cog = (self.__attitude * self.__centreOfGravity).normalize()
             rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize()
             angularChange = self.__centreOfGravity.magnitude() * timeDiff
-            self.log('att = ' + self.__attitude.__str__() + ' cog = ' + cog.__str__() + 'rotAxis = ' + rotAxis.__str__())
+            #self.log('att = ' + self.__attitude.__str__() + ' cog = ' + cog.__str__() + 'rotAxis = ' + rotAxis.__str__())
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
             #self.log(internalRotation.__str__())
             self.__attitude = internalRotation * self.__attitude 
@@ -153,12 +162,13 @@ class Airfoil:
 
     def adjustRoll(self, adj):
         #+/- 1.0
-        #print "adjusting roll on "+str(self.getId())
+        print "adjusting roll on "+ str(self.getId()) + ' ' + str(adj)
         self.__pendingAileronAdjustment += adj
         if self.__aileronRatio + self.__pendingAileronAdjustment > 1.0:
             self.__pendingAileronAdjustment = 1.0 - self.__aileronRatio 
         if self.__aileronRatio + self.__pendingAileronAdjustment < -1.0:
             self.__pendingAileronAdjustment = -1.0 - self.__aileronRatio   
+        print 'value = ' + str(self.__pendingAileronAdjustment)
                       
     def adjustPitch(self, adj):
         #+/- 1.0
@@ -249,7 +259,7 @@ class Airfoil:
         att = self.getAttitude()
 
         vlist = [Vector3(0,0,0),
-                 Vector3(-side/2.0, -side/2.0, 0),
+                 Vector3(-side/2.0, -side/2.0*0, 0),
                  Vector3(-side/2.0, side/2.0, 0),
                  Vector3(0, 0, 0),
                  Vector3(-side/2.0, 0, -side),
@@ -283,6 +293,17 @@ class Airfoil:
         j = (att * vlist[5]) /8.0
         glVertex3f(j.x, j.y, j.z)        
         glEnd()
+
+        cog = (self.__attitude * self.__centreOfGravity).normalize()
+        rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize() * 100
+        glColor4f(1.0, 0.0, 0.0, 1.0)
+        glBegin(GL_LINES)
+        glVertex3f(rotAxis.x, rotAxis.y, rotAxis.z)
+        glVertex3f(-rotAxis.x, -rotAxis.y, -rotAxis.z)
+        glVertex3f(0,0,0)
+        glVertex3f(0,-100,0)
+        glEnd()
+
         return
 
     def __collisionDetect(self):
@@ -307,8 +328,8 @@ class Airfoil:
         velocityNormalized = velocity.normalized()
         zenithVector = self.__attitude * Vector3(0.0, 1.0, 0.0)
         noseVector = self.__attitude * Vector3(1.0, 0.0, 0.0) 
-        angleOfAttack = math.acos(velocityNormalized.dot(noseVector.normalized()))
-        zenithAngle = math.acos(velocityNormalized.dot(zenithVector.normalized()))     
+        angleOfAttack = math.acos(limitToMaxValue(velocityNormalized.dot(noseVector.normalized()), 1.0))
+        zenithAngle = math.acos(limitToMaxValue(velocityNormalized.dot(zenithVector.normalized()), 1.0))     
         if zenithAngle < math.pi/2.0:
             # Ensure AOA can go negative
             # TODO: what happens if plane goes backwards (eg. during stall?)
@@ -316,12 +337,26 @@ class Airfoil:
 
         # Automatically bring elevators back to trim value if no user adjustment was made
         if self.__pendingElevatorAdjustment == 0.0:
-            if self.__elevatorRatio > self.__elevatorTrimRatio:
+            if self.__elevatorRatio >= (self.__elevatorTrimRatio + self.__elevatorEqualisationRatio):
                 self.adjustPitch(-self.__elevatorEqualisationRatio)
-            elif self.__elevatorRatio < self.__elevatorTrimRatio:
+            elif self.__elevatorRatio <= (self.__elevatorTrimRatio - self.__elevatorEqualisationRatio):
                 self.adjustPitch(self.__elevatorEqualisationRatio)
+            else:
+                self.__elevatorRatio = self.__elevatorTrimRatio
 
 
+        # Automatically bring ailerons back to 0 if no adjustment was made
+        
+        if self.__pendingAileronAdjustment == 0.0:               
+            if self.__aileronRatio >= self.__aileronEqualisationRatio:
+                self.adjustRoll(-self.__aileronEqualisationRatio)
+            elif self.__aileronRatio <= -self.__aileronEqualisationRatio:
+                self.adjustRoll(self.__aileronEqualisationRatio)
+            else:
+                self.__aileronRatio = 0.0
+
+
+        # Calculate rotations
         self.__updatePitch(timeDiff)
         self.__updateRoll(timeDiff)
         self.__updateInternalMoment(timeDiff)
@@ -347,18 +382,18 @@ class Airfoil:
         #Drag, acts || to Velocity vector
         dv  = self.getDragForce(angleOfAttack, zenithAngle, velocity.magnitude()) * timeDiff / self.__mass
         dragVector = windUnitVector * dv * -1.0
-        self.__velocity += dragVector
-                
-        #print "vel: "+str(self.__velocity)
+
+        self.__velocity += dragVector                       
         self.__pos += (self.__velocity * timeDiff)
         self.__collisionDetect()
         self.printDetails()
+        print ' '
 
     def __hitGround(self):
-        print 'hit ground'
+        print 'Hit ground'
         self.__wasOnGround = True      
         # Point the craft along the ground plane
-        self.__attitude = Quaternion.new_rotate_euler(self.getHeading(),0,0)   
+        self.__attitude = Quaternion.new_rotate_euler(self.getWindHeading(),0,0)   
 
     def log(self, line):
         self.__print_line += "[" + line + "]"
@@ -367,6 +402,9 @@ class Airfoil:
         if self.__print_line != "":
             print self.__print_line
             self.__print_line = "" 
+
+    def getWindHeading(self):        
+        return math.pi * 2 - self.__getAngleForXY(self.__velocity.x, self.__velocity.z)            
 
     def getHeading(self):
         noseVector = self.__attitude * Vector3(1.0,0.0,0.0)
