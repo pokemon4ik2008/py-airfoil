@@ -167,17 +167,19 @@ if __name__ == '__main__':
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 				       (Controller.PITCH, KeyAction(key.S, key.W)),
 				       (Controller.ROLL, KeyAction(key.A, key.D)),
-				       (Controller.CAM_FIXED, KeyAction(key._9)),
-				       (Controller.CAM_FOLLOW, KeyAction(key._0)),
-				       (Controller.CAM_ZOOM, KeyAction(key.Z, key.X))], 
+				       (Controller.CAM_FIXED, KeyAction(key._1)),
+				       (Controller.CAM_FOLLOW, KeyAction(key._2)),
+				       (Controller.CAM_Z, KeyAction(key.V, key.F)),
+				       (Controller.CAM_X, KeyAction(key.Z, key.X))], 
 				      win)]
 	if opt.two_player == True:
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-					 (Controller.CAM_FIXED, KeyAction(key._1)),
-					 (Controller.CAM_FOLLOW, KeyAction(key._2)), 
+					 (Controller.CAM_FIXED, KeyAction(key._9)),
+					 (Controller.CAM_FOLLOW, KeyAction(key._0)), 
 					 (Controller.PITCH, MouseAction(-0.00010).setDim(MouseAction.Y)),
 					 (Controller.ROLL, MouseAction(-0.00010).setDim(MouseAction.X)),
-					 (Controller.CAM_ZOOM, MouseAction(-0.00014).setDim(MouseAction.Z))], 
+					 (Controller.CAM_X, KeyAction(key.O, key.P)), 
+					 (Controller.CAM_Z, MouseAction(-0.0025).setDim(MouseAction.Z))], 
 					win))
 		
 
