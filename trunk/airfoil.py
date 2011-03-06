@@ -38,13 +38,15 @@ rho = 1.29 # kg/m^3 density of air
 accelDueToGravity = 9.8 # m/s/s
 
 class Airfoil:
+    __PlaneCount = 0
+
     def reset(self):
         self.__init__()
     
-    def __init__(self):
+    def __init__(self, pos, attitude):
         self.data = []
-        self.__pos = Point3(-1200,0,0)
-        self.__attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 16.0 /180.0 * math.pi, 0.0)
+        self.__pos = pos
+        self.__attitude = attitude
         self.__thrust = 0
         self.bank = 0
         self.__lastClock = time.clock()
@@ -70,6 +72,18 @@ class Airfoil:
         self.__MAX_ROLL_ANGULAR_ACCEL = self.__MAX_PITCH_ANGULAR_ACCEL # rad / s / s
         self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 70 # the speed at which our flaps etc. start having maximum effect
         self.printLiftCoeffTable()
+
+        self.__id=Airfoil.__PlaneCount
+        Airfoil.__PlaneCount+=1
+
+    def getId(self):
+        return self.__id
+
+    def getPos(self):
+        return self.__pos
+
+    def alive(self):
+        return True
 
     def __getSpeedRatio(self):
         # Return the current speed as a ratio of the max speed
@@ -115,6 +129,7 @@ class Airfoil:
 
     def adjustRoll(self, adj):
         #+/- 1.0
+        #print "adjusting roll on "+str(self.getId())
         self.__pendingAileronAdjustment += adj
         if self.__aileronRatio + self.__pendingAileronAdjustment > 1.0:
             self.__pendingAileronAdjustment = 1.0 - self.__aileronRatio 
@@ -245,11 +260,8 @@ class Airfoil:
         glVertex3f(j.x, j.y, j.z)        
         j = (att * vlist[5]) /8.0
         glVertex3f(j.x, j.y, j.z)
-
-                
+         
         glEnd()
-
-        
         return
 
     def update(self):
@@ -295,11 +307,13 @@ class Airfoil:
         dragVector = windUnitVector * dv * -1.0
         self.__velocity += dragVector
                 
+        #print "vel: "+str(self.__velocity)
         self.__pos += (self.__velocity * timeDiff)
-        if self.__pos.y < 0.0:
+        if self.__pos.y < 20.0:
             #craft has hit the ground, stop it from falling further
-            self.__pos.y = 0.0
+            self.__pos.y = 20.0
             self.__velocity.y = 0.0
+        #print "id: "+str(self.getId())+" pos: "+str(self.__pos)+" vel: "+str(self.__velocity)
             
         self.printDetails()
 

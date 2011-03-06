@@ -29,31 +29,37 @@ import ctypes
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
 from pyglet.window import key
-from control import MyAirfoil, KeyMap
+from control import *
 from euclid import *
 from terrain import FractalTerrainMesh
+from view import View
                 
-global screenMessage              
-screenMessage = '';
-def PrintToScreen(message):        
-        global screenMessage
-        screenMessage += '[' + message + ']'
+global listNum
+listNum = glGenLists(1)
+def genListNum():
+	global listNum
+	num=listNum
+	listNum+=1
+	return num
 
-def drawText():
-        global screenMessage
-        glPushMatrix()
-        glTranslatef(-100, 0, -650)
-        label.color = (0, 0, 0, 255)
-        label.text = screenMessage                
-        label.draw()
-        glPopMatrix()
+def genTerrain():
+	terrainNum=genListNum()
+	glNewList(terrainNum, GL_COMPILE)
+	if not opt.wireframe:
+		terrain.draw_composed()
+	else:
+		terrain.draw()                                                        
+	glEndList()
+	return terrainNum
 
 if __name__ == '__main__':               
         try:
                 import psyco
         except ImportError:
+		print "failed to import psyco\n"
                 pass
         else:
+		print "running psyco\n"
                 psyco.full()
 
         parser = optparse.OptionParser()
@@ -92,85 +98,60 @@ if __name__ == '__main__':
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
         
-        win = pyglet.window.Window(width=800, height=600, resizable=True,
-                config=pyglet.gl.Config(stencil_size=1, double_buffer=True, depth_size=24))
-        keys = key.KeyStateHandler()
-        win.push_handlers(keys)
+        #zoom = -150
+        #pressed = False
+        #xrot = 0
+        #zrot = 0
+	#win_planes=[]
+	win_width=800
+	win_height=600
+	config_template=pyglet.gl.Config(stencil_size=1, double_buffer=True, depth_size=24)
+	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
+	win.dispatch_events()
+	win.clear()
+	win.set_exclusive_mouse(True)
+	win.flip()
 
-        zoom = -150
-        pressed = False
-        xrot = 0
-        zrot = 0
+	views = []
+	def resize(width, height):
+		for view in views:
+			view.activate()
+		return pyglet.event.EVENT_HANDLED
 
-        @win.event
-        def on_mouse_scroll(x, y, scroll_x, scroll_y):
-                global zoom
-                zoom -= scroll_y
-        
-        @win.event
-        def on_mouse_press(x, y, button, modifiers):
-                global pressed
-                pressed = button == pyglet.window.mouse.LEFT
-        
-        @win.event
-        def on_mouse_release(x, y, button, modifiers):
-                global pressed
-                pressed = not (button == pyglet.window.mouse.LEFT)
-        
-        @win.event
-        def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
-                global xrot, zrot
-                zrot -= dx * 0.3
-                xrot += dy * 0.3
+	win.on_resize=resize       
+	glClearColor(0.7, 0.7, 1.0, 1.0)
+	glClearDepth(1.0)
+	glClearStencil(0)
+	font = pyglet.font.load(None, 18, dpi=72)
+	text = pyglet.font.Text(font, 'Calculating Terrain...',
+		 x=win_width / 2,
+		 y=win_height / 2,
+		 halign=pyglet.font.Text.CENTER,
+		 valign=pyglet.font.Text.CENTER)         
+	text.color = (0, 0, 0.8, 1.0)
+	text.draw()
+	glEnable(GL_COLOR_MATERIAL)
+	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+	glEnable(GL_LIGHT0)
+	fourfv = ctypes.c_float * 4        
+	glLightfv(GL_LIGHT0, GL_AMBIENT, fourfv(0.1, 0.1, 0.1, 1.0))
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, fourfv(0.6, 0.6, 0.6, 1.0))
+	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
+	glEnable(GL_DEPTH_TEST)
+	glEnable(GL_CULL_FACE)
+	glDepthFunc(GL_LEQUAL)
+	glShadeModel(GL_SMOOTH)
+	glEnable(GL_BLEND)
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+	glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
+	glFogf(GL_FOG_START, opt.width / 2)
+	glFogf(GL_FOG_END, opt.width)
+	glFogi(GL_FOG_MODE, GL_LINEAR)
+	if not opt.wireframe:
+	       glEnable(GL_FOG)     
+	print "width: "+str(win_width)+" height: "+str(win_height)
+	resize(win.width, win.height)
 
-        font = pyglet.font.load(None, 18, dpi=72)
-        text = pyglet.font.Text(font, 'Calculating Terrain...',
-                x=win.width / 2,
-                y=win.height / 2,
-                halign=pyglet.font.Text.CENTER,
-                valign=pyglet.font.Text.CENTER)         
-        text.color = (0, 0, 0.8, 1.0)
-        glClearColor(0.7, 0.7, 1.0, 1.0)
-        glClearDepth(1.0)
-        glClearStencil(0)
-        win.dispatch_events()
-        win.clear()
-        text.draw()
-        win.flip()
-
-        def resize(width, height):
-                if height==0:
-                        height=1
-                glViewport(0, 0, width, height)
-                glMatrixMode(GL_PROJECTION)
-                glLoadIdentity()
-                gluPerspective(70, 1.0*width/height, 0.1, opt.width * 1.2)
-                glMatrixMode(GL_MODELVIEW)
-                glLoadIdentity()
-        
-        win.on_resize=resize       
-        glEnable(GL_COLOR_MATERIAL)
-        glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
-        #glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-        fourfv = ctypes.c_float * 4        
-        glLightfv(GL_LIGHT0, GL_AMBIENT, fourfv(0.1, 0.1, 0.1, 1.0))
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, fourfv(0.6, 0.6, 0.6, 1.0))
-        glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_CULL_FACE)
-        glDepthFunc(GL_LEQUAL)
-        glShadeModel(GL_SMOOTH)
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
-        glFogf(GL_FOG_START, opt.width / 2)
-        glFogf(GL_FOG_END, opt.width)
-        glFogi(GL_FOG_MODE, GL_LINEAR)
-        if not opt.wireframe:
-               glEnable(GL_FOG)     
-
-        resize(win.width, win.height)
         clock = pyglet.clock.Clock(30)
 
         terrain = FractalTerrainMesh(
@@ -181,88 +162,79 @@ if __name__ == '__main__':
         terrain.compile(wireframe=opt.wireframe)
         r = 0.0
 
-        plane = MyAirfoil(keys, dict([(KeyMap.THRUST_UP, key.PAGEUP),
-				      (KeyMap.THRUST_DOWN, key.PAGEDOWN),
-				      (KeyMap.PITCH_UP, key.DOWN),
-				      (KeyMap.PITCH_DOWN, key.UP),
-				      (KeyMap.ROLL_RIGHT, key.RIGHT),
-				      (KeyMap.ROLL_LEFT, key.LEFT)]))
-        plane.changeThrust(20000)
+	player_keys=[Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
+				 (Controller.CAM_FIXED, KeyAction(key._1)),
+				 (Controller.CAM_FOLLOW, KeyAction(key._2)), 
+				 (Controller.PITCH, MouseAction(-1).setDim(MouseAction.Y)),
+				 (Controller.ROLL, MouseAction(-1).setDim(MouseAction.X)),
+				 (Controller.CAM_ZOOM, MouseAction(-1).setDim(MouseAction.Z))], 
+				win),
+		     Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+				 (Controller.PITCH, KeyAction(key.S, key.W)),
+				 (Controller.ROLL, KeyAction(key.A, key.D)),
+				 (Controller.CAM_FIXED, KeyAction(key._9)),
+				 (Controller.CAM_FOLLOW, KeyAction(key._0)),
+				 (Controller.CAM_ZOOM, KeyAction(key.Z, key.X))], 
+				win)]
 
-        label = pyglet.text.Label('bla',
-                          font_name='Times New Roman',
-                          font_size=16,
-                          x= - win.width/2.0, y=win.width/2.0,
-                          anchor_x='left', anchor_y='top')
-      
-        CameraType = ['follow', 'fixed']
-        currentCamera = CameraType[0]
+	planes = []
+	init_positions = [Point3(-1300,0,0), Point3(-1200,0,0)]
+	init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 16.0 /180.0 * math.pi, 0.0)
+	for i in range(len(player_keys)):
+		controller=player_keys[i]
+		pos=init_positions[i]
+		plane = MyAirfoil(pos, init_attitude, controller)
+		plane.changeThrust(20000)
+		planes.append(plane)
 
-        while not win.has_exit:
-                plane.update()
-                win.dispatch_events()
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
-                glLoadIdentity()
-                glPushMatrix()
-                
-                
-                # Handle the different types of Camera's
-                if currentCamera == CameraType[0]:
-                        att = plane.getAttitude()
-                        adjAtt = Quaternion.new_rotate_euler( zrot/180.0*math.pi, xrot/180.0*math.pi, 0.0)
-                        cameraAjust = adjAtt * Vector3(-100.0,50.0, 2.0)
-                        pos = plane.getPos()
-                        eye = pos + cameraAjust
-                        zen = adjAtt * Vector3(0.0,1.0,0.0)
-                        gluLookAt(eye.x, eye.y, eye.z,
-                                  pos.x, pos.y, pos.z,
-                                  zen.x, zen.y, zen.z)
-                elif currentCamera == CameraType[1]:
-                        att = plane.getAttitude()
-                        adjAtt = Quaternion.new_rotate_euler( zrot/180.0*math.pi, xrot/180.0*math.pi, 0.0)
-                        cameraAjust = att * adjAtt * Vector3(-100.0,50.0, 2.0)
-                        pos = plane.getPos()
-                        eye = pos + cameraAjust
-                        zen = att * adjAtt * Vector3(0.0,1.0,0.0)
-                        gluLookAt(eye.x, eye.y, eye.z,
-                                  pos.x, pos.y, pos.z,
-                                  zen.x, zen.y, zen.z)
-                
-                
-                
+		view = View(controller, win, plane, len(player_keys), opt)
+		views.append(view)
 
-               #glLightfv(GL_LIGHT0, GL_POSITION, fourfv(-0.5, 0, 1, 0)) 
-                #glLightfv(GL_LIGHT0, GL_POSITION, fourfv(10, 10, 10, 10))
-                glFogf(GL_FOG_START, opt.width * 2 / 3)
-                glFogf(GL_FOG_END, opt.width)                                
-                
-                if not opt.wireframe:
-                        terrain.draw_composed()
-                else:
-                        terrain.draw()                                                        
-                plane.draw()
-                glPopMatrix()                
-                
-                PrintToScreen('pos = ' + pos.__str__())
-                PrintToScreen('vel = ' + plane.getVelocity().__str__())
-                PrintToScreen('thrust = ' + plane.getThrust().__str__())
-                PrintToScreen('adj = ' + plane.adjust.__str__())
-                PrintToScreen('airspeed = ' + plane.getAirSpeed().__str__())
-                                
-		plane.eventCheck()
-                if keys[key._1]:
-			currentCamera = CameraType[0]
-		if keys[key._2]:
-			currentCamera = CameraType[1]
+	none_alive=False
 
-                drawText()
-                        
-                dt = clock.tick()                
-                win.flip()
-                screenMessage = ''
+	t=genTerrain()
+
+	while True:
+		if win.has_exit:
+			none_alive=True
+		if none_alive:
+			break
+		none_alive=True
+		for plane in planes:
+			if plane.alive():
+				none_alive=False
+				plane.update()
+
+		win.dispatch_events()
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
+		for view in views:
+			glLoadIdentity()
+			view.activate()
+			my_plane=planes[view.getPlaneId()]
+			view.printToScreen('pos = ' + str(my_plane.getPos()))
+			view.printToScreen('vel = ' + str(my_plane.getVelocity()))
+			view.printToScreen('thrust = ' + str(my_plane.getThrust()))
+			view.printToScreen('adj = ' + str(my_plane.adjust))
+			view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
+
+			glCallList(t)
+			for plane in planes:
+				if plane.alive():
+					glPushMatrix()
+					plane.draw()
+					glPopMatrix()       
+
+
+			view.eventCheck()
+			glLoadIdentity()
+			view.drawText()
+			dt=clock.tick()
+
+		for plane in planes:
+			if plane.alive():
+				plane.eventCheck()
+
+		win.flip()
 
         print "fps:  %d" % clock.get_fps()
-        
-
-
 
