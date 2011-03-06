@@ -92,8 +92,8 @@ class View:
             self.__currentCamera = self.__cams[View.__FOLLOW]
         if events[Controller.CAM_FIXED]!=0:
             self.__currentCamera = self.__cams[View.__FIXED]
-        self.__zrot += events[Controller.CAM_Z]
-        self.__xrot += events[Controller.CAM_X]
+        self.__zrot += events[Controller.CAM_X]
+        self.__xrot += events[Controller.CAM_Z]
         self.__zoom += events[Controller.CAM_ZOOM]
         self.__currentCamera.setPos(self.__xrot, self.__zrot)
         self.__controls.clearMouseEvents(interesting_events)
