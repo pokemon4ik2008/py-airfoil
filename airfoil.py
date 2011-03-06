@@ -49,7 +49,7 @@ class Airfoil:
         self.__attitude = attitude
         self.__thrust = 0
         self.bank = 0
-        self.__lastClock = time.clock()
+        self.__lastClock = time.time()
         self.__velocity = Vector3(0,0,0)
         self.adjust = 0
         self.__print_line = ""
@@ -266,10 +266,11 @@ class Airfoil:
 
     def update(self):
         # Determine time since last frame
+        now = time.time()
         previousClock = self.__lastClock
-        self.__lastClock = time.clock()
+        self.__lastClock = now
         timeDiff = self.__lastClock - previousClock
-        
+
         velocity = self.__velocity
         velocityNormalized = velocity.normalized()
         zenithVector = self.__attitude * Vector3(0.0, 1.0, 0.0)
