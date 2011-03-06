@@ -102,7 +102,7 @@ class Controller:
                     pass
 
             win.push_handlers(KeyAction.getKeys())
-        Controller.__WINS.append(win)
+            Controller.__WINS.append(win)
         Controller.__INSTANCES.append(self)
         self.__controls = dict(controls)
         self.__key = [ key for (key, val) in controls if isinstance(val, KeyAction) ]
