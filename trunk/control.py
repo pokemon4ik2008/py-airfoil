@@ -176,11 +176,5 @@ class MyAirfoil(Airfoil):
         rollAdjust = 0.01
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*rollAdjust)
-        else:
-            ratio = self.getAileronRatio()
-            if ratio > 0.0:
-                self.adjustRoll(-0.01)
-            elif ratio < 0.0:
-                self.adjustRoll(0.01)
 
         self.__controls.clearMouseEvents(interesting_events)
