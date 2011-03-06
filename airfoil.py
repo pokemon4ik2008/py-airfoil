@@ -322,6 +322,7 @@ class Airfoil:
         self.__print_line += "[" + line + "]"
 
     def printDetails(self):
-        print self.__print_line
-        self.__print_line = "" 
+        if self.__print_line != "":
+            print self.__print_line
+            self.__print_line = "" 
 
