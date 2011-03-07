@@ -24,12 +24,12 @@ class Action:
 class KeyAction(Action):
     __KEYS = key.KeyStateHandler()
 
-    def __init__(self, k1, k2=None, mod=0, onRelease=False):
+    def __init__(self, k1, k2=None, mod=0, onPress=False):
         Action.__init__(self, 'KeyAction: '+str(k1)+' '+str(k2))
         self.__k1=k1
         self.__k2=k2
         self.__mod=mod
-        self.__onRelease=onRelease
+        self.__onPress=onPress
 
     def getState(self):
         if KeyAction.__KEYS[self.__k1]:
@@ -45,8 +45,8 @@ class KeyAction(Action):
             return True
         return False
 
-    def checkOnRelease(self):
-        return self.__onRelease
+    def checkOnPress(self):
+        return self.__onPress
 
     @staticmethod
     def getKeys():
@@ -57,20 +57,16 @@ class MouseAction(Action):
     Y=1
     Z=2
 
-    def __init__(self, sensitivity):
+    def __init__(self, sensitivity, dim):
         Action.__init__(self, 'MouseAction. sensitivity: '+str(sensitivity))
         self._sensitivity=sensitivity
-        self._dim=None
+        self._dim=dim
 
     def dim(self):
         if(self._dim == None):
             raise NotImplementedError
         else:
             return self._dim
-
-    def setDim(self, d):
-        self._dim=d
-        return self
 
     def getState(self, delta):
         return delta * self._sensitivity
@@ -115,8 +111,8 @@ class Controller:
                     pass
 
             @win.event
-            def on_key_release(symbol, mods):
-                for c in [control for control in self.__key if self.__controls[control].checkOnRelease()]:
+            def on_key_press(symbol, mods):
+                for c in [control for control in self.__on_key_press]:
                     if self.__controls[c].matches(symbol, mods):
                         self.__vals[c] = 1
 
@@ -125,7 +121,9 @@ class Controller:
         Controller.__INSTANCES.append(self)
         self.__controls = dict(controls)
         self.__controls_list = self.__controls.keys()
-        self.__key = [ key for (key, val) in controls if isinstance(val, KeyAction) ]
+        keys = [ key for (key, val) in controls if isinstance(val, KeyAction) ]
+        self.__on_key_press=[control for control in keys if self.__controls[control].checkOnPress()]
+        self.__on_key_press_not=[control for control in keys if not self.__controls[control].checkOnPress()]
         self.__mouse_controls = self.setMouseActions()
         self.__vals=dict([(Controller.THRUST, 0), 
                           (Controller.PITCH, 0),
@@ -167,11 +165,10 @@ class Controller:
         self.__vals.update([(action, self.__vals[action] + 
                              self.__controls[action].getState(delta/float(period))) 
                             for (action, delta) in zip(self.__mouse_controls, [dx, dy, dz]) 
-                            if action != Controller.NO_ACTION])
+                            if action is not Controller.NO_ACTION])
 
     def eventCheck(self, interested):
-        for i in [control for control in interested if control in self.__key 
-                  and not self.__controls[control].checkOnRelease()]:
+        for i in [control for control in interested if control in self.__on_key_press_not]:
             self.__vals[i] = self.__controls[i].getState()
 
         return self.__vals
