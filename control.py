@@ -180,20 +180,18 @@ class MyAirfoil(Airfoil):
     def __init__(self, pos, attitude, controls):
         Airfoil.__init__(self, pos, attitude)
         self.__controls=controls
+        self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL]
+        self.__thrustAdjust = 100
+        self.__pitchAdjust = 0.01
+        self.__rollAdjust = 0.01
 
     def eventCheck(self):
-        interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL]
-        events = self.__controls.eventCheck(interesting_events)
+        events = self.__controls.eventCheck(self.__interesting_events)
 
-        thrustAdjust = 100
-        self.changeThrust(events[Controller.THRUST]*thrustAdjust)
-        
-        pitchAdjust = 0.01
+        self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
         if events[Controller.PITCH]!=0:
-            self.adjustPitch(events[Controller.PITCH]*pitchAdjust)
-        
-        rollAdjust = 0.01
+            self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
-            self.adjustRoll(-events[Controller.ROLL]*rollAdjust)
+            self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
 
-        self.__controls.clearEvents(interesting_events)
+        self.__controls.clearEvents(self.__interesting_events)
