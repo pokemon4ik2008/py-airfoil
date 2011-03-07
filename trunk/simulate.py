@@ -163,7 +163,7 @@ if __name__ == '__main__':
         terrain.compile(wireframe=opt.wireframe)
         r = 0.0
 
-	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, mod=key.MOD_CTRL, onRelease=True))], win)
+	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
 
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 				       (Controller.PITCH, KeyAction(key.S, key.W)),
@@ -177,10 +177,10 @@ if __name__ == '__main__':
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
 					 (Controller.CAM_FIXED, KeyAction(key._9)),
 					 (Controller.CAM_FOLLOW, KeyAction(key._0)), 
-					 (Controller.PITCH, MouseAction(-0.00010).setDim(MouseAction.Y)),
-					 (Controller.ROLL, MouseAction(-0.00010).setDim(MouseAction.X)),
+					 (Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
+					 (Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
 					 (Controller.CAM_X, KeyAction(key.O, key.P)), 
-					 (Controller.CAM_Z, MouseAction(-0.0025).setDim(MouseAction.Z))], 
+					 (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z))], 
 					win))
 		
 
