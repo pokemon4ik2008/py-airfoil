@@ -112,7 +112,6 @@ if __name__ == '__main__':
 	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
 	win.dispatch_events()
 	win.clear()
-	win.set_exclusive_mouse(True)
 	win.flip()
 
 	views = []
@@ -164,6 +163,8 @@ if __name__ == '__main__':
         terrain.compile(wireframe=opt.wireframe)
         r = 0.0
 
+	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, mod=key.MOD_CTRL, onRelease=True))], win)
+
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 				       (Controller.PITCH, KeyAction(key.S, key.W)),
 				       (Controller.ROLL, KeyAction(key.A, key.D)),
@@ -197,8 +198,8 @@ if __name__ == '__main__':
 		views.append(view)
 
 	none_alive=False
-
 	t=genTerrain()
+	mouse_cap=False
 
 	while True:
 		if win.has_exit:
@@ -212,6 +213,11 @@ if __name__ == '__main__':
 				plane.update()
 
 		win.dispatch_events()
+		if win_ctrls.eventCheck(win_ctrls.getControls())[Controller.TOG_MOUSE_CAP]!=0:
+			mouse_cap = ~mouse_cap
+			win.set_exclusive_mouse(mouse_cap)
+			win_ctrls.clearEvents(win_ctrls.getControls())
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
 		for view in views:
 			glLoadIdentity()

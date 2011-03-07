@@ -96,7 +96,7 @@ class View:
         self.__xrot += events[Controller.CAM_Z]
         self.__zoom += events[Controller.CAM_ZOOM]
         self.__currentCamera.setPos(self.__xrot, self.__zrot)
-        self.__controls.clearMouseEvents(interesting_events)
+        self.__controls.clearEvents(interesting_events)
 
     def activate(self):
         self.__updateDimensions()
