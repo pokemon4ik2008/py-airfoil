@@ -66,7 +66,7 @@ class Airfoil:
         
         # Constants
         self.__S = 22.48 # wing planform area        
-        self.__mass = 3850.0 # kg
+        self.__mass = 3850.0 # kg3850
         self.__maxThrust = 20000 # newtons of thrust
         self.__MAX_PITCH_ANGULAR_ACCEL = math.pi /2.0 # rad / s / s
         self.__MAX_ROLL_ANGULAR_ACCEL = self.__MAX_PITCH_ANGULAR_ACCEL # rad / s / s
@@ -111,7 +111,6 @@ class Airfoil:
         
             # Adjust the crafts roll
             angularChange = self.__rollAngularVelocity * timeDiff
-            self.log('roll = ' + angularChange.__str__())
             self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, 0.0, angularChange)
         
         self.__pendingAileronAdjustment = 0.0                     #reset the pending roll adjustment
@@ -128,7 +127,6 @@ class Airfoil:
         
         # Adjust the crafts pitch
         angularChange = self.__pitchAngularVelocity * timeDiff
-        self.log('pitch = ' + angularChange.__str__())
         self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, angularChange, 0.0)
         self.__pendingElevatorAdjustment = 0.0                     #reset the pending pitch adjustment        
 
@@ -136,12 +134,9 @@ class Airfoil:
         if not self.__wasOnGround:
             cog = (self.__attitude * self.__centreOfGravity).normalize()
             rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize()
-            angularChange = self.__centreOfGravity.magnitude() * timeDiff
-            #self.log('att = ' + self.__attitude.__str__() + ' cog = ' + cog.__str__() + 'rotAxis = ' + rotAxis.__str__())
+            angularChange = self.__centreOfGravity.magnitude() * timeDiff # ie. effectively constant!
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
-            #self.log(internalRotation.__str__())
             self.__attitude = internalRotation * self.__attitude 
-            #self.__attitude =  Quaternion.new_rotate_euler( 0.0, -angularChange, 0.0) * self.__attitude
             return
 
     def getElevatorRatio(self):
@@ -162,13 +157,11 @@ class Airfoil:
 
     def adjustRoll(self, adj):
         #+/- 1.0
-        print "adjusting roll on "+ str(self.getId()) + ' ' + str(adj)
         self.__pendingAileronAdjustment += adj
         if self.__aileronRatio + self.__pendingAileronAdjustment > 1.0:
             self.__pendingAileronAdjustment = 1.0 - self.__aileronRatio 
         if self.__aileronRatio + self.__pendingAileronAdjustment < -1.0:
             self.__pendingAileronAdjustment = -1.0 - self.__aileronRatio   
-        print 'value = ' + str(self.__pendingAileronAdjustment)
                       
     def adjustPitch(self, adj):
         #+/- 1.0
@@ -205,8 +198,6 @@ class Airfoil:
     def printLiftCoeffTable(self):
         for i in range(-25,25):
             angle = i/180.0*math.pi
-            print 'AOA = ', i, 'Coeff = ', Airfoil.getLiftCoeff(angle), 'Drag = ', Airfoil.getDragCoeff(angle)
-        
     
     @staticmethod    
     def getDragCoeff(angleOfAttack):        
@@ -220,18 +211,47 @@ class Airfoil:
     def getLiftForce(self, angleOfAttack, vel):
         return Airfoil.getLiftCoeff(angleOfAttack) * 0.5 * rho * vel * vel * self.__S
 
-    def getDragForce(self, angleOfAttack, zenithAngle, vel):
-        resistanceVector = Vector3(2.0, 500.0, 9.0)
-        drag = Airfoil.getDragCoeff(angleOfAttack) * 0.5 * rho * vel * vel * self.__S
-        localAdjust = 50.0
-        drag += resistanceVector.x * math.cos(angleOfAttack) * math.sin(zenithAngle) * localAdjust
-        drag += resistanceVector.y * math.sin(angleOfAttack) * math.cos(zenithAngle) * localAdjust
-        drag += resistanceVector.z * math.sin(angleOfAttack) * math.sin(zenithAngle) * localAdjust
-        if drag < 0.0:
-            drag = drag * -1.0
-        
-        # front facing
-        #self.log('drag = {0:.2f} {1:.2f} {2:.2f}'.format(drag , angleOfAttack/math.pi*180.0 , zenithAngle/math.pi*180.0 ))
+    def getDragForce(self, angleOfAttack, zenithAngle):        
+        vel = self.__velocity
+        vMag = vel.magnitude()
+
+        # Calculate 'induced' drag, caused by the lifting effect of the airfoil
+        drag = math.fabs(Airfoil.getDragCoeff(angleOfAttack) * 0.5 * rho * vMag * vMag * self.__S)
+        drags = []
+        drags.append(drag)
+
+        # Calculate attitude rotation due to air resistance
+        # There is no rotation if there is no wind...
+        if vMag > 0.0:
+            # Scale the effect of air resistance on each surface: top, side, front
+            scales = [40.0, 20.0, 2.0]
+            totalScale = sum(scales)
+            normals = [Vector3(0.0, 1.0, 0.0), #plane through wings
+                       Vector3(0.0, 0.0, 1.0), #plane through fuselage (vertically)
+                       Vector3(1.0, 0.0, 0.0)] #plane perp. to nose vector 
+
+            # Run through each of the planes, and calculate the contributory component
+            for scale, norm in zip(scales, normals):
+                # Rotate the normal according to attitude
+                norm = self.__attitude * norm
+
+                # Use dot product to figure how much effect each plane has
+                dot = norm.dot(vel.normalized())
+
+                # Scale the drag based on the relative resistance of the associated surface
+                scaledDot =  dot * scale / totalScale
+                componentDrag = scaledDot * vMag * vMag
+                drags.append(math.fabs(componentDrag))
+                drag += math.fabs(componentDrag)
+
+                angularChange = math.pi * scaledDot /100
+                rotAxis = norm.cross(vel)
+                componentRotation = Quaternion.new_rotate_axis(-angularChange, rotAxis)
+                self.__attitude = componentRotation * self.__attitude
+
+            drags.append(drag)
+            global prettyfloat
+            #self.log(str(map(prettyfloat, drags)))
         return drag
 
     def getWeightForce(self):        
@@ -326,10 +346,10 @@ class Airfoil:
 
         velocity = self.__velocity
         velocityNormalized = velocity.normalized()
-        zenithVector = self.__attitude * Vector3(0.0, 1.0, 0.0)
-        noseVector = self.__attitude * Vector3(1.0, 0.0, 0.0) 
-        angleOfAttack = math.acos(limitToMaxValue(velocityNormalized.dot(noseVector.normalized()), 1.0))
-        zenithAngle = math.acos(limitToMaxValue(velocityNormalized.dot(zenithVector.normalized()), 1.0))     
+        zenithVector = (self.__attitude * Vector3(0.0, 1.0, 0.0)).normalized()
+        noseVector = (self.__attitude * Vector3(1.0, 0.0, 0.0)).normalized()
+        angleOfAttack = math.acos(limitToMaxValue(velocityNormalized.dot(noseVector), 1.0))
+        zenithAngle = math.acos(limitToMaxValue(velocityNormalized.dot(zenithVector), 1.0))     
         if zenithAngle < math.pi/2.0:
             # Ensure AOA can go negative
             # TODO: what happens if plane goes backwards (eg. during stall?)
@@ -344,9 +364,7 @@ class Airfoil:
             else:
                 self.__elevatorRatio = self.__elevatorTrimRatio
 
-
-        # Automatically bring ailerons back to 0 if no adjustment was made
-        
+        # Automatically bring ailerons back to 0 if no adjustment was made        
         if self.__pendingAileronAdjustment == 0.0:               
             if self.__aileronRatio >= self.__aileronEqualisationRatio:
                 self.adjustRoll(-self.__aileronEqualisationRatio)
@@ -354,7 +372,6 @@ class Airfoil:
                 self.adjustRoll(self.__aileronEqualisationRatio)
             else:
                 self.__aileronRatio = 0.0
-
 
         # Calculate rotations
         self.__updatePitch(timeDiff)
@@ -380,14 +397,13 @@ class Airfoil:
         self.__velocity += liftVector
         
         #Drag, acts || to Velocity vector
-        dv  = self.getDragForce(angleOfAttack, zenithAngle, velocity.magnitude()) * timeDiff / self.__mass
+        dv  = self.getDragForce(angleOfAttack, zenithAngle) * timeDiff / self.__mass
         dragVector = windUnitVector * dv * -1.0
 
         self.__velocity += dragVector                       
         self.__pos += (self.__velocity * timeDiff)
         self.__collisionDetect()
         self.printDetails()
-        print ' '
 
     def __hitGround(self):
         print 'Hit ground'
