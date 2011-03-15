@@ -125,7 +125,7 @@ class Airfoil:
         elevRot = Quaternion.new_rotate_axis(-self.__elevatorRatio * MAX_ELEV_ANGLE, Vector3(0.0, 0.0, 1.0))
         elevNorm = (self.__attitude * elevRot) * Vector3(0.0, 1.0, 0.0)
         dot = self.__velocity.normalized().dot(elevNorm)
-        angularChange = dot * (math.pi/100.0) * self.__getSpeedRatio()
+        angularChange = dot * (math.pi/3.0) * self.__getSpeedRatio() * timeDiff
 
         self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, angularChange, 0.0)
         self.__pendingElevatorAdjustment = 0.0                     #reset the pending pitch adjustment        
@@ -148,7 +148,7 @@ class Airfoil:
             cogNormalised = cog.normalized()
             rotRatio = math.hypot(cogNormalised.x, cogNormalised.z)
             print rotRatio
-            angularChange = rotRatio * math.pi / 500.0
+            angularChange = rotRatio * math.pi * 33.0 / 500.0 * timeDiff
 
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
             self.__attitude = internalRotation * self.__attitude 
@@ -226,7 +226,7 @@ class Airfoil:
     def getLiftForce(self, angleOfAttack, vel):
         return Airfoil.getLiftCoeff(angleOfAttack) * 0.5 * rho * vel * vel * self.__S
 
-    def getDragForce(self, angleOfAttack, zenithAngle):        
+    def getDragForce(self, angleOfAttack, zenithAngle, timeDiff):        
         vel = self.__velocity
         vMag = vel.magnitude()
 
@@ -259,7 +259,7 @@ class Airfoil:
                 drags.append(math.fabs(componentDrag))
                 drag += math.fabs(componentDrag)
 
-                angularChange = math.pi * scaledDot /100
+                angularChange = math.pi * scaledDot * 0.33 * timeDiff
                 rotAxis = norm.cross(vel)
                 componentRotation = Quaternion.new_rotate_axis(-angularChange, rotAxis)
                 self.__attitude = componentRotation * self.__attitude
@@ -412,7 +412,7 @@ class Airfoil:
         self.__velocity += liftVector
         
         #Drag, acts || to Velocity vector
-        dv  = self.getDragForce(angleOfAttack, zenithAngle) * timeDiff / self.__mass
+        dv  = self.getDragForce(angleOfAttack, zenithAngle, timeDiff) * timeDiff / self.__mass
         dragVector = windUnitVector * dv * -1.0
 
         self.__velocity += dragVector                       
