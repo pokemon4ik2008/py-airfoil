@@ -68,12 +68,12 @@ class Airfoil:
         self.__S = 22.48 # wing planform area        
         self.__mass = 3850.0 # kg3850
         self.__maxThrust = 20000 # newtons of thrust
-        self.__MAX_PITCH_ANGULAR_ACCEL = math.pi /2.0 # rad / s / s
-        self.__MAX_ROLL_ANGULAR_ACCEL = self.__MAX_PITCH_ANGULAR_ACCEL # rad / s / s
-        self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 70 # the speed at which our flaps etc. start having maximum effect
+        self.__MAX_PITCH_ANGULAR_ACCEL = math.pi /4.0# rad / s / s
+        self.__MAX_ROLL_ANGULAR_ACCEL = math.pi /2.0 # rad / s / s
+        self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 60 # the speed at which our flaps etc. start having maximum effect
         self.printLiftCoeffTable()
         self.__centreOfGravity = Vector3(0.2, 0.0, 0.0)
-        self.__elevatorTrimRatio = 0.0
+        self.__elevatorTrimRatio = 0.2
         self.__elevatorEqualisationRatio = 0.01
         self.__aileronEqualisationRatio = 0.01
 
@@ -118,23 +118,38 @@ class Airfoil:
 
     def __updatePitch(self, timeDiff):
         self.__elevatorRatio += self.__pendingElevatorAdjustment #accumulate the new pitch ratio
-        angularVelocityDelta = self.__pendingElevatorAdjustment * self.__MAX_PITCH_ANGULAR_ACCEL * self.__getSpeedRatio()
-        self.__pitchAngularVelocity += angularVelocityDelta       #accumulate the new angular velocity
-        if self.__elevatorRatio == 0.0:
-            # When elevators are at 0 set the angular velocity to 0 also. This is
-            # to get rid of any accumulated error in the angularVelocity.
-            self.__pitchAngularVelocity = 0.0
-        
-        # Adjust the crafts pitch
-        angularChange = self.__pitchAngularVelocity * timeDiff
+
+        # The angular change shall depend on the angle between the Elevator's normal
+        # and the velocity vector.
+        MAX_ELEV_ANGLE = math.pi / 4.0
+        elevRot = Quaternion.new_rotate_axis(-self.__elevatorRatio * MAX_ELEV_ANGLE, Vector3(0.0, 0.0, 1.0))
+        elevNorm = (self.__attitude * elevRot) * Vector3(0.0, 1.0, 0.0)
+        dot = self.__velocity.normalized().dot(elevNorm)
+        angularChange = dot * (math.pi/100.0) * self.__getSpeedRatio()
+
         self.__attitude = self.__attitude * Quaternion.new_rotate_euler( 0.0, angularChange, 0.0)
         self.__pendingElevatorAdjustment = 0.0                     #reset the pending pitch adjustment        
+        
 
     def __updateInternalMoment(self, timeDiff):
+        # This will model the rotation about a vector parrallel to the ground plane caused by an
+        # internal weight imbalance in the aircraft. Example, the engine at the front of the plane
+        # might cause the front of the plane to tilt down. A rotation occurs because the lifting
+        # force provided by the wings does not necessarily occur at the centre of gravity.
         if not self.__wasOnGround:
-            cog = (self.__attitude * self.__centreOfGravity).normalize()
-            rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize()
-            angularChange = self.__centreOfGravity.magnitude() * timeDiff # ie. effectively constant!
+            # Rotate centre of gravity vector according to attitude
+            cog = self.__attitude * self.__centreOfGravity
+            # Find the axis of rotation
+            rotAxis =  Vector3(0.0,1.0,0.0).cross(cog)
+
+            # Project the normalised cog vector onto the ground plane and determine 2d distance from 
+            # origin and use as to scale the max amount of rotation. Max rotation therefore occurs when
+            # nose is pointing at horizon.
+            cogNormalised = cog.normalized()
+            rotRatio = math.hypot(cogNormalised.x, cogNormalised.z)
+            print rotRatio
+            angularChange = rotRatio * math.pi / 500.0
+
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
             self.__attitude = internalRotation * self.__attitude 
             return
