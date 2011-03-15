@@ -153,7 +153,7 @@ if __name__ == '__main__':
 	       glEnable(GL_FOG)     
 	print "width: "+str(win_width)+" height: "+str(win_height)
 	resize(win.width, win.height)
-        clock = pyglet.clock.Clock()
+        clock = pyglet.clock.Clock(50)
 
         terrain = FractalTerrainMesh(
                 iterations=opt.iterations, deviation=opt.deviation, smooth=opt.smooth, 
