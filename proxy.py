@@ -200,12 +200,8 @@ class Client(SerialisableFact, Thread, Mirrorable):
         self.__s.setblocking(0)
         try:
             self.__s.connect((self.__server, self.__port))
-        except socket.error as (errNo, errStr):
-            if errNo==115:
-                #EINPROGRESS
-                pass
-            else:
-                print >> sys.stderr, "Client.__init__ failed to connect: "+errNo+" "+errStr
+        except socket.error as e:
+                print >> sys.stderr, "Client.__init__ failed to connect: "+str(e)
         self.__serialised=dict()
         self.__ids=deque()
         self.__locked_serialised=dict()
