@@ -3,15 +3,36 @@ import cPickle
 from collections import deque
 from euclid import Vector3
 from Queue import LifoQueue
+import re
 import select
 import socket
+from subprocess import Popen, PIPE
 import sys
 from threading import Condition, RLock, Thread
 from time import sleep
 
+def getMac():
+    # not platform independent
+    # TODO add windows equivalent
+    mac='00:00:00:00:00:00'
+    if sys.platform=='linux2':
+        pid = Popen(["arp"], stdout=PIPE)
+        s = pid.communicate()[0]
+        result=re.search(r"ether\W+(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", s)
+        if result is not None:
+            mac=result.groups()[0]
+    return mac
+
+MAC_STR=''.join([ chr(int(byte, 16)) for byte in getMac().rsplit(':')])
+
 class Mirrorable:
-    [TYPE, IDENT, _DEAD ] = range(3)
+    META=0
+    __INDEXES=[TYPE, IDENT, FLAGS, MAC]=range(4)
+    __SIZES = [2, 2, 1, 6]
+    META_SIZE=sum(__SIZES)
+    __SHIFTS = [sum(__SIZES[:i]) for i in __INDEXES]
     __InstCount = 0
+    __DEAD_FLAG=1
 
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
         self.__proxy=proxy
@@ -20,14 +41,15 @@ class Mirrorable:
         if ident is None:
             self.local_init()
         else:
-            self.__ident=ident
+            (self.__mac, self.__ident)=ident
 
     def local_init(self):
-        self.__ident=Mirrorable.__InstCount
+        (self.__mac, self.__ident)=(MAC_STR, Mirrorable.__InstCount)
         Mirrorable.__InstCount+=1
-        
+
     def getId(self):
-        return self.__ident
+        #print 'getId. '+str(MAC_STR, self.__ident)
+        return (self.__mac, self.__ident)
 
     def markChanged(self):
         if self.__proxy is None:
@@ -44,18 +66,39 @@ class Mirrorable:
     def markDead(self, dead=True):
         self.__dead=dead
 
+    @staticmethod
+    def int2Bytes(i, size):
+        s=''
+        for idx in range(size):
+            s+=chr((i >> (idx*8)) & 0xff)
+        return s
+
+    @staticmethod
+    def bytes2Int(s):
+        i=0
+        for idx in range(len(s)):
+           i |= ord(s[idx]) << (idx*8) 
+        return i
+
     def serialise(self):
-        return [self.__typ, self.__ident, self.__dead]
+        return [ ''.join([Mirrorable.int2Bytes(field, size) for (field, size) in zip([self.__typ, self.__ident, self.__dead], self.__SIZES)])+MAC_STR ]
+        #return [self.__typ, self.__ident, self.__dead]
+
+    def deSerMeta(self, serialised, idx):
+        start_shift=self.__SHIFTS[idx]
+        return Mirrorable.bytes2Int(serialised[self.META][start_shift:start_shift+self.__SIZES[idx]])
+
+    def deSerIdent(self, serialised):
+        start_mac=self.__SHIFTS[self.MAC]
+        return (serialised[self.META][start_mac:start_mac+self.__SIZES[self.MAC]], self.deSerMeta(serialised, self.IDENT))
 
     def deserialise(self, serialised):
-        if serialised[Mirrorable._DEAD]:
-            print 'deser. dead: '+str(serialised)
-        self.markDead(serialised[Mirrorable._DEAD])
+        self.markDead(self.deSerMeta(serialised, self.FLAGS) & self.__DEAD_FLAG == self.__DEAD_FLAG)
         return self
 
 class ControlledSer(Mirrorable):
     TYP=1
-    [ _POS, _ATT, _VEL, _THRUST ] = range(Mirrorable._DEAD+1, Mirrorable._DEAD+5)
+    [ _POS, _ATT, _VEL, _THRUST ] = range(Mirrorable.META+1, Mirrorable.META+5)
 
     def __init__(self, ident=None, proxy=None):
         Mirrorable.__init__(self, ControlledSer.TYP, ident, proxy)
@@ -95,13 +138,14 @@ class SerialisableFact:
     def deserialiseAll(self, sers):
         deserialiseds=[]
         for serialised in sers:
-            identifier=serialised[Mirrorable.IDENT]
+            identifier=self.deSerIdent(serialised)
             if identifier in self.__notMine:
                 self.__notMine[identifier].deserialise(serialised)
             else:
                 try:
-                    if serialised[Mirrorable.TYPE] in CTORS:
-                        self.__notMine[identifier] = CTORS[serialised[Mirrorable.TYPE]](ident=identifier).deserialise(serialised)
+                    typ=self.deSerMeta(serialised, Mirrorable.TYPE)
+                    if typ in CTORS:
+                        self.__notMine[identifier] = CTORS[typ](ident=identifier).deserialise(serialised)
                     else:
                         assert False
                 except AssertionError:
@@ -197,7 +241,9 @@ class Client(SerialisableFact, Thread, Mirrorable):
                             if len(self.__in)>=cur_len_in:
                                 try:
                                     assert len(self.__in)==cur_len_in
-                                    sers.append(cPickle.loads(self.__in))
+                                    obj=[self.__in[:Mirrorable.META_SIZE]]
+                                    obj.extend(cPickle.loads(self.__in[Mirrorable.META_SIZE:]))
+                                    sers.append(obj)
                                     self.__in=''
                                     #print 'clearing cur_len_in_s'
                                     cur_len_in_s=''
@@ -218,8 +264,9 @@ class Client(SerialisableFact, Thread, Mirrorable):
                          unique=self.__outbox.popleft()
                          obj=self.__locked_serialised[unique]
                          del(self.__locked_serialised[unique])
-                         obj_s=cPickle.dumps(obj)
+                         obj_s=obj[Mirrorable.META]+cPickle.dumps(obj[Mirrorable.META+1:])
                          obj_len='%10s' %len(obj_s)
+                         #print 'obj len: '+str(obj_len)+' obj: '+str(obj)
                          self.__out+=obj_len
                          self.__out+=obj_s
                          try:
