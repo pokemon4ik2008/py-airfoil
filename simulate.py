@@ -26,14 +26,17 @@ import itertools
 import optparse
 import pyglet
 import ctypes
+from proxy import *
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
 from pyglet.window import key
 from control import *
 from euclid import *
+import sys
 from terrain import FractalTerrainMesh
+from threading import Condition
+from time import sleep
 from view import View
-     
 
 global listNum
 listNum = glGenLists(1)
@@ -86,7 +89,7 @@ if __name__ == '__main__':
                 help='Minimum snow covered elevation')
         option('-w', '--water-line', dest='water_line', type='float', default=0,
                 help='Elevation of "sea level", terrain under this is under water')
-        option('-r', '--random-seed', dest='seed', default=None, 
+        option('-r', '--random-seed', dest='seed', default=123456, 
                 help=('Random number seed for generating the terrain. Due to the fractal algorithm, '
                 'The same seed will generate the same basic terrain topology regardless of the '
                 'number of iterations. This allows you to generate multiple equivilant '
@@ -98,9 +101,13 @@ if __name__ == '__main__':
                 help='Overall width of the generated terrain')
         option('-2', '--two', dest='two_player', action='store_true', default=False,
                 help='Two player split screen action')
+        #option('-S', '--server', dest='server', action='store_true', default=False,
+        #        help='Two player split screen action')
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
-        
+
+	Server()
+		
         #zoom = -150
         #pressed = False
         #xrot = 0
@@ -184,39 +191,52 @@ if __name__ == '__main__':
 					win))
 		
 
-	planes = []
+	planes = {}
 	init_positions = [Point3(-1300,0,0), Point3(-1200,0,0)]
         init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi)
+	init_thrust = 14000
+	init_vel = Vector3(0,0,0)
+
+	proxy = Client()
+
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
 		pos=init_positions[i]
-		plane = MyAirfoil(pos, init_attitude, controller)
-		plane.changeThrust(14000)
-		planes.append(plane)
+		plane = MyAirfoil(pos, init_attitude, init_vel, init_thrust, controller, proxy)
+		planes[plane.getId()]=plane
 
 		view = View(controller, win, plane, len(player_keys), opt)
 		views.append(view)
 
-	none_alive=False
 	t=genTerrain()
 	mouse_cap=False
+	bots=[]
 
 	while True:
-		if win.has_exit:
-			none_alive=True
-		if none_alive:
-			break
-		none_alive=True
-		for plane in planes:
+		# move this loop to ProxyObs.loop
+		for plane in planes.itervalues():
 			if plane.alive():
-				none_alive=False
 				plane.update()
-
+				plane.markChanged()
+		sleep(0)
 		win.dispatch_events()
+
+		if win.has_exit:
+			for obj in  planes.itervalues():
+				obj.markDead()
+				obj.markChanged()
+			proxy.markDead()
+			proxy.markChanged()
+			print 'marked everthing dead'
+
 		if win_ctrls.eventCheck(win_ctrls.getControls())[Controller.TOG_MOUSE_CAP]!=0:
 			mouse_cap = ~mouse_cap
 			win.set_exclusive_mouse(mouse_cap)
 			win_ctrls.clearEvents(win_ctrls.getControls())
+
+		if proxy.acquireLock():
+			bots[:]=[ proxy.getObj(plane_id) for plane_id in planes if plane_id in proxy ]
+			proxy.releaseLock()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
 		for view in views:
@@ -230,19 +250,30 @@ if __name__ == '__main__':
 			view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 			glCallList(t)
-			for plane in planes:
-				if plane.alive():
-					glPushMatrix()
-					plane.draw()
-					glPopMatrix()       
 
+			#if not proxy.alive():
+			#	print 'proxy dead. num bots: '+str(len(bots))+' num planes: '+str(len(planes))
+			for bot in bots:
+				if bot.alive():
+					glPushMatrix()
+					#planes[bot.getId()].draw()
+					bot.draw()
+					glPopMatrix()
 
 			view.eventCheck()
 			glLoadIdentity()
 			view.drawText()
 			dt=clock.tick()
 
-		for plane in planes:
+		for bot in bots:
+			if not bot.alive():
+				del planes[bot.getId()]
+
+		if len(planes)==0:
+			print 'all planes gone'
+			break;
+
+		for plane in planes.itervalues():
 			if plane.alive():
 				plane.eventCheck()
 

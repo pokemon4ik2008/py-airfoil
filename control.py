@@ -2,6 +2,7 @@ from pyglet.window import key
 from time import time
 
 from airfoil import Airfoil
+from proxy import ControlledSer
 
 class Enum:
     def __init__(self):
@@ -176,9 +177,11 @@ class Controller:
     def getControls(self):
         return self.__controls_list
 
-class MyAirfoil(Airfoil):
-    def __init__(self, pos, attitude, controls):
-        Airfoil.__init__(self, pos, attitude)
+class MyAirfoil(Airfoil, ControlledSer):
+    def __init__(self, pos, attitude, velocity, thrust, controls, proxy):
+        Airfoil.__init__(self, pos, attitude, velocity, thrust)
+        ControlledSer.__init__(self, proxy=proxy)
+        print 'MyAirfoil. initialised airfoil thrust '+str(thrust)
         self.__controls=controls
         self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL]
         self.__thrustAdjust = 100

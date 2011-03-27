@@ -47,12 +47,16 @@ class FixedCam(Camera):
 class View:
     __FOLLOW=0
     __FIXED=1
+    __VIEW_COUNT=0
+
     def __init__(self, controller, win, plane, num_players, opt):
         self.__opt=opt
         self.__cams=[FollowCam(plane), FixedCam(plane)]
         self.__currentCamera = self.__cams[View.__FIXED]
         self.__controls = controller
         self.__plane_id=plane.getId()
+        self.__view_id=View.__VIEW_COUNT
+        View.__VIEW_COUNT+=1
         self.__win=win
         self.__num_players=num_players
         self.__updateDimensions()
@@ -63,7 +67,7 @@ class View:
     def __updateDimensions(self):
         self.__width=self.__win.width
         self.__height=self.__win.height/self.__num_players
-        (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.__plane_id))
+        (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.__view_id))
         if self.__num_players==1:
             f_size=16
             width_offset=self.__win.width*0.5
