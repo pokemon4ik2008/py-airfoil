@@ -10,6 +10,7 @@ from subprocess import Popen, PIPE
 import sys
 from threading import Condition, RLock, Thread
 from time import sleep
+from traceback import print_exc
 
 def getMac():
     # not platform independent
@@ -200,8 +201,12 @@ class Client(SerialisableFact, Thread, Mirrorable):
         self.__s.setblocking(0)
         try:
             self.__s.connect((self.__server, self.__port))
-        except socket.error as e:
-                print >> sys.stderr, "Client.__init__ failed to connect: "+str(e)
+        except socket.error as (errNo, errStr):
+            if errNo==115:
+                #EINPROGRESS
+                pass
+            else:
+                print >> sys.stderr, "Client.__init__ failed to connect: "+errNo+" "+errStr
         self.__serialised=dict()
         self.__ids=deque()
         self.__locked_serialised=dict()
@@ -300,12 +305,12 @@ class Client(SerialisableFact, Thread, Mirrorable):
         print 'Client is quitting'
 
 class Server(Thread):
-    def __init__(self, port=8123):
+    def __init__(self, server='localhost', port=8123):
         Thread.__init__(self)
         self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__s.setblocking(0)
         #self.__s.bind((gethostname(), port))
-        self.__s.bind(('localhost', port))
+        self.__s.bind((server, port))
         self.__s.listen(5)
         self.__readers, self.__writers = ([], [])
         self.__serialisables={}
@@ -321,6 +326,7 @@ class Server(Thread):
                     try:
                         if r is self.__s:
                             (client, address) = r.accept()
+                            print 'accepted from '+str(address)
                             assert client not in self.__readers
                             self.__readers.append(client)
                             assert client not in self.__serialisables
@@ -341,13 +347,16 @@ class Server(Thread):
                                 for reader in self.__readers:
                                     self.__serialisables[reader]+=d
                                     if reader not in self.__writers:
-                                        self.__writers.append(r)
+                                        self.__writers.append(reader)
+                                        #print 'adding '+str(reader)' to writers. len: '+str(self.__serialisables[reader])
                     except AssertionError:
                         print >> sys.stderr, 'proxy.run. failed assertion on read'
+                        print_exc()
                     
                 for w in writes:
                     try:
-                        assert w in self.__serialisables and len(self.__serialisables[w]) > 0
+                        assert w in self.__serialisables 
+                        assert len(self.__serialisables[w]) > 0
                         sent=w.send(self.__serialisables[w])
                         if not sent:
                             w.shutdown(socket.SHUT_RDWR)
@@ -361,6 +370,7 @@ class Server(Thread):
                                 self.__writers.remove(w)
                     except AssertionError:
                         print >> sys.stderr, "proxy.run failed assertion on write"
+                        print_exc()
             except select.error as (errNo, strErr):
                 print >> sys.stderr, 'select failed. err: '+str(errNo)+' str: '+strErr
                 eSock = None
