@@ -1,7 +1,7 @@
 from airfoil import Airfoil
 import cPickle
 from collections import deque
-from euclid import Vector3
+from euclid import Quaternion, Vector3
 from Queue import LifoQueue
 import re
 import select
@@ -98,7 +98,7 @@ class Mirrorable:
 
 class ControlledSer(Mirrorable):
     TYP=1
-    [ _POS, _ATT, _VEL, _THRUST ] = range(Mirrorable.META+1, Mirrorable.META+5)
+    [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, Mirrorable.META+12)
 
     def __init__(self, ident=None, proxy=None):
         Mirrorable.__init__(self, ControlledSer.TYP, ident, proxy)
@@ -106,16 +106,38 @@ class ControlledSer(Mirrorable):
     def serialise(self):
         ser=Mirrorable.serialise(self)
         p=self.getPos()
-        ser.append(p.copy())
+        ser.append(p.x)
+        ser.append(p.y)
+        ser.append(p.z)
         a=self.getAttitude()
-        ser.append(a.copy())
+        ser.append(a.w)
+        ser.append(a.x)
+        ser.append(a.y)
+        ser.append(a.z)
         v=self.getVelocity()
-        ser.append(v.copy())
+        ser.append(v.x)
+        ser.append(v.y)
+        ser.append(v.z)
         ser.append(self.getThrust())
         return ser
 
+    @staticmethod
+    def genAssign(ser, idx, size): 
+        return [ dim for dim in ser[idx: idx+size] ]       
+
+    @staticmethod
+    def vAssign(ser, idx):
+        return ControlledSer.genAssign(ser, idx, 3)
+
+    @staticmethod
+    def qAssign(ser, idx):
+        return ControlledSer.genAssign(ser, idx, 4)
+
     def deserialise(self, ser):
-        return Mirrorable.deserialise(self, ser).setPos(ser[ControlledSer._POS]).setAttitude(ser[ControlledSer._ATT]).setVelocity(ser[ControlledSer._VEL]).setThrust(ser[ControlledSer._THRUST])
+        (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
+        (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
+        (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
+        return Mirrorable.deserialise(self, ser).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz)).setThrust(ser[ControlledSer._THRUST])
         
 class Bot(Airfoil, ControlledSer):
     def __init__(self, ident=None):
@@ -209,8 +231,8 @@ class Client(SerialisableFact, Thread, Mirrorable):
             self.__serialised=dict()
             self.releaseLock()
 
-    def acquireLock(self):
-        return self.__lock.acquire(blocking=False)
+    def acquireLock(self, blocking=False):
+        return self.__lock.acquire(blocking)
 
     def releaseLock(self):
         self.__lock.release()
@@ -275,7 +297,6 @@ class Client(SerialisableFact, Thread, Mirrorable):
                              self.__out=self.__out[sent:]
                          except AssertionError:
                              print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
-
                 self.releaseLock()
             else:
                 sleep(0)
