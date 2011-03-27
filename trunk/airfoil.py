@@ -39,18 +39,18 @@ rho = 1.29 # kg/m^3 density of air
 accelDueToGravity = 9.8 # m/s/s
 
 class Airfoil:
-    __PlaneCount = 0
-
     def reset(self):
         self.__init__()
     
-    def __init__(self, pos, attitude):
-        self.data = []
+    def __init__(self, pos = Vector3(0,0,0), 
+                 attitude = Vector3(0,0,0), 
+                 vel = Vector3(0, 0, 0),
+                 thrust = 0):
         self.__pos = pos
         self.__attitude = attitude
-        self.__thrust = 0
+        self.__thrust = thrust
         self.__lastClock = time.time()
-        self.__velocity = Vector3(0,0,0)
+        self.__velocity = vel
         self.__print_line = ""
         self.__wasOnGround = False
 
@@ -77,17 +77,8 @@ class Airfoil:
         self.__elevatorEqualisationRatio = 0.01
         self.__aileronEqualisationRatio = 0.01
 
-        self.__id=Airfoil.__PlaneCount
-        Airfoil.__PlaneCount+=1
-
-    def getId(self):
-        return self.__id
-
     def getPos(self):
         return self.__pos
-
-    def alive(self):
-        return True
 
     def __getSpeedRatio(self):
         # Return the current speed as a ratio of the max speed
@@ -147,7 +138,6 @@ class Airfoil:
             # nose is pointing at horizon.
             cogNormalised = cog.normalized()
             rotRatio = math.hypot(cogNormalised.x, cogNormalised.z)
-            print rotRatio
             angularChange = rotRatio * math.pi * 33.0 / 500.0 * timeDiff
 
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
@@ -194,6 +184,18 @@ class Airfoil:
 
     def getVelocity(self):
         return self.__velocity
+
+    def setPos(self, pos):
+        self.__pos=pos
+        return self
+
+    def setAttitude(self, att):
+        self.__attitude=att
+        return self
+
+    def setVelocity(self, vel):
+        self.__velocity=vel
+        return self
 
     @staticmethod
     def getLiftCoeff( angleOfAttack):
@@ -272,8 +274,9 @@ class Airfoil:
     def getWeightForce(self):        
         return self.__mass * accelDueToGravity
 
-    def getThrustForce(self):
-        return self.__thrust
+    def setThrust(self, thrust):
+        self.__thrust=thrust
+        return self
 
     def changeThrust(self, delta):
         self.__thrust += delta
@@ -394,7 +397,7 @@ class Airfoil:
         self.__updateInternalMoment(timeDiff)
 
         #Thrust, acts || to nose vector
-        dv = self.getThrustForce() * timeDiff / self.__mass #dv, the change in velocity due to thrust               
+        dv = self.getThrust() * timeDiff / self.__mass #dv, the change in velocity due to thrust               
         thrustVector = noseVector * dv
         self.__velocity += thrustVector       
 
