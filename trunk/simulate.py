@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
 	if not opt.noserver:
 		if opt.noclient:
-			server=Server(server='192.168.1.201', daemon=False)
+			server=Server(daemon=False)
 		else:
 			server=Server()
 
@@ -206,7 +206,7 @@ if __name__ == '__main__':
 	init_thrust = 14000
 	init_vel = Vector3(0,0,0)
 
-	proxy = Client(server='192.168.1.201')
+	proxy = Client()
 	Sys.init(proxy)
 
 	for i in range(len(player_keys)):
