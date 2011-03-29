@@ -238,14 +238,13 @@ if __name__ == '__main__':
 			proxy.markDead()
 			proxy.markChanged()
 			print 'marked everthing dead'
-
 		if win_ctrls.eventCheck(win_ctrls.getControls())[Controller.TOG_MOUSE_CAP]!=0:
 			mouse_cap = ~mouse_cap
 			win.set_exclusive_mouse(mouse_cap)
 			win_ctrls.clearEvents(win_ctrls.getControls())
 
 		if proxy.acquireLock():
-			bots[:]=[ proxy.getObj(plane_id) for plane_id in planes if plane_id in proxy ]
+			bots[:]= proxy.getTypeObjs(ControlledSer.TYP)
 			proxy.releaseLock()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      

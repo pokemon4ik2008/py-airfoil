@@ -12,6 +12,8 @@ from threading import Condition, RLock, Thread
 from time import sleep
 from traceback import print_exc
 
+PORT=8123
+
 class Mirrorable:
     META=0
     __INDEXES=[TYPE, IDENT, SYS, FLAGS]=range(4)
@@ -23,6 +25,10 @@ class Mirrorable:
 
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
         self._proxy=proxy
+        try:
+            assert typ<=SerialisableFact.getMaxType()
+        except AssertionError:
+            print >> sys.stderr, 'Mirrorable.__init__. typ too large: '+str(typ)
         self.__typ=typ
         self._dead=False
         if ident is None:
@@ -95,7 +101,7 @@ class Mirrorable:
         return self
 
 class ControlledSer(Mirrorable):
-    TYP=1
+    TYP=0
     [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, Mirrorable.META+12)
 
     def __init__(self, ident=None, proxy=None):
@@ -147,8 +153,17 @@ class SerialisableFact:
 
     def __init__(self, ctors):
         self.__notMine={}
+        self.__objByType=[[],[],[]]
+        try:
+            assert len(self.__objByType)==SerialisableFact.getMaxType()+1
+        except:
+            print 'SerialisableFact.__init__. objByTypeField wrong size: '+str(self.__objByType)
         self.__mine={}
         self.__ctors=ctors
+
+    @staticmethod
+    def getMaxType():
+        return 2
 
     def deserialiseAll(self, sers):
         deserialiseds=[]
@@ -160,11 +175,14 @@ class SerialisableFact:
                 try:
                     typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
                     if typ in self.__ctors:
-                        self.__notMine[identifier] = self.__ctors[typ](ident=identifier).deserialise(serialised)
+                        print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
+                        obj = self.__ctors[typ](ident=identifier).deserialise(serialised)
+                        self.__notMine[identifier] = obj
+                        self.__objByType[typ].append(obj)
                     else:
                         assert False
                 except AssertionError:
-                    print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)
+                    print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
 
     def __contains__(self, ident):
         return ident in self.__notMine
@@ -172,8 +190,16 @@ class SerialisableFact:
     def getObj(self, ident):
         return self.__notMine[ident]
 
+    def getTypeObjs(self, typ):
+        try:
+            assert typ<=SerialisableFact.getMaxType()
+            return self.__objByType[typ]
+        except AssertionError:
+            print 'getTypeObjs. typ too large: '+str(typ)
+        return []
+
 class Client(Thread, Mirrorable):
-    TYP=2
+    TYP=1
     __TOP_UP_LEN=32
     __LEN_LEN=10
 
@@ -182,7 +208,7 @@ class Client(Thread, Mirrorable):
         self.markChanged()
         return Sys.ID
 
-    def __init__(self, ident=None, server='localhost', port=8123):
+    def __init__(self, ident=None, server='localhost', port=PORT):
         self.__server=server
         self.__port=port
         Mirrorable.__init__(self, self.TYP, ident, self)
@@ -200,7 +226,7 @@ class Client(Thread, Mirrorable):
                 #EINPROGRESS
                 pass
             else:
-                print >> sys.stderr, "Client.__init__ failed to connect: "+errNo+" "+errStr
+                print >> sys.stderr, "Client.__init__ failed to connect: "+str(errNo)+" "+errStr
         self.__serialised=dict()
         self.__ids=deque()
         self.__locked_serialised=dict()
@@ -249,6 +275,9 @@ class Client(Thread, Mirrorable):
     def getObj(self, ident):
         return self.__fact.getObj(ident)
 
+    def getTypeObjs(self, typ):
+        return self.__fact.getTypeObjs(typ)
+
     def send(self):
         unique=self.__outbox.popleft()
         obj=self.__locked_serialised[unique]
@@ -284,7 +313,7 @@ class Client(Thread, Mirrorable):
                             #we now know the length of the next obj
                             #print 'cur_len_in_s: '+cur_len_in_s
                             cur_len_in = int(cur_len_in_s)
-                            self.__in+=rec[len_left:len_left+cur_len_in]
+                            self.__in+=rec[len_left:(len_left+cur_len_in)-len(self.__in)]
                             if len(self.__in)>=cur_len_in:
                                 try:
                                     assert len(self.__in)==cur_len_in
@@ -296,17 +325,21 @@ class Client(Thread, Mirrorable):
                                     cur_len_in_s=''
                                 except AssertionError:
                                     print >> sys.stderr, 'more in buffer than expected'
+                                except ValueError:
+                                    print >> sys.stderr, 'ValueError in Client.run. meta size: '+str(Mirrorable.META_SIZE)+' in: '+self.__in
                         #print 'removing up to '+str(len_left)+' + '+str(cur_len_in)+' chars from rec'
                         rec=rec[len_left+cur_len_in:]
                         len_left=Client.__LEN_LEN - len(cur_len_in_s)
-                        self.__fact.deserialiseAll(sers)
-                        sers[:]=[]
-                        if self.getId() in self.__fact:
-                            if not self.__fact.getObj(self.getId()).alive():
-                                print 'quitting thread'
-                                self.releaseLock()
-                                print 'Client is quitting'
-                                return
+                    self.__fact.deserialiseAll(sers)
+                    sers[:]=[]
+                    if self.getId() in self.__fact:
+                        if not self.__fact.getObj(self.getId()).alive():
+                            print 'quitting thread'
+                            self.releaseLock()
+                            self.__s.shutdown(socket.SHUT_RDWR)
+                            self.__s.close()
+                            print 'Client is quitting'
+                            return
                     self.releaseLock()
                 else:
                     sleep_needed=True
@@ -324,8 +357,8 @@ class Client(Thread, Mirrorable):
 
 class Sys(Mirrorable):
     ID=None
-    TYP=3
-    __InstCount=0
+    TYP=2
+    __NextInst=1
 
     @staticmethod
     def init(proxy):
@@ -342,8 +375,8 @@ class Sys(Mirrorable):
         Mirrorable.__init__(self, Sys.TYP, ident)
 
     def local_init(self):
-        self._ident=Sys.__InstCount
-        Sys.__InstCount+=1
+        self._ident=Sys.__NextInst
+        Sys.__NextInst+=1
 
     def remote_init(self, ident):
         Mirrorable.remote_init(self, ident)
@@ -359,7 +392,7 @@ class Sys(Mirrorable):
         return [ ''.join([Mirrorable.int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._dead], self._SIZES)])]
 
 class Server(Thread):
-    def __init__(self, server='localhost', port=8123, daemon=True):
+    def __init__(self, server='localhost', port=PORT, daemon=True):
         Thread.__init__(self)
         self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__s.setblocking(0)
@@ -379,8 +412,6 @@ class Server(Thread):
 
     def run(self):
         self.__running=True
-        client_id=0
-
         while True:
             try:
                 reads, writes, errs = select.select(self.__readers+[self.__s], self.__writers, [], 60)
@@ -398,7 +429,6 @@ class Server(Thread):
                             print 'system: '+str(system)+' '
                             system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
                             self.qWrite(client, '%10s' %len(system_s)+system_s)
-                            client_id+=1
                         else:
                             d=r.recv(1024)
                             assert r in self.__serialisables
@@ -418,7 +448,8 @@ class Server(Thread):
                     except AssertionError:
                         print >> sys.stderr, 'proxy.run. failed assertion on read'
                         print_exc()
-                    
+                    except socket.error as (errNo, errStr):
+                        print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
                 for w in writes:
                     try:
                         assert w in self.__serialisables 
@@ -438,6 +469,8 @@ class Server(Thread):
                     except AssertionError:
                         print >> sys.stderr, "proxy.run failed assertion on write"
                         print_exc()
+                    except socket.error as (errNo, errStr):
+                        print >> sys.stderr, "Server.run: exception on write. "+str((errNo,errStr))
             except select.error as (errNo, strErr):
                 print >> sys.stderr, 'select failed. err: '+str(errNo)+' str: '+strErr
                 eSock = None
