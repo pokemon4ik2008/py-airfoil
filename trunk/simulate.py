@@ -101,12 +101,21 @@ if __name__ == '__main__':
                 help='Overall width of the generated terrain')
         option('-2', '--two', dest='two_player', action='store_true', default=False,
                 help='Two player split screen action')
-        #option('-S', '--server', dest='server', action='store_true', default=False,
-        #        help='Two player split screen action')
+        option('-S', '--noserver', dest='noserver', action='store_true', default=False,
+                help='Don\'t run server')
+        option('-C', '--noclient', dest='noclient', action='store_true', default=False,
+                help='Don\'t run client')
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
-	server=Server()
+	if not opt.noserver:
+		if opt.noclient:
+			server=Server(server='192.168.1.201', daemon=False)
+		else:
+			server=Server()
+
+	if  opt.noclient:
+		exit(0)
 		
         #zoom = -150
         #pressed = False
@@ -197,7 +206,7 @@ if __name__ == '__main__':
 	init_thrust = 14000
 	init_vel = Vector3(0,0,0)
 
-	proxy = Client()
+	proxy = Client(server='192.168.1.201')
 	Sys.init(proxy)
 
 	for i in range(len(player_keys)):
