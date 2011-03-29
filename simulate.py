@@ -106,7 +106,7 @@ if __name__ == '__main__':
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
-	Server()
+	server=Server()
 		
         #zoom = -150
         #pressed = False
@@ -198,6 +198,7 @@ if __name__ == '__main__':
 	init_vel = Vector3(0,0,0)
 
 	proxy = Client()
+	Sys.init(proxy)
 
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
@@ -280,4 +281,3 @@ if __name__ == '__main__':
 		win.flip()
 
         print "fps:  %d" % clock.get_fps()
-
