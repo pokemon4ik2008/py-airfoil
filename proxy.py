@@ -231,6 +231,9 @@ class Client(Thread, Mirrorable):
                     self.__outbox.append(unique)
                 self.__locked_serialised[unique]=self.__serialised[unique][:]
 
+            if len(self.__outbox)>0:
+                self.send()
+
             self.__serialised=dict()
             self.releaseLock()
 
@@ -246,6 +249,22 @@ class Client(Thread, Mirrorable):
     def getObj(self, ident):
         return self.__fact.getObj(ident)
 
+    def send(self):
+        unique=self.__outbox.popleft()
+        obj=self.__locked_serialised[unique]
+        del(self.__locked_serialised[unique])
+        obj_s=obj[Mirrorable.META]+cPickle.dumps(obj[Mirrorable.META+1:])
+        obj_len='%10s' %len(obj_s)
+        self.__out+=obj_len
+        self.__out+=obj_s
+        try:
+            assert len(self.__out)>0
+            sent=self.__s.send(self.__out)
+            self.__out=self.__out[sent:]
+        except AssertionError:
+            print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
+
+
     def run(self):
         cur_len_in_s=''
         cur_len_in=0
@@ -253,9 +272,10 @@ class Client(Thread, Mirrorable):
         sers=[]
         
         while(True):
-            reads, writes, errs = select.select([self.__s], [self.__s], [], 60)
-            if self.acquireLock():
-                if self.__s in reads:
+            sleep_needed=False
+            reads, writes, errs = select.select([self.__s], [], [], 60)
+            if self.__s in reads:
+                if self.acquireLock():
                     rec=self.__s.recv(4096)
 
                     while len(rec) != 0:
@@ -287,24 +307,19 @@ class Client(Thread, Mirrorable):
                                 self.releaseLock()
                                 print 'Client is quitting'
                                 return
-                if self.__s in writes:
+                    self.releaseLock()
+                else:
+                    sleep_needed=True
+            if self.__s in writes:
+                if self.acquireLock():
                     if len(self.__outbox)>0:
-                        unique=self.__outbox.popleft()
-                        obj=self.__locked_serialised[unique]
-                        del(self.__locked_serialised[unique])
-                        obj_s=obj[Mirrorable.META]+cPickle.dumps(obj[Mirrorable.META+1:])
-                        obj_len='%10s' %len(obj_s)
-                         #print 'obj len: '+str(obj_len)+' obj: '+str(obj)
-                        self.__out+=obj_len
-                        self.__out+=obj_s
-                        try:
-                            assert len(self.__out)>0
-                            sent=self.__s.send(self.__out)
-                            self.__out=self.__out[sent:]
-                        except AssertionError:
-                            print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
-                self.releaseLock()
-            else:
+                        self.send()
+                    else:
+                        sleep_needed=True
+                    self.releaseLock()
+                else:
+                    sleep_needed=True
+            if sleep_needed:
                 sleep(0)
 
 class Sys(Mirrorable):
@@ -344,7 +359,7 @@ class Sys(Mirrorable):
         return [ ''.join([Mirrorable.int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._dead], self._SIZES)])]
 
 class Server(Thread):
-    def __init__(self, server='localhost', port=8123):
+    def __init__(self, server='localhost', port=8123, daemon=True):
         Thread.__init__(self)
         self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__s.setblocking(0)
@@ -354,7 +369,7 @@ class Server(Thread):
         self.__readers, self.__writers = ([], [])
         self.__serialisables={}
         self.__stopped=False
-        self.daemon=True
+        self.daemon=daemon
         self.start()
 
     def qWrite(self, s, string):
@@ -389,6 +404,7 @@ class Server(Thread):
                             assert r in self.__serialisables
                             if not d:
                                 # apparently this won't block
+                                print 'shutting down client connection 0'
                                 r.shutdown(socket.SHUT_RDWR)
                                 r.close()
                                 del self.__serialisables[r]
@@ -409,6 +425,7 @@ class Server(Thread):
                         assert len(self.__serialisables[w]) > 0
                         sent=w.send(self.__serialisables[w])
                         if not sent:
+                            print 'shutting down client connection 1'
                             w.shutdown(socket.SHUT_RDWR)
                             w.close()
                             del self.__serialisables[w]
