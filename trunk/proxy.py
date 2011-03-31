@@ -198,6 +198,35 @@ class SerialisableFact:
             print 'getTypeObjs. typ too large: '+str(typ)
         return []
 
+LEN_LEN=10
+def read(rec, (cur_len_in_s, len_left, cur_len_in, obj_str), f):
+    #print 'read start: '+str(len(rec))
+    while len(rec) != 0:
+        cur_len_in_s+=rec[:len_left]
+        #print 'start iter: '+cur_len_in_s+' len_left: '+str(len_left)
+        if LEN_LEN - len(cur_len_in_s)==0: 
+            cur_len_in = int(cur_len_in_s)
+            #print 'got len: '+str(cur_len_in)
+            obj_read_this_time=(len_left+cur_len_in)-len(obj_str)
+            obj_str+=rec[len_left:obj_read_this_time]
+            if len(obj_str)>=cur_len_in:
+                #print 'got obj'
+                try:
+                    assert len(obj_str)==cur_len_in
+
+                    obj_len='%10s' %len(obj_str)
+                    f(obj_len, obj_str)
+                    obj_str=''
+                    cur_len_in_s=''
+                except AssertionError:
+                    print >> sys.stderr, 'more in buffer than expected'
+                except ValueError:
+                    print >> sys.stderr, 'ValueError in Client.run. meta size: '+str(Mirrorable.META_SIZE)+' in: '+obj_str
+        rec=rec[obj_read_this_time:]
+        len_left=LEN_LEN - len(cur_len_in_s)
+    #print 'read end'
+    return (cur_len_in_s, len_left, cur_len_in, obj_str)
+
 class Client(Thread, Mirrorable):
     TYP=1
     __TOP_UP_LEN=32
@@ -228,6 +257,7 @@ class Client(Thread, Mirrorable):
             else:
                 print >> sys.stderr, "Client.__init__ failed to connect: "+str(errNo)+" "+errStr
         self.__serialised=dict()
+        self.__sers=[]
         self.__ids=deque()
         self.__locked_serialised=dict()
         self.__outbox=deque()
@@ -293,12 +323,15 @@ class Client(Thread, Mirrorable):
         except AssertionError:
             print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
 
-
+    def addSerialisables(self, obj_len, obj_str):
+        obj=[obj_str[:Mirrorable.META_SIZE]]
+        obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
+        self.__sers.append(obj)
+        
     def run(self):
         cur_len_in_s=''
         cur_len_in=0
         len_left=Client.__LEN_LEN
-        sers=[]
         
         while(True):
             sleep_needed=False
@@ -307,31 +340,9 @@ class Client(Thread, Mirrorable):
                 if self.acquireLock():
                     rec=self.__s.recv(4096)
 
-                    while len(rec) != 0:
-                        cur_len_in_s+=rec[:len_left]
-                        if Client.__LEN_LEN - len(cur_len_in_s)==0: 
-                            #we now know the length of the next obj
-                            #print 'cur_len_in_s: '+cur_len_in_s
-                            cur_len_in = int(cur_len_in_s)
-                            self.__in+=rec[len_left:(len_left+cur_len_in)-len(self.__in)]
-                            if len(self.__in)>=cur_len_in:
-                                try:
-                                    assert len(self.__in)==cur_len_in
-                                    obj=[self.__in[:Mirrorable.META_SIZE]]
-                                    obj.extend(cPickle.loads(self.__in[Mirrorable.META_SIZE:]))
-                                    sers.append(obj)
-                                    self.__in=''
-                                    #print 'clearing cur_len_in_s'
-                                    cur_len_in_s=''
-                                except AssertionError:
-                                    print >> sys.stderr, 'more in buffer than expected'
-                                except ValueError:
-                                    print >> sys.stderr, 'ValueError in Client.run. meta size: '+str(Mirrorable.META_SIZE)+' in: '+self.__in
-                        #print 'removing up to '+str(len_left)+' + '+str(cur_len_in)+' chars from rec'
-                        rec=rec[len_left+cur_len_in:]
-                        len_left=Client.__LEN_LEN - len(cur_len_in_s)
-                    self.__fact.deserialiseAll(sers)
-                    sers[:]=[]
+                    (cur_len_in_s, len_left, cur_len_in, self.__in)=read(rec, (cur_len_in_s, len_left, cur_len_in, self.__in), self.addSerialisables)
+                    self.__fact.deserialiseAll(self.__sers)
+                    self.__sers[:]=[]
                     if self.getId() in self.__fact:
                         if not self.__fact.getObj(self.getId()).alive():
                             print 'quitting thread'
@@ -400,6 +411,7 @@ class Server(Thread):
         self.__s.bind((server, port))
         self.__s.listen(5)
         self.__readers, self.__writers = ([], [])
+        self.__in={}
         self.__serialisables={}
         self.__stopped=False
         self.daemon=daemon
@@ -409,6 +421,19 @@ class Server(Thread):
         self.__serialisables[s]+=string
         if s not in self.__writers:
             self.__writers.append(s)
+
+    def qWrites(self, obj_len, obj_str):
+        obj=obj_len+obj_str
+        for reader in self.__readers:
+            self.qWrite(reader, obj)
+
+    def close(self, s):
+        s.shutdown(socket.SHUT_RDWR)
+        s.close()
+        del self.__serialisables[s]
+        if s in self.__writers:
+            self.__writers.remove(s)
+        self.__readers.remove(s)
 
     def run(self):
         self.__running=True
@@ -429,24 +454,15 @@ class Server(Thread):
                             print 'system: '+str(system)+' '
                             system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
                             self.qWrite(client, '%10s' %len(system_s)+system_s)
+                            self.__in[client]=('', LEN_LEN, 0, '')
                         else:
-                            d=r.recv(1024)
-                            assert r in self.__serialisables
-                            if not d:
-                                # apparently this won't block
-                                print 'shutting down client connection 0'
-                                r.shutdown(socket.SHUT_RDWR)
-                                r.close()
-                                del self.__serialisables[r]
-                                self.__readers.remove(r)
-                                if r in self.__writers:
-                                    self.__writers.remove(r)
+                            rec=r.recv(4096)
+                            if not rec:
+                                self.close(r)
                             else:
-                                for reader in self.__readers:
-                                    self.qWrite(reader, d)
-                                    #print 'adding '+str(reader)' to writers. len: '+str(self.__serialisables[reader])
+                                self.__in[r]=read(rec, self.__in[r], self.qWrites)
                     except AssertionError:
-                        print >> sys.stderr, 'proxy.run. failed assertion on read'
+                        print >> sys.stderr, 'Server.run. failed assertion on read'
                         print_exc()
                     except socket.error as (errNo, errStr):
                         print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
@@ -457,15 +473,12 @@ class Server(Thread):
                         sent=w.send(self.__serialisables[w])
                         if not sent:
                             print 'shutting down client connection 1'
-                            w.shutdown(socket.SHUT_RDWR)
-                            w.close()
-                            del self.__serialisables[w]
-                            self.__writers.remove(w)
-                            self.__readers.remove(w)
+                            self.close(w)
                         else:
                             self.__serialisables[w]=self.__serialisables[w][sent:]
                             if len(self.__serialisables[w])==0:
                                 self.__writers.remove(w)
+
                     except AssertionError:
                         print >> sys.stderr, "proxy.run failed assertion on write"
                         print_exc()
