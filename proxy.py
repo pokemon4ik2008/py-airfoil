@@ -13,6 +13,19 @@ from time import sleep
 from traceback import print_exc
 
 PORT=8123
+LEN_LEN=4
+
+def int2Bytes(i, size):
+    s=''
+    for idx in range(size):
+        s+=chr((i >> (idx*8)) & 0xff)
+    return s
+
+def bytes2Int(s):
+    i=0
+    for idx in range(len(s)):
+       i |= ord(s[idx]) << (idx*8) 
+    return i
 
 class Mirrorable:
     META=0
@@ -21,7 +34,8 @@ class Mirrorable:
     META_SIZE=sum(_SIZES)
     SHIFTS = [sum(_SIZES[:i]) for i in __INDEXES]
     __InstCount = 0
-    __DEAD_FLAG=1
+    _DEAD_FLAG=0x1
+    _DROPPABLE_FLAG=0x2
 
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
         self._proxy=proxy
@@ -30,7 +44,7 @@ class Mirrorable:
         except AssertionError:
             print >> sys.stderr, 'Mirrorable.__init__. typ too large: '+str(typ)
         self.__typ=typ
-        self._dead=False
+        self._flags=0
         if ident is None:
             self.local_init()
         else:
@@ -63,33 +77,22 @@ class Mirrorable:
     #    return (self.__typ, self.getId())    
 
     def alive(self):
-        return not self._dead
+        return (self._flags & self._DEAD_FLAG)==0
 
     def markDead(self, dead=True):
-        self._dead=dead
-
-    @staticmethod
-    def int2Bytes(i, size):
-        s=''
-        for idx in range(size):
-            s+=chr((i >> (idx*8)) & 0xff)
-        return s
-
-    @staticmethod
-    def bytes2Int(s):
-        i=0
-        for idx in range(len(s)):
-           i |= ord(s[idx]) << (idx*8) 
-        return i
+        if dead:
+            self._flags |= self._DEAD_FLAG
+        else:
+            self._flags &= ~(self._DEAD_FLAG)
 
     def serialise(self):
-        return [ ''.join([Mirrorable.int2Bytes(field, size) for (field, size) in zip([self.__typ, self._ident, Sys.ID.getSysId(), self._dead], self._SIZES)])]
+        return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.__typ, self._ident, Sys.ID.getSysId(), self._flags], self._SIZES)])]
         #return [self.__typ, self._ident, self.__dead]
 
     @staticmethod
     def deSerMeta(serialised, idx):
         start_shift=Mirrorable.SHIFTS[idx]
-        return Mirrorable.bytes2Int(serialised[Mirrorable.META][start_shift:start_shift+Mirrorable._SIZES[idx]])
+        return bytes2Int(serialised[Mirrorable.META][start_shift:start_shift+Mirrorable._SIZES[idx]])
 
     @staticmethod
     def deSerIdent(serialised):
@@ -97,7 +100,8 @@ class Mirrorable:
         return (Mirrorable.deSerMeta(serialised, Mirrorable.SYS), Mirrorable.deSerMeta(serialised, Mirrorable.IDENT))
 
     def deserialise(self, serialised):
-        self.markDead(Mirrorable.deSerMeta(serialised, self.FLAGS) & self.__DEAD_FLAG == self.__DEAD_FLAG)
+        flags=Mirrorable.deSerMeta(serialised, self.FLAGS)
+        self._flags=flags
         return self
 
 class ControlledSer(Mirrorable):
@@ -106,6 +110,10 @@ class ControlledSer(Mirrorable):
 
     def __init__(self, ident=None, proxy=None):
         Mirrorable.__init__(self, ControlledSer.TYP, ident, proxy)
+
+    def local_init(self):
+        Mirrorable.local_init(self)
+        self._flags |= self._DROPPABLE_FLAG
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
@@ -198,14 +206,14 @@ class SerialisableFact:
             print 'getTypeObjs. typ too large: '+str(typ)
         return []
 
-LEN_LEN=10
 def read(rec, (cur_len_in_s, len_left, cur_len_in, obj_str), f):
     #print 'read start: '+str(len(rec))
     while len(rec) != 0:
         cur_len_in_s+=rec[:len_left]
         #print 'start iter: '+cur_len_in_s+' len_left: '+str(len_left)
         if LEN_LEN - len(cur_len_in_s)==0: 
-            cur_len_in = int(cur_len_in_s)
+            cur_len_in = bytes2Int(cur_len_in_s)
+            #cur_len_in = int(cur_len_in_s)
             #print 'got len: '+str(cur_len_in)
             obj_read_this_time=(len_left+cur_len_in)-len(obj_str)
             obj_str+=rec[len_left:obj_read_this_time]
@@ -214,7 +222,9 @@ def read(rec, (cur_len_in_s, len_left, cur_len_in, obj_str), f):
                 try:
                     assert len(obj_str)==cur_len_in
 
-                    obj_len='%10s' %len(obj_str)
+                    obj_len=cur_len_in_s
+                    #obj_len=int2Bytes(len(obj_str), LEN_LEN)
+                    #obj_len='%10s' %len(obj_str)
                     f(obj_len, obj_str)
                     obj_str=''
                     cur_len_in_s=''
@@ -230,7 +240,6 @@ def read(rec, (cur_len_in_s, len_left, cur_len_in, obj_str), f):
 class Client(Thread, Mirrorable):
     TYP=1
     __TOP_UP_LEN=32
-    __LEN_LEN=10
 
     def initSys(self, ident):
         Sys.ID=Sys(ident)
@@ -313,7 +322,8 @@ class Client(Thread, Mirrorable):
         obj=self.__locked_serialised[unique]
         del(self.__locked_serialised[unique])
         obj_s=obj[Mirrorable.META]+cPickle.dumps(obj[Mirrorable.META+1:])
-        obj_len='%10s' %len(obj_s)
+        obj_len=int2Bytes(len(obj_s), LEN_LEN)
+        #obj_len='%10s' %len(obj_s)
         self.__out+=obj_len
         self.__out+=obj_s
         try:
@@ -331,7 +341,7 @@ class Client(Thread, Mirrorable):
     def run(self):
         cur_len_in_s=''
         cur_len_in=0
-        len_left=Client.__LEN_LEN
+        len_left=LEN_LEN
         
         while(True):
             sleep_needed=False
@@ -400,7 +410,7 @@ class Sys(Mirrorable):
         raise NotImplementedError
 
     def serialise(self):
-        return [ ''.join([Mirrorable.int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._dead], self._SIZES)])]
+        return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._flags], self._SIZES)])]
 
 class Server(Thread):
     def __init__(self, server='localhost', port=PORT, daemon=True):
@@ -453,7 +463,8 @@ class Server(Thread):
                             system=Sys().serialise()
                             print 'system: '+str(system)+' '
                             system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
-                            self.qWrite(client, '%10s' %len(system_s)+system_s)
+                            self.qWrite(client, int2Bytes(len(system_s), LEN_LEN)+system_s)
+                            #self.qWrite(client, '%10s' %len(system_s)+system_s)
                             self.__in[client]=('', LEN_LEN, 0, '')
                         else:
                             rec=r.recv(4096)
