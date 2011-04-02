@@ -63,7 +63,7 @@ class Terrain(object):
         self.yScale = yScale
         self.colourMap = colourMap   
         self.wireframe = False
-
+        self.useVbo = False
 
         # Copy over the altitude values
         for x in range(size):
@@ -94,9 +94,10 @@ class Terrain(object):
                 # Determine the colour of this vertex
                 self.mesh.get(x,z).col = self.__getColourAtHeight(self.mesh.get(x,z).y)
 
-                # Build our list of vertices and colours, these shall be uploaded to the GPU
-                vertexList.extend([x * self.scale, self.mesh.get(x,z).y * self.yScale, z * self.scale])
-                vertexList.extend(self.__getColourAtHeight(self.mesh.get(x,z).y))
+                if self.useVbo:
+                    # Build our list of vertices and colours, these shall be uploaded to the GPU
+                    vertexList.extend([x * self.scale, self.mesh.get(x,z).y * self.yScale, z * self.scale])
+                    vertexList.extend(self.__getColourAtHeight(self.mesh.get(x,z).y))
 
 
         # Calc the default intensity for the area surrounding the map
@@ -108,20 +109,24 @@ class Terrain(object):
         #self.__maxCutOffDist = 1000.0
         #self.__altitudeVariationConst = self.__maxCutOffDist / self.__maxAltitude
 
-        # Setup the vertex buffer object
-        self.vboIdVertices = GLuint()
-        glGenBuffers(1, pointer(self.vboIdVertices))
+        if self.useVbo:
+            # Populate the list of vertices:
+            # Convert vertex list to c array
+            data = (GLfloat*len(vertexList))(*vertexList)
 
-        # Populate the list of vertices:
-        # Convert vertex list to c array
-        data = (GLfloat*len(vertexList))(*vertexList)
-        # Select which VBO to use
-        glBindBuffer(GL_ARRAY_BUFFER, self.vboIdVertices)
-        # Load the data into the VBO
-        glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW)
+            # Setup the vertex buffer object
+            self.vboIdVertices = GLuint()
+            if self.useVbo:
+                glGenBuffers(1, pointer(self.vboIdVertices))
+                # Select which VBO to use
+                glBindBuffer(GL_ARRAY_BUFFER, self.vboIdVertices)
+                # Load the data into the VBO
+                glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW)
+            else:
+                self.__vertexList = data
 
-        IndexArrayType = GLuint * 25000
-        self.cIndices = IndexArrayType()
+            IndexArrayType = GLuint * 25000
+            self.cIndices = IndexArrayType()
 
         return
 
@@ -150,8 +155,10 @@ class Terrain(object):
 
     def draw(self, view):
         glPushMatrix()
-        #glLoadIdentity()
         glEnable(GL_DEPTH_TEST)
+        glColor3f(1,1,1)
+        if not self.useVbo:
+            glBegin(GL_QUADS)
 
         cameraVectors = view.getCamera().getCameraVectors()
         cameraCenter = cameraVectors[0]
@@ -170,13 +177,12 @@ class Terrain(object):
 
         # pull back the base coord a bit behind the point of view
         towardGroundRatio = math.fabs(Vector3(0.0, 1.0, 0.0).dot(viewVector))
-        cameraPosition -= flatViewVector * (11 + towardGroundRatio * cameraPosition.y * 1.4)
+        #cameraPosition -= flatViewVector * (11 + towardGroundRatio * cameraPosition.y * 1.4)
 
         # Determine the cut off distance, it shall vary with camera height
         # TODO : hardcode this for the moment.
-        cutOffDist = 100.0 # measured in quads
+        cutOffDist = 10.0 # measured in quads
         self.drawnQuads = 0
-
 
         # Start picking out the 3 corners of the view triangle
         mapPosition = cameraPosition / self.scale
@@ -199,9 +205,6 @@ class Terrain(object):
         #minDetailLevel = detailLevels / 2
         
         # Clear the list of index we must draw
-        #self.indices = []
-        
-        
         self.cIndexes = 0
 
         # Calculate the slopes for the view triangle
@@ -216,52 +219,45 @@ class Terrain(object):
         leftx = rightx = point[0].x
         if point[1].z - point[0].z != 0:
             # Draw the first part of the view triangle if it exists:
-            #print 'draw1:', point[0].z, point[1].z, leftx, rightx, leftm, rightm
             rightx = self.__drawPartOfViewTriangle(point[0].z, point[1].z, leftx, rightx, leftm, rightm)
-            #rightx += rightm
-            #self.indices = []
         else:
             rightx = point[0].x
-
         leftx = point[1].x        
         if point[2].z - point[1].z != 0:
             leftm = (point[2].x - point[1].x) / (point[2].z - point[1].z)
-
         self.__drawPartOfViewTriangle(point[1].z, point[2].z, leftx, rightx, leftm, rightm)
 
-
-        # Draw our VBO:
-        # Select which vbo to use
-        glBindBuffer(GL_ARRAY_BUFFER, self.vboIdVertices)
-
-        # Specify the format of the data in the vbo
-        glEnableClientState(GL_VERTEX_ARRAY)
-        glVertexPointer(3, GL_FLOAT, 24, 0)
-        glEnableClientState(GL_COLOR_ARRAY)
-        glColorPointer(3, GL_FLOAT, 24, 12)
-
-        # Draw specific indices from the vbo
-        #cIndices = (GLuint * len(self.indices))(*self.indices) 
-        if self.wireframe:
-            glDrawElements( GL_LINES, len(cIndices), GL_UNSIGNED_INT, self.cIndices) 
-        else:
-            glDrawElements( GL_QUADS, self.cIndexes, GL_UNSIGNED_INT, self.cIndices) 
         
-        glDisableClientState(GL_VERTEX_ARRAY)
-        glDisableClientState(GL_COLOR_ARRAY)
+        if self.useVbo:
+            # Draw our VBO:
+            # Select which vbo to use
+            glBindBuffer(GL_ARRAY_BUFFER, self.vboIdVertices)
 
+            # Specify the format of the data in the vbo
+            glEnableClientState(GL_VERTEX_ARRAY)
+            glVertexPointer(3, GL_FLOAT, 24, 0)
+            glEnableClientState(GL_COLOR_ARRAY)
+            glColorPointer(3, GL_FLOAT, 24, 12)
+
+            # Draw specific indices from the vbo
+            if self.wireframe:
+                glDrawElements( GL_LINES, len(cIndices), GL_UNSIGNED_INT, self.cIndices) 
+            else:
+                glDrawElements( GL_QUADS, self.cIndexes, GL_UNSIGNED_INT, self.cIndices) 
+            
+            glDisableClientState(GL_VERTEX_ARRAY)
+            #glDisableClientState(GL_COLOR_ARRAY)
+        else:
+            glEnd()
         glPopMatrix()  
         return self.drawnQuads
 
     def __drawPartOfViewTriangle(self, topz, botz, leftx, rightx, leftm, rightm):
         #print 'draw part ', topz, botz, leftx, rightx, leftm, rightm
-        #topz = math.trunc(topz)
-        #botz = math.trunc(botz)
 
         # Perform scan conversion
         z = topz
         drawn = 0
-
         while (z >= botz):
             if leftx < rightx:
                 inc = 1
@@ -278,49 +274,33 @@ class Terrain(object):
             leftx -= leftm
             rightx -= rightm
             z -= 1.0
-
-
-        #print 'drew ', drawn, ' quads', leftx, rightx
-        #self.drawnQuads += drawn
         return rightx
 
     def __drawVertex(self, x, z):
         if x < 0 or x >= self.mesh.x or z < 0 or z >= self.mesh.z:
             return  
-        mesh = self.mesh.get(x,z)
-        col = mesh.col
-        glColor4f(col[0], col[1], col[2], 1.0)
-        glVertex3f(x * self.scale, mesh.y * self.yScale, z * self.scale)
+
+        if self.useVbo:
+            index = self.cIndexes
+            (self.cIndices)[index+0] = (GLuint) (self.getIndexForXZ(x,z))
+            (self.cIndices)[index+1] = (GLuint) (self.getIndexForXZ(x,z+1))
+            (self.cIndices)[index+2] = (GLuint) (self.getIndexForXZ(x+1,z+1))
+            (self.cIndices)[index+3] = (GLuint) (self.getIndexForXZ(x+1,z))
+            self.cIndexes += 4
+        else:
+            mesh = self.mesh.get(x,z)
+            col = mesh.col
+            glColor4f(col[0], col[1], col[2], 1.0)
+            glVertex3f(x * self.scale, mesh.y * self.yScale, z * self.scale)
 
     def __drawQuad(self, x, z):
         if x < 0 or x >= self.mesh.x-1 or z < 0 or z >= self.mesh.z-1:
-            #print 'draw quad', x, z, 'out of range'
             return False 
-    
-        #if self.wireframe:
-        #    # Pick out which vertex indexes represent this quad
-        #    extend = [self.getIndexForXZ(x,z),
-        #                     self.getIndexForXZ(x,z+1),self.getIndexForXZ(x,z+1),
-        #                     self.getIndexForXZ(x+1,z+1),self.getIndexForXZ(x+1,z+1),
-        #                     self.getIndexForXZ(x+1,z),self.getIndexForXZ(x+1,z),
-        #                     self.getIndexForXZ(x,z)
-        #                     ]
-        #else:
-        #    # Pick out which vertex indexes represent this quad
-        #    extend = [self.getIndexForXZ(x,z),
-        #                     self.getIndexForXZ(x,z+1),
-        #                     self.getIndexForXZ(x+1,z+1),
-        #                     self.getIndexForXZ(x+1,z),
-        #                     ]
-        ## Maintain a list of vertex indexes to draw
-        #self.indices.extend(extend)
 
-        index = self.cIndexes
-        (self.cIndices)[index+0] = (GLuint) (self.getIndexForXZ(x,z))
-        (self.cIndices)[index+1] = (GLuint) (self.getIndexForXZ(x,z+1))
-        (self.cIndices)[index+2] = (GLuint) (self.getIndexForXZ(x+1,z+1))
-        (self.cIndices)[index+3] = (GLuint) (self.getIndexForXZ(x+1,z))
-        self.cIndexes += 4
+        self.__drawVertex(x,z)
+        self.__drawVertex(x,z+1)
+        self.__drawVertex(x+1,z+1)
+        self.__drawVertex(x+1,z)
         
         return True
 
