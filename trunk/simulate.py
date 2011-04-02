@@ -37,6 +37,7 @@ from terrain import FractalTerrainMesh
 from threading import Condition
 from time import sleep
 from view import View
+from terrain2 import *
 
 global listNum
 listNum = glGenLists(1)
@@ -201,11 +202,12 @@ if __name__ == '__main__':
 		
 
 	planes = {}
-	init_positions = [Point3(-1300,0,0), Point3(-1200,0,0)]
+	init_positions = [Point3(100,0,100), Point3(-100,0,0)]
         init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi)
-	init_thrust = 14000
+	init_thrust = 0
 	init_vel = Vector3(0,0,0)
 
+	#proxy = Client(server = '192.168.1.34')
 	proxy = Client()
 	Sys.init(proxy)
 
@@ -221,6 +223,7 @@ if __name__ == '__main__':
 	t=genTerrain()
 	mouse_cap=False
 	bots=[]
+	terrain = RandomTerrain(4, 10.0, 0.0)
 
 	while True:
 		# move this loop to ProxyObs.loop
@@ -259,6 +262,7 @@ if __name__ == '__main__':
 			view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 			glCallList(t)
+			#terrain.draw(view)
 
 			#if not proxy.alive():
 			#	print 'proxy dead. num bots: '+str(len(bots))+' num planes: '+str(len(planes))

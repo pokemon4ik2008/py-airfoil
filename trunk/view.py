@@ -3,7 +3,7 @@ from pyglet.gl import *
 
 from control import Controller
 
-class Camera:
+class Camera(object):
     def __init__(self, plane):
         self._plane=plane
         (self._xrot, self._zrot)=(0,0)
@@ -13,6 +13,18 @@ class Camera:
 
     def setPos(self, xrot, zrot):
         (self._xrot, self._zrot)=(xrot, zrot)
+
+    def getCameraVectors(self):
+        return [self.pos, self.eye, self.zen]
+
+    def activate(self, pos, eye, zen):
+        self.pos = pos
+        self.eye = eye
+        self.zen = zen
+        gluLookAt(eye.x, eye.y, eye.z,
+                  pos.x, pos.y, pos.z,
+                  zen.x, zen.y, zen.z)
+        
 
 class FollowCam(Camera):
     def __init__(self, plane):
@@ -25,9 +37,7 @@ class FollowCam(Camera):
         pos = self._plane.getPos()
         eye = pos + cameraAjust
         zen = adjAtt * Vector3(0.0,1.0,0.0)
-        gluLookAt(eye.x, eye.y, eye.z,
-                  pos.x, pos.y, pos.z,
-                  zen.x, zen.y, zen.z)
+        super(FollowCam, self).activate(pos,eye,zen)
 
 class FixedCam(Camera):
     def __init__(self, plane):
@@ -36,13 +46,11 @@ class FixedCam(Camera):
     def activate(self):
         att = self._plane.getAttitude()
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
-        cameraAjust = att * adjAtt * Vector3(-100.0,10.0, 2.0)
+        cameraAjust = att * adjAtt * Vector3(-100.0,100.0, 2.0)
         pos = self._plane.getPos()
         eye = pos + cameraAjust
         zen = att * adjAtt * Vector3(0.0,1.0,0.0)
-        gluLookAt(eye.x, eye.y, eye.z,
-                  pos.x, pos.y, pos.z,
-                  zen.x, zen.y, zen.z)
+        super(FixedCam, self).activate(pos,eye,zen)
 
 class View:
     __FOLLOW=0
@@ -81,6 +89,9 @@ class View:
                           anchor_x='left', anchor_y='top')
         #x= - self.__win.width/2.0, y=self.__win.height/2.0,
 
+    def getAspectRatio(self):
+        return self.__width/self.__height
+
     def getPlaneId(self):
         return self.__plane_id
 
@@ -116,6 +127,9 @@ class View:
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         self.__currentCamera.activate()
+
+    def getCamera(self):
+        return self.__currentCamera
 
     def printToScreen(self, message):        
             self.__screenMessage += '[' + message + ']'
