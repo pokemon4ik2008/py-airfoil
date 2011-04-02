@@ -96,6 +96,11 @@ class Mirrorable:
         #return [self.__typ, self._ident, self.__dead]
 
     @staticmethod
+    def deSerGivenMeta(meta, idx):
+        start_shift=Mirrorable.SHIFTS[idx]
+        return bytes2Int(meta[start_shift:start_shift+Mirrorable._SIZES[idx]])
+
+    @staticmethod
     def deSerMeta(serialised, idx):
         start_shift=Mirrorable.SHIFTS[idx]
         return bytes2Int(serialised[Mirrorable.META][start_shift:start_shift+Mirrorable._SIZES[idx]])
@@ -183,6 +188,7 @@ class SerialisableFact:
         deserialiseds=[]
         for serialised in sers:
             identifier=Mirrorable.deSerIdent(serialised)
+            #print 'deserialiseAll. identifier '+str(identifier)
             if identifier in self.__notMine:
                 self.__notMine[identifier].deserialise(serialised)
             else:
@@ -212,35 +218,24 @@ class SerialisableFact:
             print 'getTypeObjs. typ too large: '+str(typ)
         return []
 
-def read(rec, f):
+def read(s, rec, addSend, finalise):
     start=0
     cur_len_in=0
     cur_len_in_s=''
     len_left=LEN_LEN
     read_len=0
-    #start is index in rec pionting to start of object
-    #print 'read start: '+str(len(rec[start:]))+' start: '+str(start)
-    #if we've read a full obj or are starting the function cur_len_in is 0
-    #if we've read a full len and not a full obj then cur_len is its length
+    #print 'read. len: '+str(len(rec))+' start: '+str(start)+' rec: '+toHexStr(rec)
     read_len=len(rec[start:])
     while read_len >= LEN_LEN+cur_len_in:
-        #print 'start iter: '+toHexStr(cur_len_in_s)+' len_left: '+str(len_left)
-        #cur_len_in_s is a string of the length of the current obj
         cur_len_in = bytes2Int(rec[start:start+LEN_LEN])
-        #we're read at least the len of the this object
-        #print 'got len: '+str(cur_len_in)+' len_left: '+str(len_left)+' read_len: '+str(read_len)
+        #print 'read. read_len: '+str(read_len)+' cur_len_in: '+str(cur_len_in)
         if read_len>=LEN_LEN+cur_len_in:
-            #read_len number of bytes read after the len read
-            #cur_len_in is the len of current object
-            #we've read at least next (len of current object) bytes
-            #print 'start: '+str(start)+' '+str(read_len)+' '+toHexStr(rec)
-            f(rec[start:start+LEN_LEN], rec[start+LEN_LEN:start+LEN_LEN+cur_len_in])
-            #reset state vars
+            #print 'read. addSend: len: '+toHexStr(rec[start:start+LEN_LEN])+' obj: '+toHexStr(rec[start+LEN_LEN:start+LEN_LEN+cur_len_in])
+            addSend(s, rec[start:start+LEN_LEN], rec[start+LEN_LEN:start+LEN_LEN+cur_len_in])
             start+=LEN_LEN+cur_len_in
             read_len=len(rec[start:])
             cur_len_in=0
-    #okay now we're ready to read more (of whatever)
-    #return last partial len+obj 
+    finalise(s)
     return rec[start:]
 
 class Client(Thread, Mirrorable):
@@ -340,9 +335,8 @@ class Client(Thread, Mirrorable):
          except AssertionError:
              print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
 
-     def addSerialisables(self, obj_len, obj_str):
-         #print 'obj_len: '+str(obj_len)
-         #print toHexStr(obj_str[:Mirrorable.META_SIZE])
+     def addSerialisables(self, s, obj_len, obj_str):
+         #print 'addSerialisables. obj_len: '+str(obj_len)+' '+toHexStr(obj_str[:Mirrorable.META_SIZE])
          obj=[obj_str[:Mirrorable.META_SIZE]]
          obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
          self.__sers.append(obj)
@@ -371,7 +365,7 @@ class Client(Thread, Mirrorable):
                      if read_now=='':
                          self.quit()
                      #print 'Client.run: len read: '+str(len(rec))
-                     rec=read(rec+read_now, self.addSerialisables)
+                     rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
                      self.__fact.deserialiseAll(self.__sers)
                      self.__sers[:]=[]
                      if self.getId() in self.__fact:
@@ -441,18 +435,45 @@ class Server(Thread):
          self.__in={}
          self.__serialisables={}
          self.__stopped=False
+         self.__outQs={}
+         self.__outs={}
          self.daemon=daemon
          self.start()
 
+    def recWrites(self, s, obj_len, obj_str):
+        fields=[ Mirrorable.deSerGivenMeta(obj_str, field) for field in [Mirrorable.SYS, Mirrorable.IDENT, Mirrorable.FLAGS]]
+        uniq=(fields[0], fields[1])
+        flags=fields[2]
+
+        #print 'recWrites. '+str(uniq)+' '+str(flags)
+        if uniq not in self.__outs[s]:
+            self.__outQs[s].append(uniq)
+        if uniq in self.__outs[s]:
+            print 'avoided write'
+        self.__outs[s][uniq]=obj_str;
+
+        if (flags & Mirrorable._DROPPABLE_FLAG)==Mirrorable._DROPPABLE_FLAG:
+            self.qWrites(s)
+
     def qWrite(self, s, string):
+        #print 'qWrite. s: '+str(s)+' string: '+toHexStr(string)
         self.__serialisables[s]+=string
         if s not in self.__writers:
             self.__writers.append(s)
 
-    def qWrites(self, obj_len, obj_str):
-        obj=obj_len+obj_str
-        for reader in self.__readers:
-            self.qWrite(reader, obj)
+    def qWrites(self, s):
+        try:
+            for uniq in self.__outQs[s]:
+                obj_str=self.__outs[s][uniq]
+                obj=int2Bytes(len(obj_str), LEN_LEN)+obj_str
+                for reader in self.__readers:
+                    self.qWrite(s, obj)
+        except KeyError:
+            print >> sys.stderr, "qWrites. failed to find uniq: "+str(uniq)+' or sock: '+str(s)+' in dict: '+str(self.__outs)
+            if s not in self.__outs:
+                self.__outs[s]={}
+        self.__outQs[s]=[]
+        self.__outs[s]={}
 
     def close(self, s):
         s.shutdown(socket.SHUT_RDWR)
@@ -478,18 +499,21 @@ class Server(Thread):
                             assert client not in self.__writers
                             self.__serialisables[client]=''
                             system=Sys().serialise()
-                            print 'system: '+str(system)+' '
+                            print 'system: '+str(system)
                             system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
+                            #print 'system: serialised. '+toHexStr(system_s)
                             self.qWrite(client, int2Bytes(len(system_s), LEN_LEN)+system_s)
-                            print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
+                            #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
                             #self.qWrite(client, '%10s' %len(system_s)+system_s)
                             self.__in[client]=''
                         else:
+                            self.__outQs[r]=[]
+                            self.__outs[r]={}
                             read_now=r.recv(4096)
                             if read_now=='':
                                 self.close(r)
                             else:
-                                self.__in[r]=read(self.__in[r]+read_now, self.qWrites)
+                                self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
                     except AssertionError:
                         print >> sys.stderr, 'Server.run. failed assertion on read'
                         print_exc()
@@ -500,6 +524,7 @@ class Server(Thread):
                         assert w in self.__serialisables 
                         assert len(self.__serialisables[w]) > 0
                         sent=w.send(self.__serialisables[w])
+                        #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
                         if not sent:
                             print 'shutting down client connection 1'
                             self.close(w)
