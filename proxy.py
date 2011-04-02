@@ -195,7 +195,7 @@ class SerialisableFact:
                 try:
                     typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
                     if typ in self.__ctors:
-                        print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
+                        #print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
                         obj = self.__ctors[typ](ident=identifier).deserialise(serialised)
                         self.__notMine[identifier] = obj
                         self.__objByType[typ].append(obj)
@@ -464,10 +464,12 @@ class Server(Thread):
     def qWrites(self, s):
         try:
             for uniq in self.__outQs[s]:
+                print 'qWrites: '+str(uniq)
                 obj_str=self.__outs[s][uniq]
                 obj=int2Bytes(len(obj_str), LEN_LEN)+obj_str
+                print 'qWrites. readers: '+str(self.__readers)
                 for reader in self.__readers:
-                    self.qWrite(s, obj)
+                    self.qWrite(reader, obj)
         except KeyError:
             print >> sys.stderr, "qWrites. failed to find uniq: "+str(uniq)+' or sock: '+str(s)+' in dict: '+str(self.__outs)
             if s not in self.__outs:
@@ -523,6 +525,7 @@ class Server(Thread):
                     try:
                         assert w in self.__serialisables 
                         assert len(self.__serialisables[w]) > 0
+                        #print 'Server.run. w: '+str(w)
                         sent=w.send(self.__serialisables[w])
                         #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
                         if not sent:
