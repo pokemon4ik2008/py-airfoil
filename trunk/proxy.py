@@ -226,6 +226,8 @@ def read(s, rec, addSend, finalise):
     read_len=0
     #print 'read. len: '+str(len(rec))+' start: '+str(start)+' rec: '+toHexStr(rec)
     read_len=len(rec[start:])
+    if read_len>=440:
+        print 'more than one object: '+str(read_len)
     while read_len >= LEN_LEN+cur_len_in:
         cur_len_in = bytes2Int(rec[start:start+LEN_LEN])
         #print 'read. read_len: '+str(read_len)+' cur_len_in: '+str(cur_len_in)
@@ -438,7 +440,10 @@ class Server(Thread):
          self.__outQs={}
          self.__outs={}
          self.daemon=daemon
-         self.start()
+         if daemon:
+             self.start()
+         else:
+             self.run()
 
     def recWrites(self, s, obj_len, obj_str):
         fields=[ Mirrorable.deSerGivenMeta(obj_str, field) for field in [Mirrorable.SYS, Mirrorable.IDENT, Mirrorable.FLAGS]]
@@ -485,76 +490,87 @@ class Server(Thread):
             self.__writers.remove(s)
         self.__readers.remove(s)
 
+    def quit(self):
+        print 'quitting'
+        for s in set(self.__readers+self.__writers):
+            self.close(s) 
+        self.__s.shutdown(socket.SHUT_RDWR)
+        self.__s.close()
+
     def run(self):
-        self.__running=True
-        while True:
-            try:
-                reads, writes, errs = select.select(self.__readers+[self.__s], self.__writers, [], 60)
-                for r in reads:
-                    try:
-                        if r is self.__s:
-                            (client, address) = r.accept()
-                            print 'accepted from '+str(address)
-                            assert client not in self.__readers
-                            self.__readers.append(client)
-                            assert client not in self.__serialisables
-                            assert client not in self.__writers
-                            self.__serialisables[client]=''
-                            system=Sys().serialise()
-                            print 'system: '+str(system)
-                            system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
-                            #print 'system: serialised. '+toHexStr(system_s)
-                            self.qWrite(client, int2Bytes(len(system_s), LEN_LEN)+system_s)
-                            #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
-                            #self.qWrite(client, '%10s' %len(system_s)+system_s)
-                            self.__in[client]=''
-                        else:
-                            self.__outQs[r]=[]
-                            self.__outs[r]={}
-                            read_now=r.recv(4096)
-                            if read_now=='':
-                                self.close(r)
+        try:
+            while True:
+                try:
+                    reads, writes, errs = select.select(self.__readers+[self.__s], self.__writers, [], 60)
+                    for r in reads:
+                        try:
+                            if r is self.__s:
+                                (client, address) = r.accept()
+                                print 'accepted from '+str(address)
+                                assert client not in self.__readers
+                                self.__readers.append(client)
+                                assert client not in self.__serialisables
+                                assert client not in self.__writers
+                                self.__serialisables[client]=''
+                                system=Sys().serialise()
+                                print 'system: '+str(system)
+                                system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
+                                #print 'system: serialised. '+toHexStr(system_s)
+                                self.qWrite(client, int2Bytes(len(system_s), LEN_LEN)+system_s)
+                                #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
+                                #self.qWrite(client, '%10s' %len(system_s)+system_s)
+                                self.__in[client]=''
                             else:
-                                self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
-                    except AssertionError:
-                        print >> sys.stderr, 'Server.run. failed assertion on read'
-                        print_exc()
-                    except socket.error as (errNo, errStr):
-                        print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
-                for w in writes:
+                                self.__outQs[r]=[]
+                                self.__outs[r]={}
+                                read_now=r.recv(4096)
+                                if read_now=='':
+                                    self.close(r)
+                                else:
+                                    self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
+                        except AssertionError:
+                            print >> sys.stderr, 'Server.run. failed assertion on read'
+                            print_exc()
+                        except socket.error as (errNo, errStr):
+                            print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
+                    for w in writes:
+                        try:
+                            assert w in self.__serialisables 
+                            assert len(self.__serialisables[w]) > 0
+                            #print 'Server.run. w: '+str(w)
+                            sent=w.send(self.__serialisables[w])
+                            #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
+                            if not sent:
+                                print 'shutting down client connection 1'
+                                self.close(w)
+                            else:
+                                self.__serialisables[w]=self.__serialisables[w][sent:]
+                                if len(self.__serialisables[w])==0:
+                                    self.__writers.remove(w)
+
+                        except AssertionError:
+                            print >> sys.stderr, "proxy.run failed assertion on write"
+                            print_exc()
+                        except socket.error as (errNo, errStr):
+                            print >> sys.stderr, "Server.run: exception on write. "+str((errNo,errStr))
+                except select.error as (errNo, strErr):
+                    print >> sys.stderr, 'select failed. err: '+str(errNo)+' str: '+strErr
+                    eSock = None
                     try:
-                        assert w in self.__serialisables 
-                        assert len(self.__serialisables[w]) > 0
-                        #print 'Server.run. w: '+str(w)
-                        sent=w.send(self.__serialisables[w])
-                        #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
-                        if not sent:
-                            print 'shutting down client connection 1'
-                            self.close(w)
-                        else:
-                            self.__serialisables[w]=self.__serialisables[w][sent:]
-                            if len(self.__serialisables[w])==0:
-                                self.__writers.remove(w)
-
-                    except AssertionError:
-                        print >> sys.stderr, "proxy.run failed assertion on write"
-                        print_exc()
-                    except socket.error as (errNo, errStr):
-                        print >> sys.stderr, "Server.run: exception on write. "+str((errNo,errStr))
-            except select.error as (errNo, strErr):
-                print >> sys.stderr, 'select failed. err: '+str(errNo)+' str: '+strErr
-                eSock = None
-                try:
-                    for r in self.__readers:
-                        eSock = r
-                        select.select([eSock], [],  [], 0)
-                except select.error:
-                    self.__readers.remove(eSock)
-                try:
-                    for w in self.__writers:
-                        eSock=w
-                        select.select([], [w],  [], 0)
-                except self.error:
-                    self.__serialisables[eSock]=''
-                    self.__writers.remove(eSock)
-
+                        for r in self.__readers:
+                            eSock = r
+                            select.select([eSock], [],  [], 0)
+                    except select.error:
+                        self.__readers.remove(eSock)
+                    try:
+                        for w in self.__writers:
+                            eSock=w
+                            select.select([], [w],  [], 0)
+                    except self.error:
+                        self.__serialisables[eSock]=''
+                        self.__writers.remove(eSock)
+        except KeyboardInterrupt:
+            pass
+        except:
+            print_exc()
+        self.quit()
