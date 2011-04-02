@@ -223,7 +223,7 @@ if __name__ == '__main__':
 	t=genTerrain()
 	mouse_cap=False
 	bots=[]
-	terrain = RandomTerrain(4, 10.0, 0.0)
+	terrain = RandomTerrain(8, 10.0, 1.0)
 
 	while True:
 		# move this loop to ProxyObs.loop
@@ -261,8 +261,8 @@ if __name__ == '__main__':
 			view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 			view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
-			glCallList(t)
-			#terrain.draw(view)
+			#glCallList(t)
+			terrain.draw(view)
 
 			#if not proxy.alive():
 			#	print 'proxy dead. num bots: '+str(len(bots))+' num planes: '+str(len(planes))
