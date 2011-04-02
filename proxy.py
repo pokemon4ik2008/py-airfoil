@@ -27,6 +27,12 @@ def bytes2Int(s):
        i |= ord(s[idx]) << (idx*8) 
     return i
 
+def toHexStr(string):
+    bytes=''
+    for c in string:
+        bytes+='%02x'%ord(c)
+    return bytes
+
 class Mirrorable:
     META=0
     __INDEXES=[TYPE, IDENT, SYS, FLAGS]=range(4)
@@ -206,175 +212,186 @@ class SerialisableFact:
             print 'getTypeObjs. typ too large: '+str(typ)
         return []
 
-def read(rec, (cur_len_in_s, len_left, cur_len_in, obj_str), f):
-    #print 'read start: '+str(len(rec))
-    while len(rec) != 0:
-        cur_len_in_s+=rec[:len_left]
-        #print 'start iter: '+cur_len_in_s+' len_left: '+str(len_left)
-        if LEN_LEN - len(cur_len_in_s)==0: 
-            cur_len_in = bytes2Int(cur_len_in_s)
-            #cur_len_in = int(cur_len_in_s)
-            #print 'got len: '+str(cur_len_in)
-            obj_read_this_time=(len_left+cur_len_in)-len(obj_str)
-            obj_str+=rec[len_left:obj_read_this_time]
-            if len(obj_str)>=cur_len_in:
-                #print 'got obj'
-                try:
-                    assert len(obj_str)==cur_len_in
-
-                    obj_len=cur_len_in_s
-                    #obj_len=int2Bytes(len(obj_str), LEN_LEN)
-                    #obj_len='%10s' %len(obj_str)
-                    f(obj_len, obj_str)
-                    obj_str=''
-                    cur_len_in_s=''
-                except AssertionError:
-                    print >> sys.stderr, 'more in buffer than expected'
-                except ValueError:
-                    print >> sys.stderr, 'ValueError in Client.run. meta size: '+str(Mirrorable.META_SIZE)+' in: '+obj_str
-        rec=rec[obj_read_this_time:]
-        len_left=LEN_LEN - len(cur_len_in_s)
-    #print 'read end'
-    return (cur_len_in_s, len_left, cur_len_in, obj_str)
+def read(rec, f):
+    start=0
+    cur_len_in=0
+    cur_len_in_s=''
+    len_left=LEN_LEN
+    read_len=0
+    #start is index in rec pionting to start of object
+    #print 'read start: '+str(len(rec[start:]))+' start: '+str(start)
+    #if we've read a full obj or are starting the function cur_len_in is 0
+    #if we've read a full len and not a full obj then cur_len is its length
+    read_len=len(rec[start:])
+    while read_len >= LEN_LEN+cur_len_in:
+        #print 'start iter: '+toHexStr(cur_len_in_s)+' len_left: '+str(len_left)
+        #cur_len_in_s is a string of the length of the current obj
+        cur_len_in = bytes2Int(rec[start:start+LEN_LEN])
+        #we're read at least the len of the this object
+        #print 'got len: '+str(cur_len_in)+' len_left: '+str(len_left)+' read_len: '+str(read_len)
+        if read_len>=LEN_LEN+cur_len_in:
+            #read_len number of bytes read after the len read
+            #cur_len_in is the len of current object
+            #we've read at least next (len of current object) bytes
+            #print 'start: '+str(start)+' '+str(read_len)+' '+toHexStr(rec)
+            f(rec[start:start+LEN_LEN], rec[start+LEN_LEN:start+LEN_LEN+cur_len_in])
+            #reset state vars
+            start+=LEN_LEN+cur_len_in
+            read_len=len(rec[start:])
+            cur_len_in=0
+    #okay now we're ready to read more (of whatever)
+    #return last partial len+obj 
+    return rec[start:]
 
 class Client(Thread, Mirrorable):
-    TYP=1
-    __TOP_UP_LEN=32
+     TYP=1
+     __TOP_UP_LEN=32
 
-    def initSys(self, ident):
-        Sys.ID=Sys(ident)
-        self.markChanged()
-        return Sys.ID
+     def initSys(self, ident):
+         Sys.ID=Sys(ident)
+         self.markChanged()
+         return Sys.ID
 
-    def __init__(self, ident=None, server='localhost', port=PORT):
-        self.__server=server
-        self.__port=port
-        Mirrorable.__init__(self, self.TYP, ident, self)
+     def __init__(self, ident=None, server='localhost', port=PORT):
+         self.__server=server
+         self.__port=port
+         Mirrorable.__init__(self, self.TYP, ident, self)
 
-    def local_init(self):
-        Thread.__init__(self)
-        Mirrorable.local_init(self)
-        self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.__s.setblocking(0)
-        try:
-            print 'Client. connecting'
-            self.__s.connect((self.__server, self.__port))
-        except socket.error as (errNo, errStr):
-            if errNo==115:
-                #EINPROGRESS
-                pass
-            else:
-                print >> sys.stderr, "Client.__init__ failed to connect: "+str(errNo)+" "+errStr
-        self.__serialised=dict()
-        self.__sers=[]
-        self.__ids=deque()
-        self.__locked_serialised=dict()
-        self.__outbox=deque()
-        self.__out=''
-        self.__in=''
-        self.__fact=SerialisableFact({ ControlledSer.TYP: Bot, Client.TYP: Client, Sys.TYP: self.initSys })
-        self.__lock=RLock()
-        self.start()
+     def local_init(self):
+         Thread.__init__(self)
+         Mirrorable.local_init(self)
+         self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+         self.__s.setblocking(0)
+         try:
+             print 'Client. connecting'
+             self.__s.connect((self.__server, self.__port))
+         except socket.error as (errNo, errStr):
+             if errNo==115:
+                 #EINPROGRESS
+                 pass
+             else:
+                 print >> sys.stderr, "Client.__init__ failed to connect: "+str(errNo)+" "+errStr
+         self.__serialised=dict()
+         self.__sers=[]
+         self.__ids=deque()
+         self.__locked_serialised=dict()
+         self.__outbox=deque()
+         self.__out=''
+         self.__in=''
+         self.__fact=SerialisableFact({ ControlledSer.TYP: Bot, Client.TYP: Client, Sys.TYP: self.initSys })
+         self.__lock=RLock()
+         self.start()
 
-    def addUpdated(self, mirrorable):
-        try:
-            #can't get any obj id if we don't have a sys id
-            assert Sys.ID is not None
-        except AssertionError:
-            print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
-            return
+     def addUpdated(self, mirrorable):
+         try:
+             #can't get any obj id if we don't have a sys id
+             assert Sys.ID is not None
+         except AssertionError:
+             print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
+             return
 
-        #store mirrorable without needing to wait for lock
-        if mirrorable.getId() not in self.__serialised:
-            self.__ids.append(mirrorable.getId())
-        self.__serialised[mirrorable.getId()]=mirrorable.serialise()
+         #store mirrorable without needing to wait for lock
+         if mirrorable.getId() not in self.__serialised:
+             self.__ids.append(mirrorable.getId())
+         self.__serialised[mirrorable.getId()]=mirrorable.serialise()
 
-        if self.acquireLock() and Sys.ID is not None:
-            while len(self.__ids)>0:
-                unique=self.__ids.popleft()
-                if unique not in self.__locked_serialised:
-                    self.__outbox.append(unique)
-                self.__locked_serialised[unique]=self.__serialised[unique][:]
+         if self.acquireLock() and Sys.ID is not None:
+             while len(self.__ids)>0:
+                 unique=self.__ids.popleft()
+                 if unique not in self.__locked_serialised:
+                     self.__outbox.append(unique)
+                 self.__locked_serialised[unique]=self.__serialised[unique][:]
 
-            if len(self.__outbox)>0:
-                self.send()
+             if len(self.__outbox)>0:
+                 self.send()
 
-            self.__serialised=dict()
-            self.releaseLock()
+             self.__serialised=dict()
+             self.releaseLock()
 
-    def acquireLock(self, blocking=False):
-        return self.__lock.acquire(blocking)
+     def acquireLock(self, blocking=False):
+         return self.__lock.acquire(blocking)
 
-    def releaseLock(self):
-        self.__lock.release()
+     def releaseLock(self):
+         self.__lock.release()
 
-    def __contains__(self, ident):
-        return ident in self.__fact
+     def __contains__(self, ident):
+         return ident in self.__fact
 
-    def getObj(self, ident):
-        return self.__fact.getObj(ident)
+     def getObj(self, ident):
+         return self.__fact.getObj(ident)
 
-    def getTypeObjs(self, typ):
-        return self.__fact.getTypeObjs(typ)
+     def getTypeObjs(self, typ):
+         return self.__fact.getTypeObjs(typ)
 
-    def send(self):
-        unique=self.__outbox.popleft()
-        obj=self.__locked_serialised[unique]
-        del(self.__locked_serialised[unique])
-        obj_s=obj[Mirrorable.META]+cPickle.dumps(obj[Mirrorable.META+1:])
-        obj_len=int2Bytes(len(obj_s), LEN_LEN)
-        #obj_len='%10s' %len(obj_s)
-        self.__out+=obj_len
-        self.__out+=obj_s
-        try:
-            assert len(self.__out)>0
-            sent=self.__s.send(self.__out)
-            self.__out=self.__out[sent:]
-        except AssertionError:
-            print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
+     def send(self):
+         unique=self.__outbox.popleft()
+         obj=self.__locked_serialised[unique]
+         del(self.__locked_serialised[unique])
+         obj_s=obj[Mirrorable.META]+cPickle.dumps(obj[Mirrorable.META+1:])
+         obj_len=int2Bytes(len(obj_s), LEN_LEN)
+         #print 'send: len: '+str(len(obj_s))+' encoded: '+toHexStr(obj_len)
+         #obj_len='%10s' %len(obj_s)
+         self.__out+=obj_len
+         self.__out+=obj_s
+         try:
+             assert len(self.__out)>0
+             sent=self.__s.send(self.__out)
+             self.__out=self.__out[sent:]
+         except AssertionError:
+             print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
 
-    def addSerialisables(self, obj_len, obj_str):
-        obj=[obj_str[:Mirrorable.META_SIZE]]
-        obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
-        self.__sers.append(obj)
-        
-    def run(self):
-        cur_len_in_s=''
-        cur_len_in=0
-        len_left=LEN_LEN
-        
-        while(True):
-            sleep_needed=False
-            reads, writes, errs = select.select([self.__s], [], [], 60)
-            if self.__s in reads:
-                if self.acquireLock():
-                    rec=self.__s.recv(4096)
+     def addSerialisables(self, obj_len, obj_str):
+         #print 'obj_len: '+str(obj_len)
+         #print toHexStr(obj_str[:Mirrorable.META_SIZE])
+         obj=[obj_str[:Mirrorable.META_SIZE]]
+         obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
+         self.__sers.append(obj)
 
-                    (cur_len_in_s, len_left, cur_len_in, self.__in)=read(rec, (cur_len_in_s, len_left, cur_len_in, self.__in), self.addSerialisables)
-                    self.__fact.deserialiseAll(self.__sers)
-                    self.__sers[:]=[]
-                    if self.getId() in self.__fact:
-                        if not self.__fact.getObj(self.getId()).alive():
-                            print 'quitting thread'
-                            self.releaseLock()
-                            self.__s.shutdown(socket.SHUT_RDWR)
-                            self.__s.close()
-                            print 'Client is quitting'
-                            return
-                    self.releaseLock()
-                else:
-                    sleep_needed=True
-            if self.__s in writes:
-                if self.acquireLock():
-                    if len(self.__outbox)>0:
-                        self.send()
-                    else:
-                        sleep_needed=True
-                    self.releaseLock()
-                else:
-                    sleep_needed=True
-            if sleep_needed:
-                sleep(0)
+     def quit(self):
+         print 'quitting thread'
+         self.releaseLock()
+         self.__s.shutdown(socket.SHUT_RDWR)
+         self.__s.close()
+         print 'Client is quitting'
+
+     def run(self):
+         cur_len_in_s=''
+         cur_len_in=0
+         len_left=LEN_LEN
+         start=0
+         read_len=0
+         rec=''
+
+         while(True):
+             sleep_needed=False
+             reads, writes, errs = select.select([self.__s], [], [], 60)
+             if self.__s in reads:
+                 if self.acquireLock():
+                     read_now=self.__s.recv(4096)
+                     if read_now=='':
+                         self.quit()
+                     #print 'Client.run: len read: '+str(len(rec))
+                     rec=read(rec+read_now, self.addSerialisables)
+                     self.__fact.deserialiseAll(self.__sers)
+                     self.__sers[:]=[]
+                     if self.getId() in self.__fact:
+                         if not self.__fact.getObj(self.getId()).alive():
+                             self.quit()
+                             return
+                     self.releaseLock()
+                 else:
+                     sleep_needed=True
+             if self.__s in writes:
+                 if self.acquireLock():
+                     if len(self.__outbox)>0:
+                         self.send()
+                     else:
+                         sleep_needed=True
+                     self.releaseLock()
+                 else:
+                     sleep_needed=True
+             if sleep_needed:
+                 sleep(0)
 
 class Sys(Mirrorable):
     ID=None
@@ -383,13 +400,13 @@ class Sys(Mirrorable):
 
     @staticmethod
     def init(proxy):
-	while True:
-		if proxy.acquireLock():
-			if Sys.ID is not None:
-				proxy.releaseLock()
-				break
-			proxy.releaseLock()
-		sleep(1)
+        while True:
+            if proxy.acquireLock():
+                if Sys.ID is not None:
+                    proxy.releaseLock()
+                    break
+                proxy.releaseLock()
+            sleep(1)
 
 
     def __init__(self, ident=None):
@@ -414,18 +431,18 @@ class Sys(Mirrorable):
 
 class Server(Thread):
     def __init__(self, server='localhost', port=PORT, daemon=True):
-        Thread.__init__(self)
-        self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.__s.setblocking(0)
-        #self.__s.bind((gethostname(), port))
-        self.__s.bind((server, port))
-        self.__s.listen(5)
-        self.__readers, self.__writers = ([], [])
-        self.__in={}
-        self.__serialisables={}
-        self.__stopped=False
-        self.daemon=daemon
-        self.start()
+         Thread.__init__(self)
+         self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+         self.__s.setblocking(0)
+         #self.__s.bind((gethostname(), port))
+         self.__s.bind((server, port))
+         self.__s.listen(5)
+         self.__readers, self.__writers = ([], [])
+         self.__in={}
+         self.__serialisables={}
+         self.__stopped=False
+         self.daemon=daemon
+         self.start()
 
     def qWrite(self, s, string):
         self.__serialisables[s]+=string
@@ -464,14 +481,15 @@ class Server(Thread):
                             print 'system: '+str(system)+' '
                             system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
                             self.qWrite(client, int2Bytes(len(system_s), LEN_LEN)+system_s)
+                            print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
                             #self.qWrite(client, '%10s' %len(system_s)+system_s)
-                            self.__in[client]=('', LEN_LEN, 0, '')
+                            self.__in[client]=''
                         else:
-                            rec=r.recv(4096)
-                            if not rec:
+                            read_now=r.recv(4096)
+                            if read_now=='':
                                 self.close(r)
                             else:
-                                self.__in[r]=read(rec, self.__in[r], self.qWrites)
+                                self.__in[r]=read(self.__in[r]+read_now, self.qWrites)
                     except AssertionError:
                         print >> sys.stderr, 'Server.run. failed assertion on read'
                         print_exc()
