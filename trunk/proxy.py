@@ -464,10 +464,10 @@ class Server(Thread):
     def qWrites(self, s):
         try:
             for uniq in self.__outQs[s]:
-                print 'qWrites: '+str(uniq)
+                #print 'qWrites: '+str(uniq)
                 obj_str=self.__outs[s][uniq]
                 obj=int2Bytes(len(obj_str), LEN_LEN)+obj_str
-                print 'qWrites. readers: '+str(self.__readers)
+                #print 'qWrites. readers: '+str(self.__readers)
                 for reader in self.__readers:
                     self.qWrite(reader, obj)
         except KeyError:
