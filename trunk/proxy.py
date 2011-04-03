@@ -549,7 +549,7 @@ class Server(Thread):
                                 #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
                                 #self.qWrite(client, '%10s' %len(system_s)+system_s)
                                 self.__in[client]=''
-                                self.__quit_on_client_exit=True
+                                #self.__quit_on_client_exit=True
                             else:
                                 self.__outQs[r]=[]
                                 self.__outs[r]={}
@@ -578,7 +578,8 @@ class Server(Thread):
                             #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
                             if not sent:
                                 print 'shutting down client connection 1'
-                                self.close(w)
+                                if not self.__quitting:
+                                    self.close(w)
                             else:
                                 self.__serialisables[w]=self.__serialisables[w][sent:]
                                 if len(self.__serialisables[w])==0:
