@@ -2,6 +2,7 @@ from airfoil import Airfoil
 import cPickle
 from collections import deque
 from euclid import Quaternion, Vector3
+import manage
 from Queue import LifoQueue
 import re
 import select
@@ -257,6 +258,7 @@ class Client(Thread, Mirrorable):
      def local_init(self):
          Thread.__init__(self)
          Mirrorable.local_init(self)
+         self.__dead_here=False
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
          try:
@@ -277,6 +279,7 @@ class Client(Thread, Mirrorable):
          self.__in=''
          self.__fact=SerialisableFact({ ControlledSer.TYP: Bot, Client.TYP: Client, Sys.TYP: self.initSys })
          self.__lock=RLock()
+         self.daemon=True
          self.start()
 
      def addUpdated(self, mirrorable):
@@ -286,13 +289,17 @@ class Client(Thread, Mirrorable):
          except AssertionError:
              print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
              return
-
-         #store mirrorable without needing to wait for lock
-         if mirrorable.getId() not in self.__serialised:
-             self.__ids.append(mirrorable.getId())
-         self.__serialised[mirrorable.getId()]=mirrorable.serialise()
-
+         
+         if self.alive():
+             #store mirrorable without needing to wait for lock
+             if mirrorable.getId() not in self.__serialised:
+                 self.__ids.append(mirrorable.getId())
+             self.__serialised[mirrorable.getId()]=mirrorable.serialise()
+         else:
+             print 'client is dead - no more sends'
          if self.acquireLock() and Sys.ID is not None:
+             if not self.alive():
+                 print 'sending tail: '+str(len(self.__ids))
              while len(self.__ids)>0:
                  unique=self.__ids.popleft()
                  if unique not in self.__locked_serialised:
@@ -301,6 +308,10 @@ class Client(Thread, Mirrorable):
 
              if len(self.__outbox)>0:
                  self.send()
+             else:
+                 if not self.alive():
+                     print 'client is dead'
+                     manager.quitAll()
 
              self.__serialised=dict()
              self.releaseLock()
@@ -321,6 +332,8 @@ class Client(Thread, Mirrorable):
          return self.__fact.getTypeObjs(typ)
 
      def send(self):
+         if not self.alive():
+             print 'sending: '+str(len(self.__outbox))
          unique=self.__outbox.popleft()
          obj=self.__locked_serialised[unique]
          del(self.__locked_serialised[unique])
@@ -344,10 +357,11 @@ class Client(Thread, Mirrorable):
          self.__sers.append(obj)
 
      def quit(self):
-         print 'quitting thread'
-         self.releaseLock()
-         self.__s.shutdown(socket.SHUT_RDWR)
-         self.__s.close()
+         try:
+             self.__s.shutdown(socket.SHUT_RDWR)
+             self.__s.close()
+         except:
+             print_exc()
          print 'Client is quitting'
 
      def run(self):
@@ -357,37 +371,41 @@ class Client(Thread, Mirrorable):
          start=0
          read_len=0
          rec=''
-
-         while(True):
-             sleep_needed=False
-             reads, writes, errs = select.select([self.__s], [], [], 60)
-             if self.__s in reads:
-                 if self.acquireLock():
-                     read_now=self.__s.recv(4096)
-                     if read_now=='':
-                         self.quit()
-                     #print 'Client.run: len read: '+str(len(rec))
-                     rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
-                     self.__fact.deserialiseAll(self.__sers)
-                     self.__sers[:]=[]
-                     if self.getId() in self.__fact:
-                         if not self.__fact.getObj(self.getId()).alive():
-                             self.quit()
+         
+         try:
+             while(True):
+                 sleep_needed=False
+                 reads, writes, errs = select.select([self.__s], [], [], 60)
+                 if self.__s in reads:
+                     if self.acquireLock():
+                         read_now=self.__s.recv(4096)
+                         if read_now=='':
+                             self.releaseLock()
+                             man.quitAll()
                              return
-                     self.releaseLock()
-                 else:
-                     sleep_needed=True
-             if self.__s in writes:
-                 if self.acquireLock():
-                     if len(self.__outbox)>0:
-                         self.send()
+                         #print 'Client.run: len read: '+str(len(rec))
+                         rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
+                         self.__fact.deserialiseAll(self.__sers)
+                         self.__sers[:]=[]
+                         self.releaseLock()
                      else:
                          sleep_needed=True
-                     self.releaseLock()
-                 else:
-                     sleep_needed=True
-             if sleep_needed:
-                 sleep(0)
+                 if self.__s in writes:
+                     if self.acquireLock():
+                         if len(self.__outbox)>0:
+                             self.send()
+                         else:
+                             sleep_needed=True
+                         self.releaseLock()
+                     else:
+                         sleep_needed=True
+                 if sleep_needed:
+                     sleep(0)
+         except:
+             if self.alive():
+                 print 'exception in client'
+                 print_exc()
+                 manage.quitAll()
 
 class Sys(Mirrorable):
     ID=None
@@ -396,7 +414,7 @@ class Sys(Mirrorable):
 
     @staticmethod
     def init(proxy):
-        while True:
+        while not manage.quitting:
             if proxy.acquireLock():
                 if Sys.ID is not None:
                     proxy.releaseLock()
@@ -440,6 +458,8 @@ class Server(Thread):
          self.__outQs={}
          self.__outs={}
          self.daemon=daemon
+         self.__quitting=False
+         self.__quit_on_client_exit=False
          if daemon:
              self.start()
          else:
@@ -492,14 +512,22 @@ class Server(Thread):
 
     def quit(self):
         print 'quitting'
-        for s in set(self.__readers+self.__writers):
-            self.close(s) 
-        self.__s.shutdown(socket.SHUT_RDWR)
-        self.__s.close()
+        if not self.__quitting:
+            self.__quitting=True
+            for s in set(self.__readers):
+                try:
+                    self.close(s) 
+                except:
+                    print_exc()
+            try:
+                self.__s.shutdown(socket.SHUT_RDWR)
+                self.__s.close()
+            except:
+                print_exc()
 
     def run(self):
         try:
-            while True:
+            while self.__readers!=[] or not self.__quit_on_client_exit:
                 try:
                     reads, writes, errs = select.select(self.__readers+[self.__s], self.__writers, [], 60)
                     for r in reads:
@@ -520,12 +548,14 @@ class Server(Thread):
                                 #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
                                 #self.qWrite(client, '%10s' %len(system_s)+system_s)
                                 self.__in[client]=''
+                                self.__quit_on_client_exit=True
                             else:
                                 self.__outQs[r]=[]
                                 self.__outs[r]={}
                                 read_now=r.recv(4096)
                                 if read_now=='':
-                                    self.close(r)
+                                    if not self.__quitting:
+                                        self.close(r)
                                 else:
                                     self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
                         except AssertionError:
@@ -573,4 +603,4 @@ class Server(Thread):
             pass
         except:
             print_exc()
-        self.quit()
+            manage.quitAll()
