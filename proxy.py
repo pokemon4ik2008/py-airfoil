@@ -227,8 +227,6 @@ def read(s, rec, addSend, finalise):
     read_len=0
     #print 'read. len: '+str(len(rec))+' start: '+str(start)+' rec: '+toHexStr(rec)
     read_len=len(rec[start:])
-    if read_len>=440:
-        print 'more than one object: '+str(read_len)
     while read_len >= LEN_LEN+cur_len_in:
         cur_len_in = bytes2Int(rec[start:start+LEN_LEN])
         #print 'read. read_len: '+str(read_len)+' cur_len_in: '+str(cur_len_in)
@@ -559,10 +557,15 @@ class Server(Thread):
                                 else:
                                     self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
                         except AssertionError:
+                            if self.__quitting:
+                                return
                             print >> sys.stderr, 'Server.run. failed assertion on read'
                             print_exc()
                         except socket.error as (errNo, errStr):
+                            if self.__quitting:
+                                return
                             print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
+                            print_exc()
                     for w in writes:
                         try:
                             assert w in self.__serialisables 
@@ -579,10 +582,15 @@ class Server(Thread):
                                     self.__writers.remove(w)
 
                         except AssertionError:
+                            if self.__quitting:
+                                return
                             print >> sys.stderr, "proxy.run failed assertion on write"
                             print_exc()
                         except socket.error as (errNo, errStr):
+                            if self.__quitting:
+                                return
                             print >> sys.stderr, "Server.run: exception on write. "+str((errNo,errStr))
+                            print_exc()
                 except select.error as (errNo, strErr):
                     print >> sys.stderr, 'select failed. err: '+str(errNo)+' str: '+strErr
                     eSock = None
