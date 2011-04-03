@@ -26,6 +26,7 @@ import itertools
 import optparse
 import pyglet
 import ctypes
+import manage
 from proxy import *
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
@@ -58,6 +59,7 @@ def genTerrain():
 	return terrainNum
 
 if __name__ == '__main__':               
+	man=manage
         try:
                 import psyco
         except ImportError:
@@ -111,9 +113,9 @@ if __name__ == '__main__':
 
 	if not opt.noserver:
 		if opt.noclient:
-			server=Server(daemon=False)
+			man.server=Server(daemon=False)
 		else:
-			server=Server()
+			man.server=Server()
 
 	if  opt.noclient:
 		exit(0)
@@ -207,14 +209,14 @@ if __name__ == '__main__':
 	init_thrust = 0
 	init_vel = Vector3(0,0,0)
 
-	#proxy = Client(server = '192.168.1.34')
-	proxy = Client()
-	Sys.init(proxy)
+	#man.proxy = Client(server = '192.168.1.34')
+	man.proxy = Client()
+	Sys.init(man.proxy)
 
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
 		pos=init_positions[i]
-		plane = MyAirfoil(pos, init_attitude, init_vel, init_thrust, controller, proxy)
+		plane = MyAirfoil(pos, init_attitude, init_vel, init_thrust, controller, man.proxy)
 		planes[plane.getId()]=plane
 
 		view = View(controller, win, plane, len(player_keys), opt)
@@ -225,71 +227,71 @@ if __name__ == '__main__':
 	bots=[]
 	terrain = RandomTerrain(8, 10.0, 1.0)
 
-	while True:
-		# move this loop to ProxyObs.loop
-		for plane in planes.itervalues():
-			if plane.alive():
-				plane.update()
-				plane.markChanged()
-		sleep(0)
-		win.dispatch_events()
+	try:
+		while not man.quitting:
+			# move this loop to ProxyObs.loop
+			for plane in planes.itervalues():
+				if plane.alive():
+					plane.update()
+					plane.markChanged()
+			sleep(0)
+			win.dispatch_events()
 
-		if win.has_exit:
-			for obj in  planes.itervalues():
-				obj.markDead()
-				obj.markChanged()
-			proxy.markDead()
-			proxy.markChanged()
-			print 'marked everthing dead'
-		if win_ctrls.eventCheck(win_ctrls.getControls())[Controller.TOG_MOUSE_CAP]!=0:
-			mouse_cap = ~mouse_cap
-			win.set_exclusive_mouse(mouse_cap)
-			win_ctrls.clearEvents(win_ctrls.getControls())
+			if win.has_exit:
+				for obj in  planes.itervalues():
+					obj.markDead()
+					obj.markChanged()
+				man.proxy.markDead()
+				man.proxy.markChanged()
 
-		if proxy.acquireLock():
-			bots[:]= proxy.getTypeObjs(ControlledSer.TYP)
-			proxy.releaseLock()
+			if win_ctrls.eventCheck(win_ctrls.getControls())[Controller.TOG_MOUSE_CAP]!=0:
+				mouse_cap = ~mouse_cap
+				win.set_exclusive_mouse(mouse_cap)
+				win_ctrls.clearEvents(win_ctrls.getControls())
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
-		for view in views:
-			glLoadIdentity()
-			view.activate()
-			my_plane=planes[view.getPlaneId()]
-			view.printToScreen('pos = ' + str(my_plane.getPos()))
-			view.printToScreen('vel = ' + str(my_plane.getVelocity()))
-			view.printToScreen('thrust = ' + str(my_plane.getThrust()))
-			view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
-			view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
+			if man.proxy.acquireLock():
+				bots[:]= man.proxy.getTypeObjs(ControlledSer.TYP)
+				man.proxy.releaseLock()
 
-			#glCallList(t)
-			terrain.draw(view)
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
+			for view in views:
+				glLoadIdentity()
+				view.activate()
+				if view.getPlaneId() in planes:
+					my_plane=planes[view.getPlaneId()]
+					view.printToScreen('pos = ' + str(my_plane.getPos()))
+					view.printToScreen('vel = ' + str(my_plane.getVelocity()))
+					view.printToScreen('thrust = ' + str(my_plane.getThrust()))
+					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
+					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
-			#if not proxy.alive():
-			#	print 'proxy dead. num bots: '+str(len(bots))+' num planes: '+str(len(planes))
+				#glCallList(t)
+				terrain.draw(view)
+
+				for bot in bots:
+					if bot.alive():
+						glPushMatrix()
+						#planes[bot.getId()].draw()
+						bot.draw()
+						glPopMatrix()
+
+				view.eventCheck()
+				glLoadIdentity()
+				view.drawText()
+				dt=clock.tick()
+
 			for bot in bots:
-				if bot.alive():
-					glPushMatrix()
-					#planes[bot.getId()].draw()
-					bot.draw()
-					glPopMatrix()
+				if not bot.alive() and bot.getId() in planes:
+					del planes[bot.getId()]
 
-			view.eventCheck()
-			glLoadIdentity()
-			view.drawText()
-			dt=clock.tick()
+			for plane in planes.itervalues():
+				if plane.alive():
+					plane.eventCheck()
 
-		for bot in bots:
-			if not bot.alive():
-				del planes[bot.getId()]
-
-		if len(planes)==0:
-			print 'all planes gone'
-			break;
-
-		for plane in planes.itervalues():
-			if plane.alive():
-				plane.eventCheck()
-
-		win.flip()
-
+			if planes==[]:
+				break
+			win.flip()
+	except Exception:
+		print_exc
         print "fps:  %d" % clock.get_fps()
+	man.quitAll()
