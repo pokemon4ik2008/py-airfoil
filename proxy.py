@@ -185,10 +185,17 @@ class SerialisableFact:
     def getMaxType():
         return 2
 
+    @staticmethod
+    def loads(obj_str):
+        meta=obj_str[:Mirrorable.META_SIZE]
+        obj=[meta]
+        obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
+        return obj
+
     def deserialiseAll(self, sers):
         deserialiseds=[]
-        for serialised in sers:
-            identifier=Mirrorable.deSerIdent(serialised)
+        for identifier in sers:
+            serialised=SerialisableFact.loads(sers[identifier])
             #print 'deserialiseAll. identifier '+str(identifier)
             if identifier in self.__notMine:
                 self.__notMine[identifier].deserialise(serialised)
@@ -269,7 +276,7 @@ class Client(Thread, Mirrorable):
              else:
                  print >> sys.stderr, "Client.__init__ failed to connect: "+str(errNo)+" "+errStr
          self.__serialised=dict()
-         self.__sers=[]
+         self.__sers={}
          self.__ids=deque()
          self.__locked_serialised=dict()
          self.__outbox=deque()
@@ -350,9 +357,9 @@ class Client(Thread, Mirrorable):
 
      def addSerialisables(self, s, obj_len, obj_str):
          #print 'addSerialisables. obj_len: '+str(obj_len)+' '+toHexStr(obj_str[:Mirrorable.META_SIZE])
-         obj=[obj_str[:Mirrorable.META_SIZE]]
-         obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
-         self.__sers.append(obj)
+         meta=obj_str[:Mirrorable.META_SIZE]
+         uniq=(Mirrorable.deSerGivenMeta(meta, Mirrorable.SYS), Mirrorable.deSerGivenMeta(meta, Mirrorable.IDENT))
+         self.__sers[uniq]=obj_str
 
      def quit(self):
          try:
@@ -384,7 +391,7 @@ class Client(Thread, Mirrorable):
                          #print 'Client.run: len read: '+str(len(rec))
                          rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
                          self.__fact.deserialiseAll(self.__sers)
-                         self.__sers[:]=[]
+                         self.__sers={}
                          self.releaseLock()
                      else:
                          sleep_needed=True
