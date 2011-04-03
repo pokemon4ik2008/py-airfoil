@@ -501,12 +501,15 @@ class Server(Thread):
         self.__outs[s]={}
 
     def close(self, s):
-        s.shutdown(socket.SHUT_RDWR)
-        s.close()
         del self.__serialisables[s]
         if s in self.__writers:
             self.__writers.remove(s)
         self.__readers.remove(s)
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+            s.close()
+        except:
+            print_exc()
 
     def quit(self):
         print 'quitting'
