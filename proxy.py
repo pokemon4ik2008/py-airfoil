@@ -468,14 +468,12 @@ class Server(Thread):
         uniq=(fields[0], fields[1])
         flags=fields[2]
 
-        #print 'recWrites. '+str(uniq)+' '+str(flags)
         if uniq not in self.__outs[s]:
+            #print 'recWrites: '+str(uniq)+' dict: '+str(self.__outs[s])
             self.__outQs[s].append(uniq)
-        if uniq in self.__outs[s]:
-            print 'avoided write'
         self.__outs[s][uniq]=obj_str;
 
-        if (flags & Mirrorable._DROPPABLE_FLAG)==Mirrorable._DROPPABLE_FLAG:
+        if (flags & Mirrorable._DROPPABLE_FLAG)!=Mirrorable._DROPPABLE_FLAG:
             self.qWrites(s)
 
     def qWrite(self, s, string):
