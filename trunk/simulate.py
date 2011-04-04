@@ -18,8 +18,6 @@
 ##//    You should have received a copy of the GNU General Public License
 ##//    along with FtpServerMobile.  If not, see <http://www.gnu.org/licenses/>.
 ##//
-import pdb; pdb.set_trace()
-
 from math import sqrt, atan2, degrees
 import random
 import array
