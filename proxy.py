@@ -7,6 +7,7 @@ from Queue import LifoQueue
 import re
 import select
 import socket
+from socket import gethostname, gethostbyname
 from subprocess import Popen, PIPE
 import sys
 from threading import Condition, RLock, Thread
@@ -16,6 +17,16 @@ from traceback import print_exc
 PORT=8123
 LEN_LEN=4
 
+def getLocalIP():
+    addr = socket.gethostbyname(socket.gethostname())
+    if addr.startswith('127'):
+        try:
+            import commands
+            return commands.getoutput("hostname -I").split('\n')[0].strip()     
+        except:
+            print_exc()
+    return addr
+        
 def int2Bytes(i, size):
     s=''
     for idx in range(size):
@@ -255,7 +266,7 @@ class Client(Thread, Mirrorable):
          self.markChanged()
          return Sys.ID
 
-     def __init__(self, ident=None, server='localhost', port=PORT):
+     def __init__(self, ident=None, server=getLocalIP(), port=PORT):
          self.__server=server
          self.__port=port
          Mirrorable.__init__(self, self.TYP, ident, self)
@@ -316,7 +327,7 @@ class Client(Thread, Mirrorable):
              else:
                  if not self.alive():
                      print 'client is dead'
-                     manager.quitAll()
+                     manage.quitAll()
 
              self.__serialised=dict()
              self.releaseLock()
@@ -358,7 +369,7 @@ class Client(Thread, Mirrorable):
      def addSerialisables(self, s, obj_len, obj_str):
          #print 'addSerialisables. obj_len: '+str(obj_len)+' '+toHexStr(obj_str[:Mirrorable.META_SIZE])
          meta=obj_str[:Mirrorable.META_SIZE]
-         uniq=(Mirrorable.deSerGivenMeta(meta, Mirrorable.SYS), Mirrorable.deSerGivenMeta(meta, Mirrorable.IDENT))
+         uniq=(Mirrorable.deSerGivenMeta(meta, Mirrorable.SYS), Mirrorable.deSerGivenMeta(meta, Mirrorable.IDENT)) 
          self.__sers[uniq]=obj_str
 
      def quit(self):
@@ -380,7 +391,13 @@ class Client(Thread, Mirrorable):
          try:
              while(True):
                  sleep_needed=False
-                 reads, writes, errs = select.select([self.__s], [], [], 60)
+                 if self.alive():
+                     #sends done from main loop
+                     writers=[]
+                 else:
+                     #not longer in main loop
+                     writers=[self.__s]
+                 reads, writes, errs = select.select([self.__s], writers, [], 60)
                  if self.__s in reads:
                      if self.acquireLock():
                          read_now=self.__s.recv(4096)
@@ -449,7 +466,7 @@ class Sys(Mirrorable):
         return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._flags], self._SIZES)])]
 
 class Server(Thread):
-    def __init__(self, server='localhost', port=PORT, daemon=True):
+    def __init__(self, server=getLocalIP(), port=PORT, daemon=True):
          Thread.__init__(self)
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
