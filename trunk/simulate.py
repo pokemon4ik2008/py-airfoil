@@ -123,8 +123,6 @@ if __name__ == '__main__':
 		else:
 			man.server=Server(server=opt.server)
 			man.proxy=Client(server=opt.client)
-	man.proxy = Client(server='192.168.1.201')
-	#man.proxy = Client()
 	Sys.init(man.proxy)
 
         #zoom = -150
