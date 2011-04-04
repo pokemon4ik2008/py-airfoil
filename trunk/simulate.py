@@ -18,6 +18,7 @@
 ##//    You should have received a copy of the GNU General Public License
 ##//    along with FtpServerMobile.  If not, see <http://www.gnu.org/licenses/>.
 ##//
+import pdb; pdb.set_trace()
 
 from math import sqrt, atan2, degrees
 import random
@@ -104,22 +105,30 @@ if __name__ == '__main__':
                 help='Overall width of the generated terrain')
         option('-2', '--two', dest='two_player', action='store_true', default=False,
                 help='Two player split screen action')
-        option('-S', '--noserver', dest='noserver', action='store_true', default=False,
-                help='Don\'t run server')
-        option('-C', '--noclient', dest='noclient', action='store_true', default=False,
-                help='Don\'t run client')
+        option('-S', '--server', dest='server', type='str', default=None,
+                help='Create a server using at this IP / domain')
+        option('-C', '--client', dest='client', type='str', default=None,
+                help='Create a client connection this a server at this IP / domain')
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
-	if not opt.noserver:
-		if opt.noclient:
-			man.server=Server(daemon=False)
-		else:
+	if opt.server is None:
+		if opt.client is None:
 			man.server=Server()
+			man.proxy=Client()
+		else:
+			man.proxy=Client(server=opt.client)
+	else:
+		if opt.client is None:
+			man.server=Server(server=opt.server, daemon=False)
+			exit(0)
+		else:
+			man.server=Server(server=opt.server)
+			man.proxy=Client(server=opt.client)
+	man.proxy = Client(server='192.168.1.201')
+	#man.proxy = Client()
+	Sys.init(man.proxy)
 
-	if  opt.noclient:
-		exit(0)
-		
         #zoom = -150
         #pressed = False
         #xrot = 0
@@ -208,10 +217,6 @@ if __name__ == '__main__':
         init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi)
 	init_thrust = 0
 	init_vel = Vector3(0,0,0)
-
-	#man.proxy = Client(server = '192.168.1.34')
-	man.proxy = Client()
-	Sys.init(man.proxy)
 
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
