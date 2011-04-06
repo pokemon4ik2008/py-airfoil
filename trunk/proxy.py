@@ -11,10 +11,10 @@ from socket import gethostname, gethostbyname
 from subprocess import Popen, PIPE
 import sys
 from threading import Condition, RLock, Thread
-from time import sleep
+from time import sleep, time
 from traceback import print_exc
 
-PORT=8123
+PORT=8124
 LEN_LEN=4
 
 def getLocalIP():
@@ -295,6 +295,7 @@ class Client(Thread, Mirrorable):
          self.__in=''
          self.__fact=SerialisableFact({ ControlledSer.TYP: Bot, Client.TYP: Client, Sys.TYP: self.initSys })
          self.__lock=RLock()
+         self.__open=True
          self.daemon=True
          self.start()
 
@@ -306,13 +307,10 @@ class Client(Thread, Mirrorable):
              print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
              return
          
-         if self.alive():
-             #store mirrorable without needing to wait for lock
-             if mirrorable.getId() not in self.__serialised:
-                 self.__ids.append(mirrorable.getId())
-             self.__serialised[mirrorable.getId()]=mirrorable.serialise()
-         else:
-             print 'client is dead - no more sends'
+         #store mirrorable without needing to wait for lock
+         if mirrorable.getId() not in self.__serialised:
+             self.__ids.append(mirrorable.getId())
+         self.__serialised[mirrorable.getId()]=mirrorable.serialise()
          if self.acquireLock() and Sys.ID is not None:
              if not self.alive():
                  print 'sending tail: '+str(len(self.__ids))
@@ -323,11 +321,15 @@ class Client(Thread, Mirrorable):
                  self.__locked_serialised[unique]=self.__serialised[unique][:]
 
              if len(self.__outbox)>0:
+                 start_time=time()
                  self.send()
+                 end_send=time()
+                 if end_send-start_time>=0.1:
+                     print 'hmmm...send just blocked. this is unexpected: '+(str(end_send-start_time))
              else:
                  if not self.alive():
                      print 'client is dead'
-                     manage.quitAll()
+                     self.quit()
 
              self.__serialised=dict()
              self.releaseLock()
@@ -374,10 +376,12 @@ class Client(Thread, Mirrorable):
 
      def quit(self):
          try:
+             print 'Client.quit. shutdown sock'
              self.__s.shutdown(socket.SHUT_RDWR)
              self.__s.close()
          except:
              print_exc()
+         self.__open=False
          print 'Client is quitting'
 
      def run(self):
@@ -389,7 +393,7 @@ class Client(Thread, Mirrorable):
          rec=''
          
          try:
-             while(True):
+             while(self.__open):
                  sleep_needed=False
                  if self.alive():
                      #sends done from main loop
@@ -397,17 +401,21 @@ class Client(Thread, Mirrorable):
                  else:
                      #not longer in main loop
                      writers=[self.__s]
-                 reads, writes, errs = select.select([self.__s], writers, [], 60)
+                 reads, writes, errs = select.select([self.__s], writers, [], 1.5)
                  if self.__s in reads:
                      if self.acquireLock():
                          read_now=self.__s.recv(4096)
                          if read_now=='':
+                             self.markDead()
+                             self.quit()
                              self.releaseLock()
-                             man.quitAll()
                              return
                          #print 'Client.run: len read: '+str(len(rec))
                          rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
                          self.__fact.deserialiseAll(self.__sers)
+                         if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
+                             print 'Client.run. closing socket'
+                             self.quit()
                          self.__sers={}
                          self.releaseLock()
                      else:
@@ -426,8 +434,10 @@ class Client(Thread, Mirrorable):
          except:
              if self.alive():
                  print 'exception in client'
+                 self.markDead()
                  print_exc()
-                 manage.quitAll()
+                 self.quit()
+         print 'Exiting Client.run'
 
 class Sys(Mirrorable):
     ID=None
@@ -436,7 +446,7 @@ class Sys(Mirrorable):
 
     @staticmethod
     def init(proxy):
-        while not manage.quitting:
+        while manage.proxy.alive():
             if proxy.acquireLock():
                 if Sys.ID is not None:
                     proxy.releaseLock()
@@ -466,7 +476,7 @@ class Sys(Mirrorable):
         return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._flags], self._SIZES)])]
 
 class Server(Thread):
-    def __init__(self, server=getLocalIP(), port=PORT, daemon=True):
+    def __init__(self, server=getLocalIP(), port=PORT, own_thread=True):
          Thread.__init__(self)
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
@@ -479,10 +489,9 @@ class Server(Thread):
          self.__stopped=False
          self.__outQs={}
          self.__outs={}
-         self.daemon=daemon
-         self.__quitting=False
-         self.__quit_on_client_exit=False
-         if daemon:
+         self.daemon=True
+         self.__accepted_clients=False
+         if own_thread:
              self.start()
          else:
              self.run()
@@ -522,11 +531,14 @@ class Server(Thread):
         self.__outQs[s]=[]
         self.__outs[s]={}
 
-    def close(self, s):
+    def __remove_sock(self, s):
         del self.__serialisables[s]
         if s in self.__writers:
             self.__writers.remove(s)
         self.__readers.remove(s)
+
+    def close(self, s):
+        self.__remove_sock(s)
         try:
             s.shutdown(socket.SHUT_RDWR)
             s.close()
@@ -534,25 +546,30 @@ class Server(Thread):
             print_exc()
 
     def quit(self):
-        print 'quitting'
-        if not self.__quitting:
-            self.__quitting=True
-            for s in set(self.__readers):
-                try:
-                    self.close(s) 
-                except:
-                    print_exc()
+        print 'Server.quit'
+        for s in set(self.__readers):
             try:
-                self.__s.shutdown(socket.SHUT_RDWR)
-                self.__s.close()
+                self.close(s) 
             except:
                 print_exc()
+        try:
+            self.__s.shutdown(socket.SHUT_RDWR)
+            self.__s.close()
+        except:
+            print_exc()
+
+    def running(self):
+        if not manage.proxy:
+            return True
+        return not(self.__readers==[] and self.__accepted_clients)
 
     def run(self):
         try:
-            while self.__readers!=[] or not self.__quit_on_client_exit:
+            while self.running():
                 try:
                     reads, writes, errs = select.select(self.__readers+[self.__s], self.__writers, [], 60)
+                    if manage.proxy is not None and not manage.proxy.alive():
+                        print 'Server.run. client dead.'
                     for r in reads:
                         try:
                             if r is self.__s:
@@ -571,52 +588,65 @@ class Server(Thread):
                                 #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
                                 #self.qWrite(client, '%10s' %len(system_s)+system_s)
                                 self.__in[client]=''
-                                #self.__quit_on_client_exit=True
+                                self.__accepted_clients=True
                             else:
                                 self.__outQs[r]=[]
                                 self.__outs[r]={}
                                 read_now=r.recv(4096)
                                 if read_now=='':
-                                    if not self.__quitting:
-                                        self.close(r)
+                                    self.__remove_sock(r)
+                                    print 'closing server connection'
                                 else:
                                     self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
                         except AssertionError:
-                            if self.__quitting:
-                                return
                             print >> sys.stderr, 'Server.run. failed assertion on read'
                             print_exc()
+                            self.quit()
+                            print 'Exiting Server.run 4'
+                            return
                         except socket.error as (errNo, errStr):
-                            if self.__quitting:
+                            if errNo==104:
+                                #Connection reset by peer
+                                self.__remove_sock(r)
+                            else:
+                                print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
+                                print_exc()
+                                self.quit()
+                                print 'Exiting Server.run 3'
                                 return
-                            print >> sys.stderr, "Server.run: exception on read. "+str((errNo,errStr))
-                            print_exc()
                     for w in writes:
                         try:
-                            assert w in self.__serialisables 
+                            if w not in self.__serialisables:
+                                #can happen just after closing a connection
+                                continue
                             assert len(self.__serialisables[w]) > 0
                             #print 'Server.run. w: '+str(w)
                             sent=w.send(self.__serialisables[w])
                             #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
                             if not sent:
-                                print 'shutting down client connection 1'
-                                if not self.__quitting:
-                                    self.close(w)
+                                print 'clising server connection 1'
+                                self.__remove_sock(w)
                             else:
                                 self.__serialisables[w]=self.__serialisables[w][sent:]
                                 if len(self.__serialisables[w])==0:
                                     self.__writers.remove(w)
 
                         except AssertionError:
-                            if self.__quitting:
-                                return
                             print >> sys.stderr, "proxy.run failed assertion on write"
                             print_exc()
-                        except socket.error as (errNo, errStr):
-                            if self.__quitting:
+                            self.quit()
+                            print 'Exiting Server.run 2'
+                            return
+                        except socket.error as (errNo, errStr): 
+                            if errNo==104:
+                                #Connection reset by peer
+                                self.__remove_sock(w)
+                            else:
+                                print >> sys.stderr, "Server.run: exception on write. "+str((errNo,errStr))
+                                print_exc()
+                                self.quit()
+                                print 'Exiting Server.run 1'
                                 return
-                            print >> sys.stderr, "Server.run: exception on write. "+str((errNo,errStr))
-                            print_exc()
                 except select.error as (errNo, strErr):
                     print >> sys.stderr, 'select failed. err: '+str(errNo)+' str: '+strErr
                     eSock = None
@@ -637,4 +667,5 @@ class Server(Thread):
             pass
         except:
             print_exc()
-            manage.quitAll()
+        self.quit()
+        print 'Exiting Server.run'
