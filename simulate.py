@@ -118,7 +118,7 @@ if __name__ == '__main__':
 			man.proxy=Client(server=opt.client)
 	else:
 		if opt.client is None:
-			man.server=Server(server=opt.server, daemon=False)
+			man.server=Server(server=opt.server, own_thread=False)
 			exit(0)
 		else:
 			man.server=Server(server=opt.server)
@@ -229,7 +229,7 @@ if __name__ == '__main__':
 	terrain = RandomTerrain(8, 10.0, 1.0)
 
 	try:
-		while not man.quitting:
+		while man.proxy.alive():
 			# move this loop to ProxyObs.loop
 			for plane in planes.itervalues():
 				if plane.alive():
@@ -294,5 +294,20 @@ if __name__ == '__main__':
 			win.flip()
 	except Exception:
 		print_exc
+		man.proxy.markDead()
+		man.proxy.markChanged()
         print "fps:  %d" % clock.get_fps()
-	man.quitAll()
+	print 'before proxy.join'
+	if man.proxy:
+		man.proxy.join(3)
+		try:
+			assert not man.proxy.isAlive()
+		except:
+			print_exc()
+	if man.server:
+		man.server.join(1)
+		try:
+			assert not man.server.isAlive()
+		except:
+			print_exc()
+	print 'quitting main thread'
