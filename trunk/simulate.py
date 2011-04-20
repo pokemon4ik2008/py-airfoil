@@ -36,6 +36,7 @@ import sys
 from terrain import FractalTerrainMesh
 from threading import Condition
 from time import sleep
+import traceback
 from view import View
 from terrain2 import *
 
@@ -190,22 +191,24 @@ if __name__ == '__main__':
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
 
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-				       (Controller.PITCH, KeyAction(key.S, key.W)),
-				       (Controller.ROLL, KeyAction(key.A, key.D)),
-				       (Controller.CAM_FIXED, KeyAction(key._1)),
-				       (Controller.CAM_FOLLOW, KeyAction(key._2)),
-				       (Controller.CAM_Z, KeyAction(key.V, key.F)),
-				       (Controller.CAM_X, KeyAction(key.Z, key.X))], 
-				      win)]
+				   (Controller.FIRE, KeyAction(key.F)),
+				   (Controller.PITCH, KeyAction(key.S, key.W)),
+				   (Controller.ROLL, KeyAction(key.A, key.D)),
+				   (Controller.CAM_FIXED, KeyAction(key._1)),
+				   (Controller.CAM_FOLLOW, KeyAction(key._2)),
+				   (Controller.CAM_Z, KeyAction(key.V, key.F)),
+				   (Controller.CAM_X, KeyAction(key.Z, key.X))], 
+		       win)]
 	if opt.two_player == True:
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-					 (Controller.CAM_FIXED, KeyAction(key._9)),
-					 (Controller.CAM_FOLLOW, KeyAction(key._0)), 
-					 (Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
-					 (Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
-					 (Controller.CAM_X, KeyAction(key.O, key.P)), 
-					 (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z))], 
-					win))
+					       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
+					       (Controller.CAM_FIXED, KeyAction(key._9)),
+					       (Controller.CAM_FOLLOW, KeyAction(key._0)), 
+					       (Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
+					       (Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
+					       (Controller.CAM_X, KeyAction(key.O, key.P)), 
+					       (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z))], 
+					      win))
 		
 
 	planes = {}
@@ -239,16 +242,17 @@ if __name__ == '__main__':
 			win.dispatch_events()
 
 			if win.has_exit:
+				print 'exiting window'
 				for obj in  planes.itervalues():
 					obj.markDead()
 					obj.markChanged()
 				man.proxy.markDead()
 				man.proxy.markChanged()
 
-			if win_ctrls.eventCheck(win_ctrls.getControls())[Controller.TOG_MOUSE_CAP]!=0:
+			if win_ctrls.eventCheck()[Controller.TOG_MOUSE_CAP]!=0:
 				mouse_cap = ~mouse_cap
 				win.set_exclusive_mouse(mouse_cap)
-				win_ctrls.clearEvents(win_ctrls.getControls())
+				win_ctrls.clearEvents()
 
 			if man.proxy.acquireLock():
 				bots[:]= man.proxy.getTypeObjs(ControlledSer.TYP)
@@ -266,8 +270,8 @@ if __name__ == '__main__':
 					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
-				#glCallList(t)
-				terrain.draw(view)
+				glCallList(t)
+				#terrain.draw(view)
 
 				for bot in bots:
 					if bot.alive():
@@ -292,8 +296,9 @@ if __name__ == '__main__':
 			if planes==[]:
 				break
 			win.flip()
-	except Exception:
-		print_exc
+	except Exception as detail:
+		print str(detail)
+		traceback.print_exc()
 		man.proxy.markDead()
 		man.proxy.markChanged()
         print "fps:  %d" % clock.get_fps()

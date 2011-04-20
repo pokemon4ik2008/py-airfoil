@@ -176,9 +176,6 @@ class Airfoil:
         if self.__elevatorRatio + self.__pendingElevatorAdjustment < -1.0:
             self.__pendingElevatorAdjustment = -1.0 - self.__elevatorRatio           
 
-    def getPos(self):
-        return self.__pos
-
     def getAttitude(self):
         return self.__attitude
 
@@ -418,7 +415,7 @@ class Airfoil:
         dv  = self.getDragForce(angleOfAttack, zenithAngle, timeDiff) * timeDiff / self.__mass
         dragVector = windUnitVector * dv * -1.0
 
-        self.__velocity += dragVector                       
+        self.__velocity += dragVector
         self.__pos += (self.__velocity * timeDiff)
         self.__collisionDetect()
         self.printDetails()

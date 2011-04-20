@@ -1,8 +1,9 @@
-from pyglet.window import key
+from pyglet.window import key, mouse
 from time import time
 
 from airfoil import Airfoil
 from proxy import ControlledSer
+from util import repeat
 
 class Enum:
     def __init__(self):
@@ -54,14 +55,15 @@ class KeyAction(Action):
         return KeyAction.__KEYS
 
 class MouseAction(Action):
-    X=0
-    Y=1
-    Z=2
+    DIMS=(X,Y,Z)=range(3)
+    START_DIM=X
 
-    def __init__(self, sensitivity, dim):
+    def __init__(self, sensitivity, dim, accumulate=True, normalise=True):
         Action.__init__(self, 'MouseAction. sensitivity: '+str(sensitivity))
         self._sensitivity=sensitivity
         self._dim=dim
+        self.__accumulate=accumulate
+        self.__normalise=normalise
 
     def dim(self):
         if(self._dim == None):
@@ -69,13 +71,33 @@ class MouseAction(Action):
         else:
             return self._dim
 
-    def getState(self, delta):
-        return delta * self._sensitivity
+    def getState(self, old, delta, period):
+        this_state=(delta/float(period)) * self._sensitivity
+        if self.__accumulate:
+            return old + this_state
+        else:
+            return this_state
+
+class MouseButAction(MouseAction):
+    DIMS=(LEFT,MID,RIGHT)=range(len(MouseAction.DIMS), 6)
+    START_DIM=LEFT
+    __BUT_MASK={LEFT: mouse.LEFT, MID: mouse.MIDDLE, RIGHT: mouse.RIGHT}
+
+    def __init__(self, dim):
+        self._dim=dim
+
+    def matches(self, combined, modifiers):
+        masked=MouseButAction.__BUT_MASK[self.dim()] & combined
+        if masked==0:
+            return False
+        else:
+            return True
 
 class Controller:
     THRUST=Controls("thrust")
     PITCH=Controls("pitch")
     ROLL=Controls("roll")
+    FIRE=Controls("fire")
     CAM_FIXED=Controls("fixed camera")
     CAM_FOLLOW=Controls("follow camera")
     CAM_X=Controls("camera x")
@@ -93,7 +115,6 @@ class Controller:
             def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
                 for c in Controller.__INSTANCES:
                     c.__accum_mouse_motion(dx, dy, 0)
-                #self.__set_mouse_button(buttons)
 
             @win.event
             def on_mouse_motion(x, y, dx, dy):
@@ -107,26 +128,37 @@ class Controller:
 
             @win.event
             def on_mouse_press(x, y, button, modifiers):
+                def set_vals((c, a)):
+                    if a.matches(button, modifiers):
+                        self.__vals[c] = 1
+                    else:
+                        self.__vals[c] = 0
+
                 for c in Controller.__INSTANCES:
-                #c.__set_mouse_button(buttons)
-                    pass
+                    map(set_vals, c.__control_types.get(MouseButAction, {}).items())
 
             @win.event
             def on_key_press(symbol, mods):
-                for c in [control for control in self.__on_key_press]:
-                    if self.__controls[c].matches(symbol, mods):
-                        self.__vals[c] = 1
+                for c in Controller.__INSTANCES:
+                    for ctrl in [control for control in c.__on_key_press]:
+                        if self.__controls[ctrl].matches(symbol, mods):
+                            self.__vals[ctrl] = 1
 
             win.push_handlers(KeyAction.getKeys())
             Controller.__WINS.append(win)
         Controller.__INSTANCES.append(self)
         self.__controls = dict(controls)
+        self.__control_types={}
+        for (k,v) in self.__controls.items():
+            if v.__class__ not in self.__control_types:
+                self.__control_types[v.__class__]={}
+            self.__control_types[v.__class__][k]=v
+
         self.__controls_list = self.__controls.keys()
-        keys = [ key for (key, val) in controls if isinstance(val, KeyAction) ]
-        self.__on_key_press=[control for control in keys if self.__controls[control].checkOnPress()]
-        self.__on_key_press_not=[control for control in keys if not self.__controls[control].checkOnPress()]
-        self.__mouse_controls = self.setMouseActions()
+        self.__on_key_press=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if action.checkOnPress()]
+        self.__on_key_press_not=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if not action.checkOnPress()]
         self.__vals=dict([(Controller.THRUST, 0), 
+                          (Controller.FIRE, 0),
                           (Controller.PITCH, 0),
                           (Controller.ROLL, 0),
                           (Controller.CAM_Z, 0),
@@ -136,46 +168,45 @@ class Controller:
                           (Controller.CAM_FOLLOW, 0),
                           (Controller.TOG_MOUSE_CAP, 0),
                           (Controller.NO_ACTION, 0)]);
-        self.__last_mouse_time = None
+        (self.__mouse_actions, self.__last_mouse_time) = (self.__gen_actions(MouseAction), None)
+        (self.__mouse_but_actions, self.__last_but_time) = (self.__gen_actions(MouseButAction), None)
 
-    def setMouseActions(self):
-        mouse_controls=[Controller.NO_ACTION, Controller.NO_ACTION, Controller.NO_ACTION]
-        try:
-            for (control, action) in self.__controls.items():
-                if isinstance(action, MouseAction):
-                    assert action.dim() < len(mouse_controls)
-                    mouse_controls[action.dim()]=control
-        except AssertionError:
-            print >> sys.stderr, 'size of dim too big for: '+str(action)
-        return mouse_controls
-
-    def clearEvents(self, controls):
+    def clearEvents(self, controls=None):
+        if controls is None:
+            controls=self.__controls_list
         for c in controls:
             self.__vals[c]=0
 
-    def __accum_mouse_motion(self, dx, dy, dz):
-        if self.__last_mouse_time is None:
-            # first dx or dy seems to be an offsset from the window origin
-            # this is too large so we ignore it
-            self.__last_mouse_time = time()
-            return
+    def __gen_actions(self, action_class):
+        mouse_ctrls=self.__control_types.get(action_class, {})
+        control_actions=repeat((Controller.NO_ACTION, None), len(action_class.DIMS))
+        for (c, a) in mouse_ctrls.items():
+            control_actions[a.dim()-action_class.START_DIM]=(c, a)
+        return control_actions
 
+    def __set_mouse_vals(self, action_class, actions, deltas, last_time):
+        if last_time is None:
+              return time()
         now=time()
-        period=now-self.__last_mouse_time
+        period=now-last_time
         self.__last_mouse_time=now
-        self.__vals.update([(action, self.__vals[action] + 
-                             self.__controls[action].getState(delta/float(period))) 
-                            for (action, delta) in zip(self.__mouse_controls, [dx, dy, dz]) 
-                            if action is not Controller.NO_ACTION])
+        
+        mouse_ctrls=self.__control_types.get(action_class, {})
+        self.__vals.update([ (control, mouse_ctrls[control].getState(self.__vals[control], delta, period)) 
+                             for ((control, action), delta) in zip(actions, deltas) 
+                             if control is not Controller.NO_ACTION ])
+        return now
 
-    def eventCheck(self, interested):
-        for i in [control for control in interested if control in self.__on_key_press_not]:
+    def __accum_mouse_motion(self, dx, dy, dz):
+        self.__last_mouse_time=self.__set_mouse_vals(MouseAction, self.__mouse_actions, [dx, dy, dz], self.__last_mouse_time)
+
+    def eventCheck(self, interesting=None):
+        if interesting is None:
+            interesting=self.__controls_list
+        for i in [control for control in interesting if control in self.__on_key_press_not]:
             self.__vals[i] = self.__controls[i].getState()
 
         return self.__vals
-
-    def getControls(self):
-        return self.__controls_list
 
 class MyAirfoil(Airfoil, ControlledSer):
     def __init__(self, pos, attitude, velocity, thrust, controls, proxy):

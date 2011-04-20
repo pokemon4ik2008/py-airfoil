@@ -1,5 +1,4 @@
 import math
-
  
 def getAngleForXY(x, y):
     angle = 0.0
@@ -27,3 +26,6 @@ global prettyfloat
 class prettyfloat(float):
     def __repr__(self):
         return "%0.2f" % self
+
+def repeat(el, num): 
+    return [ el for idx in range(num) ]
