@@ -419,7 +419,7 @@ class Airfoil:
         self.__pos += (self.__velocity * timeDiff)
         self.__collisionDetect()
         self.printDetails()
-
+        
     def __hitGround(self):
         print 'Hit ground'
         self.__wasOnGround = True      

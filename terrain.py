@@ -459,27 +459,6 @@ if __name__ == '__main__':
 	xrot = -80
 	zrot = 0
 
-	@win.event
-	def on_mouse_scroll(x, y, scroll_x, scroll_y):
-		global zoom
-		zoom -= scroll_y
-	
-	@win.event
-	def on_mouse_press(x, y, button, modifiers):
-		global pressed
-		pressed = button == pyglet.window.mouse.LEFT
-	
-	@win.event
-	def on_mouse_release(x, y, button, modifiers):
-		global pressed
-		pressed = not (button == pyglet.window.mouse.LEFT)
-	
-	@win.event
-	def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
-		global xrot, zrot
-		zrot -= dx * 0.3
-		xrot += dy * 0.3
-
 	font = pyglet.font.load(None, 18, dpi=72)
 	text = pyglet.font.Text(font, 'Calculating Terrain...',
 		x=win.width / 2,

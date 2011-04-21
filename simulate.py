@@ -212,15 +212,19 @@ if __name__ == '__main__':
 		
 
 	planes = {}
-	init_positions = [Point3(100,0,100), Point3(-100,0,0)]
-        init_attitude = Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi)
-	init_thrust = 0
-	init_vel = Vector3(0,0,0)
+	plane_inits=[(Point3(100,0,100), 
+		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
+		      Vector3(0,0,0),
+		      0),
+		     (Point3(-100,0,0), 
+		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
+		      Vector3(0,0,0),
+		      0)]
 
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
-		pos=init_positions[i]
-		plane = MyAirfoil(pos, init_attitude, init_vel, init_thrust, controller, man.proxy)
+		(pos, att, vel, thrust)=plane_inits[i]
+		plane = MyAirfoil(pos, att, vel, thrust, controller, man.proxy)
 		planes[plane.getId()]=plane
 
 		view = View(controller, win, plane, len(player_keys), opt)
