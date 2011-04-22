@@ -247,7 +247,7 @@ if __name__ == '__main__':
 
 			if win.has_exit:
 				print 'exiting window'
-				for obj in  planes.itervalues():
+				for obj in planes.itervalues():
 					obj.markDead()
 					obj.markChanged()
 				man.proxy.markDead()
@@ -280,7 +280,6 @@ if __name__ == '__main__':
 				for bot in bots:
 					if bot.alive():
 						glPushMatrix()
-						#planes[bot.getId()].draw()
 						bot.draw()
 						glPopMatrix()
 
@@ -308,6 +307,11 @@ if __name__ == '__main__':
         print "fps:  %d" % clock.get_fps()
 	print 'before proxy.join'
 	if man.proxy:
+		flush_start=time()
+		while not man.proxy.attemptSendAll():
+			if time()-flush_start>3:
+				break
+			sleep(0)
 		man.proxy.join(3)
 		try:
 			assert not man.proxy.isAlive()

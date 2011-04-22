@@ -299,18 +299,7 @@ class Client(Thread, Mirrorable):
          self.daemon=True
          self.start()
 
-     def addUpdated(self, mirrorable):
-         try:
-             #can't get any obj id if we don't have a sys id
-             assert Sys.ID is not None
-         except AssertionError:
-             print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
-             return
-         
-         #store mirrorable without needing to wait for lock
-         if mirrorable.getId() not in self.__serialised:
-             self.__ids.append(mirrorable.getId())
-         self.__serialised[mirrorable.getId()]=mirrorable.serialise()
+     def attemptSendAll(self):
          if self.acquireLock() and Sys.ID is not None:
              if not self.alive():
                  print 'sending tail: '+str(len(self.__ids))
@@ -332,7 +321,27 @@ class Client(Thread, Mirrorable):
                      self.quit()
 
              self.__serialised=dict()
+             done=len(self.__outbox)==0
              self.releaseLock()
+             return done
+         else:
+             if not self.alive():
+                 print 'no lock so not sending tail yet'
+         return False
+
+     def addUpdated(self, mirrorable):
+         try:
+             #can't get any obj id if we don't have a sys id
+             assert Sys.ID is not None
+         except AssertionError:
+             print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
+             return
+         
+         #store mirrorable without needing to wait for lock
+         if mirrorable.getId() not in self.__serialised:
+             self.__ids.append(mirrorable.getId())
+         self.__serialised[mirrorable.getId()]=mirrorable.serialise()
+         self.attemptSendAll()
 
      def acquireLock(self, blocking=False):
          return self.__lock.acquire(blocking)
@@ -398,31 +407,42 @@ class Client(Thread, Mirrorable):
                  if self.alive():
                      #sends done from main loop
                      writers=[]
-                 else:
+                 #else:
                      #not longer in main loop
-                     writers=[self.__s]
+                     #writers=[self.__s]
+                     #print 'proxy is dead. add writer to select'
                  reads, writes, errs = select.select([self.__s], writers, [], 1.5)
+                 if not self.alive():
+                     print 'after select. proxy is dead'
                  if self.__s in reads:
                      if self.acquireLock():
                          read_now=self.__s.recv(4096)
                          if read_now=='':
                              self.markDead()
-                             self.quit()
                              self.releaseLock()
-                             return
+                             self.__open=False
+                             break
                          #print 'Client.run: len read: '+str(len(rec))
                          rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
                          self.__fact.deserialiseAll(self.__sers)
                          if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
                              print 'Client.run. closing socket'
-                             self.quit()
+                             self.releaseLock()
+                             self.__open=False
+                             break
                          self.__sers={}
                          self.releaseLock()
                      else:
                          sleep_needed=True
                  if self.__s in writes:
+                     if not self.alive():
+                         print 'after select. proxy is dead and socket is writeable'
                      if self.acquireLock():
+                         if not self.alive():
+                             print 'after select. proxy is dead and socket is writeable and we have the lock'
                          if len(self.__outbox)>0:
+                             if not self.alive():
+                                 print 'after select. proxy is dead and socket is writeable and we have the lock and we have something to send'
                              self.send()
                          else:
                              sleep_needed=True
