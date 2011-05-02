@@ -38,7 +38,6 @@ from threading import Condition
 from time import sleep
 import traceback
 from view import View
-from terrain2 import *
 
 global listNum
 listNum = glGenLists(1)
@@ -233,7 +232,6 @@ if __name__ == '__main__':
 	t=genTerrain()
 	mouse_cap=False
 	bots=[]
-	terrain = RandomTerrain(8, 10.0, 1.0)
 
 	try:
 		while man.proxy.alive():
@@ -275,7 +273,6 @@ if __name__ == '__main__':
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 				glCallList(t)
-				#terrain.draw(view)
 
 				for bot in bots:
 					if bot.alive():
