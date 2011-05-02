@@ -26,6 +26,7 @@ import optparse
 import pyglet
 import ctypes
 import manage
+from airfoil import Bullet, Obj
 import os
 from proxy import *
 from pyglet.gl import *
@@ -145,19 +146,20 @@ if __name__ == '__main__':
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
+	factory=SerialisableFact({ Bot.TYP: Bot, Bullet.TYP: Bullet })
 	if opt.server is None:
 		if opt.client is None:
 			man.server=Server()
-			man.proxy=Client()
+			man.proxy=Client(factory=factory)
 		else:
-			man.proxy=Client(server=opt.client)
+			man.proxy=Client(server=opt.client, factory=factory)
 	else:
 		if opt.client is None:
 			man.server=Server(server=opt.server, own_thread=False)
 			exit(0)
 		else:
 			man.server=Server(server=opt.server)
-			man.proxy=Client(server=opt.client)
+			man.proxy=Client(server=opt.client, factory=factory)
 	Sys.init(man.proxy)
 
         #zoom = -150
@@ -225,12 +227,12 @@ if __name__ == '__main__':
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
 
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-				   (Controller.FIRE, KeyAction(key.F)),
+				   (Controller.FIRE, KeyAction(key.R)),
 				   (Controller.PITCH, KeyAction(key.S, key.W)),
 				   (Controller.ROLL, KeyAction(key.A, key.D)),
 				   (Controller.CAM_FIXED, KeyAction(key._1)),
 				   (Controller.CAM_FOLLOW, KeyAction(key._2)),
-				   (Controller.CAM_Z, KeyAction(key.V, key.F)),
+				   (Controller.CAM_Z, KeyAction(key.V, key.Z)),
 				   (Controller.CAM_X, KeyAction(key.Z, key.X))], 
 		       win)]
 	if opt.two_player == True:
@@ -276,7 +278,13 @@ if __name__ == '__main__':
 				if plane.alive():
 					plane.update()
 					plane.markChanged()
+				for b in plane.getBullets():
+					b.update()
+					b.markChanged()
+			now=time()
 			sleep(0)
+			if time()-now>=0.2:
+				print 'long sleep: '+str(time()-now)
 			win.dispatch_events()
 
 			if win.has_exit:
@@ -293,7 +301,7 @@ if __name__ == '__main__':
 				win_ctrls.clearEvents()
 
 			if man.proxy.acquireLock():
-				bots[:]= man.proxy.getTypeObjs(ControlledSer.TYP)
+				bots[:]= man.proxy.getTypesObjs([ Bot.TYP, Bullet.TYP ])
 				man.proxy.releaseLock()
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
@@ -352,7 +360,7 @@ if __name__ == '__main__':
 		except:
 			print_exc()
 	if man.server:
-		man.server.join(1)
+		man.server.join(3)
 		try:
 			assert not man.server.isAlive()
 		except:

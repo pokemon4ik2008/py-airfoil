@@ -1,4 +1,3 @@
-from airfoil import Airfoil
 import cPickle
 from collections import deque
 from euclid import Quaternion, Vector3
@@ -104,6 +103,7 @@ class Mirrorable:
             self._flags &= ~(self._DEAD_FLAG)
 
     def serialise(self):
+        #print 'serialise. typ: '+str(self.__typ)+' ident: '+str(self._ident)
         return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.__typ, self._ident, Sys.ID.getSysId(), self._flags], self._SIZES)])]
         #return [self.__typ, self._ident, self.__dead]
 
@@ -128,11 +128,10 @@ class Mirrorable:
         return self
 
 class ControlledSer(Mirrorable):
-    TYP=0
     [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, Mirrorable.META+12)
 
-    def __init__(self, ident=None, proxy=None):
-        Mirrorable.__init__(self, ControlledSer.TYP, ident, proxy)
+    def __init__(self, typ, ident=None, proxy=None):
+        Mirrorable.__init__(self, typ, ident, proxy)
 
     def local_init(self):
         Mirrorable.local_init(self)
@@ -153,7 +152,6 @@ class ControlledSer(Mirrorable):
         ser.append(v.x)
         ser.append(v.y)
         ser.append(v.z)
-        ser.append(self.getThrust())
         return ser
 
     @staticmethod
@@ -172,19 +170,14 @@ class ControlledSer(Mirrorable):
         (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
-        return Mirrorable.deserialise(self, ser).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz)).setThrust(ser[ControlledSer._THRUST])
+        return Mirrorable.deserialise(self, ser).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
         
-class Bot(Airfoil, ControlledSer):
-    def __init__(self, ident=None):
-        Airfoil.__init__(self)
-        ControlledSer.__init__(self, ident)
-			
 class SerialisableFact:
     __OBJ_IDX,__TIME_IDX=range(2)
 
     def __init__(self, ctors):
         self.__notMine={}
-        self.__objByType=[[],[],[]]
+        self.__objByType=[ [] for i in range(SerialisableFact.getMaxType()+1)]
         try:
             assert len(self.__objByType)==SerialisableFact.getMaxType()+1
         except:
@@ -192,9 +185,12 @@ class SerialisableFact:
         self.__mine={}
         self.__ctors=ctors
 
+    def update(self, new_ctors):
+        self.__ctors.update(new_ctors)
+
     @staticmethod
     def getMaxType():
-        return 2
+        return 3
 
     @staticmethod
     def loads(obj_str):
@@ -214,7 +210,7 @@ class SerialisableFact:
                 try:
                     typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
                     if typ in self.__ctors:
-                        #print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
+                        print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
                         obj = self.__ctors[typ](ident=identifier).deserialise(serialised)
                         self.__notMine[identifier] = obj
                         self.__objByType[typ].append(obj)
@@ -236,6 +232,12 @@ class SerialisableFact:
         except AssertionError:
             print 'getTypeObjs. typ too large: '+str(typ)
         return []
+
+    def getTypesObjs(self, types):
+        objs=[]
+        for t in types:
+            objs.extend(self.getTypeObjs(t))
+        return objs
 
 def read(s, rec, addSend, finalise):
     start=0
@@ -266,14 +268,16 @@ class Client(Thread, Mirrorable):
          self.markChanged()
          return Sys.ID
 
-     def __init__(self, ident=None, server=getLocalIP(), port=PORT):
+     def __init__(self, ident=None, server=getLocalIP(), port=PORT, factory=None):
          self.__server=server
          self.__port=port
+         self.__fact=factory
          Mirrorable.__init__(self, self.TYP, ident, self)
 
      def local_init(self):
          Thread.__init__(self)
          Mirrorable.local_init(self)
+         self.__fact.update({ Client.TYP: Client, Sys.TYP: self.initSys })
          self.__dead_here=False
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
@@ -293,7 +297,6 @@ class Client(Thread, Mirrorable):
          self.__outbox=deque()
          self.__out=''
          self.__in=''
-         self.__fact=SerialisableFact({ ControlledSer.TYP: Bot, Client.TYP: Client, Sys.TYP: self.initSys })
          self.__lock=RLock()
          self.__open=True
          self.daemon=True
@@ -324,9 +327,6 @@ class Client(Thread, Mirrorable):
              done=len(self.__outbox)==0
              self.releaseLock()
              return done
-         else:
-             if not self.alive():
-                 print 'no lock so not sending tail yet'
          return False
 
      def addUpdated(self, mirrorable):
@@ -357,6 +357,9 @@ class Client(Thread, Mirrorable):
 
      def getTypeObjs(self, typ):
          return self.__fact.getTypeObjs(typ)
+
+     def getTypesObjs(self, types):
+         return self.__fact.getTypesObjs(types)
 
      def send(self):
          if not self.alive():

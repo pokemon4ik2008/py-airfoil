@@ -1,7 +1,7 @@
 from pyglet.window import key, mouse
 from time import time
 
-from airfoil import Airfoil
+from airfoil import Airfoil, Bot, Bullet
 from proxy import ControlledSer
 from util import repeat
 
@@ -211,13 +211,15 @@ class Controller:
 class MyAirfoil(Airfoil, ControlledSer):
     def __init__(self, pos, attitude, velocity, thrust, controls, proxy):
         Airfoil.__init__(self, pos, attitude, velocity, thrust)
-        ControlledSer.__init__(self, proxy=proxy)
+        ControlledSer.__init__(self, Bot.TYP, proxy=proxy)
         print 'MyAirfoil. initialised airfoil thrust '+str(thrust)
         self.__controls=controls
-        self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL]
+        self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
         self.__thrustAdjust = 100
         self.__pitchAdjust = 0.01
         self.__rollAdjust = 0.01
+        self.__bullets=[]
+        self.__last_fire=time()
 
     def eventCheck(self):
         events = self.__controls.eventCheck(self.__interesting_events)
@@ -227,5 +229,15 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
+        if events[Controller.FIRE]!=0 and time()-self.__last_fire>0.2:
+            vOff=self.getVelocity().normalized()*300
+            b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
+            b.update()
+            b.markChanged()
+            self.__bullets.append(b)
+            self.__last_fire=time()
 
         self.__controls.clearEvents(self.__interesting_events)
+
+    def getBullets(self):
+        return self.__bullets
