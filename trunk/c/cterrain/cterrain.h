@@ -24,7 +24,6 @@
 #define sqr(x) ((x)*(x))
 #define deg_to_rad (PI/180.0f)
 #define rad_to_deg (180.0f/PI)
-#define absValue(x) ( (x)>=0?(x):-(x) )
 #define small_number -32627.0f
 
 
