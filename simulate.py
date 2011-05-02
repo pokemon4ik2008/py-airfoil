@@ -60,12 +60,19 @@ def genTerrain():
 
 def loadTerrain():
 	global cterrain
+	colFileName = ''
+	mapFileName = ''
 	if os.name == 'nt':
-		cterrain = cdll.LoadLibrary("bin\cterrain.dll")
+		terrain = cdll.LoadLibrary("bin\cterrain.dll")
+		colFileName = "data\\strip1.bmp"
+		mapFileName = "data\\map_output.hm2"
 	else:
-		cterrain = cdll.LoadLibrary("bin\cterrain.so")
-	cterrain.init(c_char_p("data\\strip1.bmp"), 
-		      c_char_p("data\\map_output.hm2"), 
+		cterrain = cdll.LoadLibrary("bin/cterrain.so")
+		colFileName = "data/strip1.bmp" 
+		mapFileName = "data/map_output.hm2"
+
+	cterrain.init(c_char_p(colFileName), 
+		      c_char_p(mapFileName), 
 		      c_float(4.0/3.0*2.0),
 		      c_int(0),
 		      c_float(10.0),
@@ -260,7 +267,7 @@ if __name__ == '__main__':
 	t=genTerrain()
 	mouse_cap=False
 	bots=[]
-	#loadTerrain()
+	loadTerrain()
 
 	try:
 		while man.proxy.alive():
@@ -302,7 +309,7 @@ if __name__ == '__main__':
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 				glCallList(t)
-				#drawTerrain(view)
+				drawTerrain(view)
 
 				for bot in bots:
 					if bot.alive():
