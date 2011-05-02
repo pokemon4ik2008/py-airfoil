@@ -8,7 +8,6 @@ float default_map_intensity;	//this is needed so that the colour of the default 
 gl_col* colr_ref = NULL;
 int elev_var=63;		//max view triangle's centre point retraction when looking up or down (old value 82)
 //float map_expansion_const;
-int fog_dist;			//dist fog ends at. calculated during view triangle calculations
 gl_col backgr={1.0,1.0,1.0};
 //float y_scale_const;
 int drawnQuads = 0;
@@ -399,15 +398,23 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 	static float persp_angle;
 	static short min_detail_level;
 	int i,j;
+	
+	glEnable (GL_BLEND); 
+	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glDisable(GL_CULL_FACE);
 
 	glEnable(GL_DEPTH_TEST);
-	//glDisable(GL_FOG);
-	glBegin(  wireframe ? GL_LINES : GL_QUADS);	//start drawing quads
-
-
+	glEnable(GL_FOG);
+	GLfloat density = 0.004; 
+	GLfloat fogColor[4] = {0.7, 0.7, 1.0, 1.0}; //set the for color to grey
+	glFogi (GL_FOG_MODE, GL_LINEAR); //set the fog mode to GL_EXP2
+	glFogfv (GL_FOG_COLOR, fogColor); //set the fog color to our color chosen above
+	glFogf (GL_FOG_DENSITY, density); //set the density to the value above
+	glHint (GL_FOG_HINT, GL_NICEST); // set the fog to look the nicest, may slow down on older cards
+	
 	persp_angle=(float) atan(aspect/2.0f);
 
-	
 	//setup initial view angle
 	if ((pov.ax>(PI/2.0)) && (pov.ax<=(PI*3.0f/2.0f))) {
 		pov.ay+=PI;
@@ -418,8 +425,12 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 	//with altitude nb..i think the cut dist is in quads
 	cut_off_dist=(int) ((cut_off_max/2)+alt_var_const*pov.y);
 	if (cut_off_dist>cut_off_max) cut_off_dist=cut_off_max;
-	fog_dist=(int) (cut_off_dist-alt_var_const*pov.y-20);
 	
+	float fog_scale = 2.6;
+	glFogf(GL_FOG_START, cut_off_dist  * 0.7 * fog_scale);
+	glFogf(GL_FOG_END, cut_off_dist * fog_scale );
+
+	glBegin(  wireframe ? GL_LINES : GL_QUADS);	//start drawing quads
 
 	//convert the pov coord's to coord's on the terrain map
 	pov.x=pov.x/map_expansion_const;
@@ -441,7 +452,6 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 	if ((pov.ax>PI)&&(pov.ax<2*PI)) {
 		point[2].x+=(int)(sin(view_angle)*((sin(pov.ax)*elev_var)));
 		point[2].z+=(int)(cos(view_angle)*((sin(pov.ax)*elev_var)));
-		fog_dist+=(int) (sin(pov.ax)*elev_var);
 	}
 
 	//populate rest of view triangle coord array
@@ -490,6 +500,7 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 	}
 
 	glEnd();				//finish drawing quads
+	glDisable(GL_FOG);
 
 	//clear the dynamic terrain variables
 	for (i=0;i<terrain_max_x;i++) {
@@ -499,6 +510,7 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 			terrain_map(i,j).alt_y=(short) small_number;
 		}
 	}
+	
 }
 
 void terQsort_view_triangle(vector point[]) {
@@ -759,7 +771,7 @@ inline void terDraw_Vertex(int x, int z)
 	//set the colour. add fog (the fog depends on that quads distance from the viewer)
 	glColor3f(	terAdd_fog(terrain_map(x,z).col.r, backgr.r, terrain_map(x , z ).dist), 
 		terAdd_fog(terrain_map(x,z).col.g, backgr.g, terrain_map(x , z ).dist), 
-		terAdd_fog(terrain_map(x,z).col.b, backgr.b, terrain_map(x , z ).dist));
+			terAdd_fog(terrain_map(x,z).col.b, backgr.b, terrain_map(x , z ).dist)	);
 
 	//check if and alternate y value has been set, if so use that one. The alt_y is needed so that variable details works properly
 	if (terrain_map(x,z).alt_y==small_number) 

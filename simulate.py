@@ -206,12 +206,14 @@ if __name__ == '__main__':
 	glShadeModel(GL_SMOOTH)
 	glEnable(GL_BLEND)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-	glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
-	glFogf(GL_FOG_START, opt.width / 2)
-	glFogf(GL_FOG_END, opt.width)
-	glFogi(GL_FOG_MODE, GL_LINEAR)
-	if not opt.wireframe:
-	       glEnable(GL_FOG)     
+
+	#glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
+	#glFogf(GL_FOG_START, opt.width / 2)
+	#glFogf(GL_FOG_END, opt.width)
+	#glFogi(GL_FOG_MODE, GL_LINEAR)
+
+	#if not opt.wireframe:
+	glEnable(GL_FOG)     
 	print "width: "+str(win_width)+" height: "+str(win_height)
 	resize(win.width, win.height)
         clock = pyglet.clock.Clock()
@@ -316,7 +318,7 @@ if __name__ == '__main__':
 					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
-				glCallList(t)
+				#glCallList(t)
 				drawTerrain(view)
 
 				for bot in bots:
