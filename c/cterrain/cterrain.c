@@ -130,10 +130,10 @@ int preloadTerrain(char *fname) {
 		hmap_tile.hfield = NULL;
 	}
 
-	if (fptr==NULL) {errorMsg("Cant find the heightmap.",1);return FALSE;}
+	if (fptr==NULL) {errorMsg("Cant find the heightmap.",1);return false;}
 	if ( !(strstr(fname,".hmp")) && !(strstr(fname,".hm2")) ) {
 		errorMsg("Wrong file extension while loading heightmap.",1);
-		return FALSE;
+		return false;
 	}
 	
 	if (strstr(fname,".hm2")!=NULL) {
@@ -212,7 +212,7 @@ int load_hm_colour_ref(char *fname) {
 	{
 		// Display Error Message And Stop The Function
 		fprintf(stderr,"Can't Find The Height Map Colour Reference file!");
-		return FALSE;
+		return false;
 	}
 	input_file = new ubyte[822];
 	fread(input_file,1,822,fptr);
@@ -233,7 +233,7 @@ int load_hm_colour_ref(char *fname) {
 	}
 	delete [] input_file;
 
-	if (fptr==NULL) return FALSE;
+	if (fptr==NULL) return false;
 	else return TRUE;
 }
 
