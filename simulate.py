@@ -63,7 +63,7 @@ def loadTerrain():
 	colFileName = ''
 	mapFileName = ''
 	if os.name == 'nt':
-		terrain = cdll.LoadLibrary("bin\cterrain.dll")
+		cterrain = cdll.LoadLibrary("bin\cterrain.dll")
 		colFileName = "data\\strip1.bmp"
 		mapFileName = "data\\map_output.hm2"
 	else:
