@@ -26,6 +26,7 @@ import optparse
 import pyglet
 import ctypes
 import manage
+import os
 from proxy import *
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
@@ -56,6 +57,33 @@ def genTerrain():
 		terrain.draw()                                                        
 	glEndList()
 	return terrainNum
+
+def loadTerrain():
+	global cterrain
+	if os.name == 'nt':
+		cterrain = cdll.LoadLibrary("bin\cterrain.dll")
+	else:
+		cterrain = cdll.LoadLibrary("bin\cterrain.so")
+	cterrain.init(c_char_p("data\\strip1.bmp"), 
+		      c_char_p("data\\map_output.hm2"), 
+		      c_float(4.0/3.0*2.0),
+		      c_int(0),
+		      c_float(10.0),
+		      c_float(0.2))
+
+def drawTerrain(view):
+	pointOfView = (c_float * 6)()
+	cameraVectors = view.getCamera().getCameraVectors()
+        cameraCenter = cameraVectors[0]
+        cameraPosition = cameraVectors[1]
+	pointOfView[0] = cameraPosition[0]
+	pointOfView[1] = cameraPosition[1]
+	pointOfView[2] = cameraPosition[2]
+	pointOfView[3] = cameraCenter[0]
+	pointOfView[4] = cameraCenter[1]
+	pointOfView[5] = cameraCenter[2]
+	cterrain.draw(pointOfView)
+
 
 if __name__ == '__main__':               
 	man=manage
@@ -232,6 +260,7 @@ if __name__ == '__main__':
 	t=genTerrain()
 	mouse_cap=False
 	bots=[]
+	#loadTerrain()
 
 	try:
 		while man.proxy.alive():
@@ -273,6 +302,7 @@ if __name__ == '__main__':
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 				glCallList(t)
+				#drawTerrain(view)
 
 				for bot in bots:
 					if bot.alive():
