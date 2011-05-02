@@ -6,7 +6,7 @@ cmd = ''
 if os.name == 'nt':
 	cmd = '"\"%VS80COMNTOOLS%..\IDE\devenv.exe\"" c\cterrain\cterrain.vcproj /build debug /Out buildlog.txt'
 elif os.name == 'posix':
-	cmd = 'g++ c/cterrain/cterrain.cpp -lGL -o bin/cterrain.so -shared -fPIC'
+	cmd = 'g++ c/cterrain/cterrain.c -lGL -o bin/cterrain.so -shared -fPIC'
 
 print "Running build command : \n" + cmd
 retVal = os.system(cmd)
