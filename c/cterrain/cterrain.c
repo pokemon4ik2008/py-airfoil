@@ -191,7 +191,7 @@ int preloadTerrain(char *fname) {
 
 	terLoadTerrain(hfield,size,map_expansion_const,y_scale_const);
 	fclose(fptr);
-	return TRUE;
+	return true;
 }
 
 int load_hm_colour_ref(char *fname) {
@@ -234,7 +234,7 @@ int load_hm_colour_ref(char *fname) {
 	delete [] input_file;
 
 	if (fptr==NULL) return false;
-	else return TRUE;
+	else return true;
 }
 
 
@@ -658,10 +658,10 @@ void terCalc_view_triangle(int topz,	int botz,
 							terCreate_terrain_quad(x,z,detail);
 
 							//set the covered quads to be "plotted" in the terrain
-							terrain_map(x,z).plotted=TRUE;
-							terrain_map(x+(detail/2),z).plotted=TRUE;
-							terrain_map(x+(detail/2),z+(detail/2)).plotted=TRUE;
-							terrain_map(x,z+(detail/2)).plotted=TRUE;
+							terrain_map(x,z).plotted=true;
+							terrain_map(x+(detail/2),z).plotted=true;
+							terrain_map(x+(detail/2),z+(detail/2)).plotted=true;
+							terrain_map(x,z+(detail/2)).plotted=true;
 							
 							
 							
