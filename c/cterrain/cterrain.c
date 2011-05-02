@@ -71,7 +71,7 @@ float getAngleForXY(float adj, float opp)
 	}
 	else
 	{
-		angle = atan(abs(opp/adj));
+		angle = atan(fabs(opp/adj));
 	}
 	
 	if (adj <= 0.0f && opp >= 0.0f)
