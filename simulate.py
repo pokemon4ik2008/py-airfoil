@@ -40,6 +40,7 @@ from threading import Condition
 from time import sleep
 import traceback
 from view import View
+from skybox import *
 
 global listNum
 listNum = glGenLists(1)
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 		return pyglet.event.EVENT_HANDLED
 
 	win.on_resize=resize       
-	glClearColor(0.7, 0.7, 1.0, 1.0)
+	glClearColor(1.0, 1.0, 1.0, 1.0)
 	glClearDepth(1.0)
 	glClearStencil(0)
 	font = pyglet.font.load(None, 18, dpi=72)
@@ -272,6 +273,7 @@ if __name__ == '__main__':
 	mouse_cap=False
 	bots=[]
 	loadTerrain()
+	skybox = Skybox()
 
 	try:
 		while man.proxy.alive():
@@ -318,8 +320,10 @@ if __name__ == '__main__':
 					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
+                                skybox.draw(view)
 				#glCallList(t)
 				drawTerrain(view)
+				
 
 				for bot in bots:
 					if bot.alive():
