@@ -12,6 +12,13 @@ class Skybox:
 		self.front = image.load(textureDir + 'ft.bmp').get_texture()
 		print self.top.tex_coords
 
+        def setTexParams(self):
+                glTexParameteri(self.top.target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+                glTexParameteri(self.top.target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+                glTexParameteri(self.top.target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
+                glTexParameteri(self.top.target, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+                glTexParameteri(self.top.target, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+
 	def draw(self, view):
 		glPushMatrix()
 		glDisable( GL_DEPTH_TEST)
@@ -20,7 +27,7 @@ class Skybox:
 
 		cloudsize=100.0
 		offset=0.01
-		texOffset = 0.625
+		texOffset = 0.624
 
 		pos = view.getCamera().getCameraVectors()[1]
 		glTranslatef( pos.x, pos.y, pos.z)
@@ -29,6 +36,7 @@ class Skybox:
 
 		#top
 		glBindTexture(self.top.target, self.top.id)
+		self.setTexParams()
 		glBegin(GL_QUADS)
 	      	glTexCoord2f( 0.0, texOffset )
 		glVertex3f( cloudsize, cloudsize-offset, cloudsize )
@@ -42,6 +50,7 @@ class Skybox:
 
 		#front
 		glBindTexture(self.front.target, self.front.id)
+		self.setTexParams()
 		glBegin(GL_QUADS)
 	      	glTexCoord2f( 0.0, texOffset )
 		glVertex3f( cloudsize, cloudsize , cloudsize )
@@ -55,6 +64,7 @@ class Skybox:
 
 		#right
 		glBindTexture(self.right.target, self.right.id)
+		self.setTexParams()
 		glBegin(GL_QUADS)
 	      	glTexCoord2f( 0.0, texOffset )
 		glVertex3f( -cloudsize, cloudsize , cloudsize )
@@ -68,6 +78,7 @@ class Skybox:
 
 		#left
 		glBindTexture(self.left.target, self.left.id)
+		self.setTexParams()
 		glBegin(GL_QUADS)
 	      	glTexCoord2f( 0.0, texOffset )
 		glVertex3f( cloudsize, cloudsize , -cloudsize )
@@ -81,6 +92,7 @@ class Skybox:
 
 		#back
 		glBindTexture(self.back.target, self.back.id)
+		self.setTexParams()
 		glBegin(GL_QUADS)
 	      	glTexCoord2f( 0.0, texOffset )
 		glVertex3f( -cloudsize, cloudsize , -cloudsize )
