@@ -282,7 +282,7 @@ if __name__ == '__main__':
 				if plane.alive():
 					plane.update()
 					plane.markChanged()
-				for b in plane.getBullets():
+				for b in set(Bullet.getInFlight()):
 					b.update()
 					b.markChanged()
 			now=time()

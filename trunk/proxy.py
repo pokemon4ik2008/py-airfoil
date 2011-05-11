@@ -90,8 +90,8 @@ class Mirrorable:
         self._proxy.addUpdated(self)
         return self.alive()
 
-    #def getUnique(self):
-    #    return (self.__typ, self.getId())    
+    def getType(self):
+        return self.__typ
 
     def alive(self):
         return (self._flags & self._DEAD_FLAG)==0
@@ -205,7 +205,11 @@ class SerialisableFact:
             serialised=SerialisableFact.loads(sers[identifier])
             #print 'deserialiseAll. identifier '+str(identifier)
             if identifier in self.__notMine:
-                self.__notMine[identifier].deserialise(serialised)
+                obj=self.__notMine[identifier]
+                obj.deserialise(serialised)
+                if not obj.alive():
+                    del self.__notMine[identifier]
+                    self.__objByType[obj.getType()].remove(obj)
             else:
                 try:
                     typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
@@ -214,6 +218,9 @@ class SerialisableFact:
                         obj = self.__ctors[typ](ident=identifier).deserialise(serialised)
                         self.__notMine[identifier] = obj
                         self.__objByType[typ].append(obj)
+                        if not obj.alive():
+                            del(self.__notMine[identifier])
+                            self.__objByType[typ].remove(obj)
                     else:
                         assert False
                 except AssertionError:

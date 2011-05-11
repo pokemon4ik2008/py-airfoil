@@ -42,6 +42,8 @@ rho = 1.29 # kg/m^3 density of air
 accelDueToGravity = 9.8 # m/s/s
 
 class Obj:
+    in_flight=0
+
     def __init__(self, pos, attitude, vel):
         self._pos = pos
         self._attitude = attitude
@@ -51,6 +53,8 @@ class Obj:
         self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 60 # the speed at which our flaps etc. start having maximum effect
         self.__wasOnGround = False
         self._centreOfGravity = Vector3(0.2, 0.0, 0.0)
+        self._is_real=False
+        self._scales = [0.0, 0.0, 0.0]
 
     def getPos(self):
         return self._pos
@@ -133,15 +137,10 @@ class Obj:
     def getWeightForce(self):        
         return self._mass * accelDueToGravity
 
-    def getLiftForce(self, angleOfAttack, vel):
-        return Airfoil.getLiftCoeff(angleOfAttack) * 0.5 * rho * vel * vel * self._S
-
-    def getDragForce(self, angleOfAttack, zenithAngle, timeDiff):        
+    def getDragForce(self, angleOfAttack, timeDiff, drag=0.0):        
         vel = self._velocity
         vMag = vel.magnitude()
 
-        # Calculate 'induced' drag, caused by the lifting effect of the airfoil
-        drag = math.fabs(Airfoil.getDragCoeff(angleOfAttack) * 0.5 * rho * vMag * vMag * self._S)
         drags = []
         drags.append(drag)
 
@@ -149,14 +148,13 @@ class Obj:
         # There is no rotation if there is no wind...
         if vMag > 0.0:
             # Scale the effect of air resistance on each surface: top, side, front
-            scales = [40.0, 20.0, 2.0]
-            totalScale = sum(scales)
+            totalScale = sum(self._scales)
             normals = [Vector3(0.0, 1.0, 0.0), #plane through wings
                        Vector3(0.0, 0.0, 1.0), #plane through fuselage (vertically)
                        Vector3(1.0, 0.0, 0.0)] #plane perp. to nose vector 
 
             # Run through each of the planes, and calculate the contributory component
-            for scale, norm in zip(scales, normals):
+            for scale, norm in zip(self._scales, normals):
                 # Rotate the normal according to attitude
                 norm = self._attitude * norm
 
@@ -164,7 +162,7 @@ class Obj:
                 dot = norm.dot(vel.normalized())
 
                 # Scale the drag based on the relative resistance of the associated surface
-                scaledDot =  dot * scale / totalScale
+                scaledDot =  dot * scale
                 componentDrag = scaledDot * vMag
                 #componentDrag = scaledDot * vMag * vMag
                 drags.append(math.fabs(componentDrag))
@@ -178,38 +176,32 @@ class Obj:
             drags.append(drag)
             global prettyfloat
             #self.log(str(map(prettyfloat, drags)))
+        #print 'getDragForce. vMag: '+str(vMag)+' drag: '+str(drag)
         return drag
 
-    def _updateVelFromEnv(self, timeDiff, zenithVector, noseVector):
-        velocity = self._velocity
-        velocityNormalized = velocity.normalized()
+    def _updateVelFromGrav(self, timeDiff):
+        #Weight, acts T to ground plane
+        dv = self.getWeightForce() * timeDiff / self._mass
+        gravityVector = Vector3(0.0, -1.0, 0.0) * dv
+        #print 'grav: '+str(gravityVector)
+        self._velocity += gravityVector
+
+    def _getLiftArgs(self, zenithVector, noseVector):
+        velocityNormalized = self._velocity.normalized()
         angleOfAttack = math.acos(limitToMaxValue(velocityNormalized.dot(noseVector), 1.0))
         zenithAngle = math.acos(limitToMaxValue(velocityNormalized.dot(zenithVector), 1.0))     
         if zenithAngle < math.pi/2.0:
             # Ensure AOA can go negative
             # TODO: what happens if plane goes backwards (eg. during stall?)
             angleOfAttack = -angleOfAttack
+        return (velocityNormalized, angleOfAttack, zenithAngle)
 
-        #Weight, acts T to ground plane
-        dv = self.getWeightForce() * timeDiff / self._mass
-        gravityVector = Vector3(0.0, -1.0, 0.0) * dv
-        self._velocity += gravityVector        
-
-        #Lift, acts T to both Velocity vector AND the wing vector
-        windUnitVector = velocityNormalized
-        wingUnitVector = self._attitude * Vector3(0.0, 0.0, 1.0)
-        liftUnitVector = wingUnitVector.cross(windUnitVector).normalize()            
-        dv = self.getLiftForce( angleOfAttack, velocity.magnitude() ) * timeDiff / self._mass
-        liftVector = liftUnitVector * dv
-        if liftVector.magnitude()>self._velocity.magnitude():
-            print 'updateVelFromEnv. self: '+str(self)+' lift: '+str(liftVector)+' vel: '+str(self._velocity)
-        self._velocity += liftVector
-        
+    def _updateVelFromEnv(self, timeDiff, zenithVector, noseVector):
+        velocityNormalized, angleOfAttack, zenithAngle=self._getLiftArgs(zenithVector, noseVector)
+        self._updateVelFromGrav(timeDiff)
         #Drag, acts || to Velocity vector
-        dv  = self.getDragForce(angleOfAttack, zenithAngle, timeDiff) * timeDiff / self._mass
-        dragVector = windUnitVector * dv * -1.0
-        if dragVector.magnitude()>self._velocity.magnitude():
-            print 'updateVelFromEnv. self: '+str(self)+' drag: '+str(dragVector)+' vel: '+str(self._velocity)
+        dv  = self.getDragForce(angleOfAttack, timeDiff) * timeDiff / self._mass
+        dragVector = velocityNormalized * dv * -1.0
         self._velocity += dragVector
 
     def _updateFromEnv(self, timeDiff, zenithVector, noseVector):
@@ -250,12 +242,36 @@ class Obj:
 
 class Bullet(Obj, ControlledSer):
     TYP=3
+    __IN_FLIGHT=set()
+
+    def record(self):
+        if self in Bullet.__IN_FLIGHT:
+            if not self.alive():
+                Bullet.__IN_FLIGHT.remove(self)
+            return
+        else:
+            Bullet.__IN_FLIGHT.add(self)
+
+    def update(self):
+        Obj.update(self)
+        if self.getPos().y<=0:
+            self.markDead()
+            self.markChanged()
+            self.record()
+
+    @classmethod
+    def getInFlight(cls):
+        return cls.__IN_FLIGHT
 
     def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None):
         Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
         self._mass = 0.1 # 100g -- a guess
-        self._S = 0.0016 # meters squared? also a guess
+        self._scales = [0.062, 0.032, 0.003]
         ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
+
+    def local_init(self):
+        ControlledSer.local_init(self)
+        self.record()
 
     def draw(self):
         side = 10.0
@@ -289,6 +305,8 @@ class Airfoil(Obj):
                  thrust = 0):
         Obj.__init__(self, pos, attitude, vel)
         self.__thrust = thrust
+        #self._scales = [40.0, 20.0, 2.0]
+        self._scales = [0.62, 0.32, 0.03]
         self.__print_line = ""
 
         # Roll
@@ -312,6 +330,38 @@ class Airfoil(Obj):
 
         self._mass = 3850.0 # kg3850
         self._S = 22.48 # wing planform area        
+        #self._mass = 0.1 # 100g -- a guess
+        #self._S = 0.0016 # meters squared? also a guess
+
+    def getDragForce(self, angleOfAttack, timeDiff):
+        vMag = self._velocity.magnitude()
+
+        # Calculate 'induced' drag, caused by the lifting effect of the airfoil
+        drag = math.fabs(Airfoil.getDragCoeff(angleOfAttack) * 0.5 * rho * vMag * vMag * self._S)
+        return Obj.getDragForce(self, angleOfAttack, timeDiff, drag)
+
+    def getLiftForce(self, angleOfAttack, vel):
+        return Airfoil.getLiftCoeff(angleOfAttack) * 0.5 * rho * vel * vel * self._S
+
+    def _updateVelFromLift(self, timeDiff, windUnitVector, angleOfAttack):
+        wingUnitVector = self._attitude * Vector3(0.0, 0.0, 1.0)
+        liftUnitVector = wingUnitVector.cross(windUnitVector).normalize()            
+        dv = self.getLiftForce( angleOfAttack, self._velocity.magnitude() ) * timeDiff / self._mass
+        liftVector = liftUnitVector * dv
+        self._velocity += liftVector
+
+    def _updateVelFromEnv(self, timeDiff, zenithVector, noseVector):
+        velocityNormalized, angleOfAttack, zenithAngle=self._getLiftArgs(zenithVector, noseVector)
+        
+        self._updateVelFromGrav(timeDiff)
+        #Lift, acts T to both Velocity vector AND the wing vector
+        self._updateVelFromLift(timeDiff, velocityNormalized, angleOfAttack)
+
+        #Drag, acts || to Velocity vector
+        dv  = self.getDragForce(angleOfAttack, timeDiff) * timeDiff / self._mass
+        dragVector = velocityNormalized * dv * -1.0
+        #print "_updateVelFromEnv. vel: "+str(self._velocity)+' drag: '+str(dragVector)+' time: '+str(timeDiff)+' mass: '+str(self._mass)
+        self._velocity += dragVector
 
     #kw this will return a contant for ballistic flight
     def _getElevRot(self):
@@ -486,6 +536,7 @@ class Airfoil(Obj):
     def __getVelThrustDelta(self, timeDiff, noseVector):
         #Thrust, acts || to nose vector
         dv = self.getThrust() * timeDiff / self._mass #dv, the change in velocity due to thrust               
+        #print 'thrust noseVector: '+str(noseVector)+' time: '+str(timeDiff)+' delta: '+str(noseVector * dv)+' dv: '+str(dv)
         return noseVector * dv
 
     def _updateVelFromControls(self, timeDiff, noseVector):
