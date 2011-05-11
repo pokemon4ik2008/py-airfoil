@@ -234,10 +234,5 @@ class MyAirfoil(Airfoil, ControlledSer):
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
             b.update()
             b.markChanged()
-            self.__bullets.append(b)
             self.__last_fire=time()
-
         self.__controls.clearEvents(self.__interesting_events)
-
-    def getBullets(self):
-        return self.__bullets
