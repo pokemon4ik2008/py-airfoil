@@ -1,7 +1,8 @@
 from pyglet.window import key, mouse
 from time import time
 
-from airfoil import Airfoil, Bot, Bullet
+from airfoil import Airfoil, Bullet
+from euclid import Vector3
 from proxy import ControlledSer
 from util import repeat
 
@@ -209,11 +210,20 @@ class Controller:
         return self.__vals
 
 class MyAirfoil(Airfoil, ControlledSer):
-    def __init__(self, pos, attitude, velocity, thrust, controls, proxy):
+    TYP=0
+
+    def __init__(self, controls=None, proxy=None, 
+                 pos = Vector3(0,0,0), 
+                 attitude = Vector3(0,0,0), 
+                 velocity = Vector3(0,0,0), 
+                 thrust = 0, ident=None):
         Airfoil.__init__(self, pos, attitude, velocity, thrust)
-        ControlledSer.__init__(self, Bot.TYP, proxy=proxy)
+        ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
         print 'MyAirfoil. initialised airfoil thrust '+str(thrust)
         self.__controls=controls
+
+    def local_init(self):
+        ControlledSer.local_init(self)
         self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
         self.__thrustAdjust = 100
         self.__pitchAdjust = 0.01
@@ -222,6 +232,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__last_fire=time()
 
     def eventCheck(self):
+        if not Controls:
+            raise NotImplementedError
         events = self.__controls.eventCheck(self.__interesting_events)
 
         self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
@@ -229,7 +241,7 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
-        if events[Controller.FIRE]!=0 and time()-self.__last_fire>0.2:
+        if events[Controller.FIRE]!=0 and time()-self.__last_fire>Airfoil._FIRING_PERIOD:
             vOff=self.getVelocity().normalized()*300
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
             b.update()

@@ -272,6 +272,7 @@ class Bullet(Obj, ControlledSer):
     def local_init(self):
         ControlledSer.local_init(self)
         self.record()
+        print 'num bullets: '+str(len(self.__class__.__IN_FLIGHT))
 
     def draw(self):
         side = 10.0
@@ -296,6 +297,10 @@ class Bullet(Obj, ControlledSer):
         glEnd()
 
 class Airfoil(Obj):
+    #_FIRING_PERIOD is in seconds
+    #_FIRING_PERIOD=0.2
+    _FIRING_PERIOD=0.0
+
     def reset(self):
         self.__init__()
     
@@ -572,11 +577,3 @@ class Airfoil(Obj):
     def getHeading(self):
         noseVector = self._attitude * Vector3(1.0,0.0,0.0)
         return math.pi * 2 - getAngleForXY(noseVector.x, noseVector.z)
-
-class Bot(Airfoil, ControlledSer):
-    TYP=0
-
-    def __init__(self, ident=None):
-        Airfoil.__init__(self)
-        ControlledSer.__init__(self, Bot.TYP, ident)
-			

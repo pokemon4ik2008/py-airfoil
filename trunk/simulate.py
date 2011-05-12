@@ -147,7 +147,7 @@ if __name__ == '__main__':
         opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
-	factory=SerialisableFact({ Bot.TYP: Bot, Bullet.TYP: Bullet })
+	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
 	if opt.server is None:
 		if opt.client is None:
 			man.server=Server()
@@ -263,7 +263,8 @@ if __name__ == '__main__':
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
 		(pos, att, vel, thrust)=plane_inits[i]
-		plane = MyAirfoil(pos, att, vel, thrust, controller, man.proxy)
+		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, 
+				  controls=controller, proxy=man.proxy)
 		planes[plane.getId()]=plane
 
 		view = View(controller, win, plane, len(player_keys), opt)
@@ -306,7 +307,8 @@ if __name__ == '__main__':
 				win_ctrls.clearEvents()
 
 			if man.proxy.acquireLock():
-				bots[:]= man.proxy.getTypesObjs([ Bot.TYP, Bullet.TYP ])
+				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, 
+								  Bullet.TYP ])
 				man.proxy.releaseLock()
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      

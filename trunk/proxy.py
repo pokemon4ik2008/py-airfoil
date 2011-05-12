@@ -44,6 +44,9 @@ def toHexStr(string):
         bytes+='%02x'%ord(c)
     return bytes
 
+def droppable(flags):
+    return (flags & Mirrorable._DROPPABLE_FLAG)==Mirrorable._DROPPABLE_FLAG
+
 class Mirrorable:
     META=0
     __INDEXES=[TYPE, IDENT, SYS, FLAGS]=range(4)
@@ -74,6 +77,12 @@ class Mirrorable:
     def remote_init(self, ident):
         (client_id, my_ident)=ident
         self._ident=my_ident
+
+    def isClose(self, obj):
+        return self.getId()==obj.getId()
+
+    def droppable(self):
+        return droppable(self._flags)
 
     def getId(self):
         try:
@@ -137,6 +146,9 @@ class ControlledSer(Mirrorable):
         Mirrorable.local_init(self)
         self._flags |= self._DROPPABLE_FLAG
 
+    def isClose(self, obj):
+        return Mirrorable.isClose(self, obj) and (self.getPos()-obj.getPos()).magnitude_squared()<0.5
+
     def serialise(self):
         ser=Mirrorable.serialise(self)
         p=self.getPos()
@@ -171,6 +183,9 @@ class ControlledSer(Mirrorable):
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
         return Mirrorable.deserialise(self, ser).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
+
+    def approxUpdate(self):
+        raise NotImplementedError
         
 class SerialisableFact:
     __OBJ_IDX,__TIME_IDX=range(2)
@@ -199,7 +214,17 @@ class SerialisableFact:
         obj.extend(cPickle.loads(obj_str[Mirrorable.META_SIZE:]))
         return obj
 
-    def deserialiseAll(self, sers):
+    def estimable(self, mirrorable):
+        if not manage.fast_path or mirrorable.getId() not in self.__notMine:
+            return False
+        if mirrorable.isClose(self.__notMine[mirrorable.getId()]):
+            print 'estimable true'
+            return True
+        else:
+            print 'estimable false'
+            return False
+
+    def deserMany(self, sers):
         deserialiseds=[]
         for identifier in sers:
             serialised=SerialisableFact.loads(sers[identifier])
@@ -345,9 +370,10 @@ class Client(Thread, Mirrorable):
              return
          
          #store mirrorable without needing to wait for lock
-         if mirrorable.getId() not in self.__serialised:
-             self.__ids.append(mirrorable.getId())
-         self.__serialised[mirrorable.getId()]=mirrorable.serialise()
+         if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
+             if mirrorable.getId() not in self.__serialised:
+                 self.__ids.append(mirrorable.getId())
+             self.__serialised[mirrorable.getId()]=mirrorable.serialise()
          self.attemptSendAll()
 
      def acquireLock(self, blocking=False):
@@ -434,7 +460,7 @@ class Client(Thread, Mirrorable):
                              break
                          #print 'Client.run: len read: '+str(len(rec))
                          rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
-                         self.__fact.deserialiseAll(self.__sers)
+                         self.__fact.deserMany(self.__sers)
                          if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
                              print 'Client.run. closing socket'
                              self.releaseLock()
@@ -536,7 +562,7 @@ class Server(Thread):
             self.__outQs[s].append(uniq)
         self.__outs[s][uniq]=obj_str;
 
-        if (flags & Mirrorable._DROPPABLE_FLAG)!=Mirrorable._DROPPABLE_FLAG:
+        if not droppable(flags):
             self.qWrites(s)
 
     def qWrite(self, s, string):
