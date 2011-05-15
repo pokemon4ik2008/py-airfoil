@@ -281,8 +281,9 @@ class SerialisableFact:
             obj=objLookup[identifier]
             obj.deserialise(serialised, estimated)
             if not obj.alive():
-                objLookup[identifier]
+                del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
+                print 'deserManyTo. 2 deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
         else:
             try:
                 typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
@@ -294,6 +295,7 @@ class SerialisableFact:
                     if not obj.alive():
                         del(objLookup[identifier])
                         objByType[typ].remove(obj)
+                        print 'deserManyTo. deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
                 else:
                     assert False
             except AssertionError:
@@ -448,6 +450,8 @@ class Client(Thread, Mirrorable):
              assert mirrorable.local()
 
              uniq=mirrorable.getId()
+             if not mirrorable.alive():
+                 print 'addUpdated. dead: '+str(uniq)
              ser=mirrorable.serialise()
              if uniq in self.__fact and manage.fast_path:
                  self.__fact.getObj(uniq).estUpdate()

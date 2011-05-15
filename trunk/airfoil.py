@@ -290,26 +290,31 @@ class Bullet(Obj, ControlledSer):
         self.record()
 
     def draw(self):
-        side = 10.0
-        att=self.getAttitude()
-        pos = self.getPos()
+        try:
+            assert self.alive()
 
-        vlist = [Vector3(0,0,0),
-                 Vector3(-side/2.0, -side/2.0*0, 0),
-                 Vector3(-side/2.0, side/2.0, 0),
-                 Vector3(0, 0, 0),
-                 Vector3(-side/2.0, 0, -side),
-                 Vector3(-side/4.0, 0, side)]
+            side = 10.0
+            att=self.getAttitude()
+            pos = self.getPos()
 
-        glDisable(GL_CULL_FACE)
-        glTranslatef(pos.x, pos.y, pos.z)
-        glBegin(GL_TRIANGLES)
-        glColor4f(0.0,0.0,0.0,1.0)
+            vlist = [Vector3(0,0,0),
+                     Vector3(-side/2.0, -side/2.0*0, 0),
+                     Vector3(-side/2.0, side/2.0, 0),
+                     Vector3(0, 0, 0),
+                     Vector3(-side/2.0, 0, -side),
+                     Vector3(-side/4.0, 0, side)]
 
-        for i in vlist[3:6]:
-                j = att * i
-                glVertex3f(j.x, j.y, j.z)
-        glEnd()
+            glDisable(GL_CULL_FACE)
+            glTranslatef(pos.x, pos.y, pos.z)
+            glBegin(GL_TRIANGLES)
+            glColor4f(0.0,0.0,0.0,1.0)
+
+            for i in vlist[3:6]:
+                    j = att * i
+                    glVertex3f(j.x, j.y, j.z)
+            glEnd()
+        except AssertionError:
+            print_exc()
 
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
