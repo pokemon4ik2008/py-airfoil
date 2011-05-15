@@ -450,7 +450,8 @@ class Client(Thread, Mirrorable):
                  self.__fact.getObj(uniq).estUpdate()
              if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
                  self.__pushSend(uniq, ser)
-                 self.__fact.deserLocals({uniq: ser})
+                 if manage.fast_path:
+                     self.__fact.deserLocals({uniq: ser})
              else:
                  self.__fact.deserLocals({uniq: ser}, estimated=True)
              self.attemptSendAll()
