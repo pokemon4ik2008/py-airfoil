@@ -305,6 +305,9 @@ class SerialisableFact:
             serialised=SerialisableFact.loads(sers[identifier])
             self.deserManyTo(identifier, serialised, self.__notMine, self.__objByType)
 
+    def deserLocal(self, identifier, serialised, estimated=False):
+        self.deserManyTo(identifier, serialised, self.__mine, self.__myObjsByType, estimated)
+        
     def deserLocals(self, sers, estimated=False):
         for (identifier, serialised) in sers.items():
             self.deserManyTo(identifier, serialised, self.__mine, self.__myObjsByType, estimated)
@@ -443,17 +446,17 @@ class Client(Thread, Mirrorable):
              #can't get any obj id if we don't have a sys id
              assert Sys.ID is not None
              assert mirrorable.local()
-         
+
              uniq=mirrorable.getId()
              ser=mirrorable.serialise()
-             if mirrorable.getId() in self.__fact and manage.fast_path:
+             if uniq in self.__fact and manage.fast_path:
                  self.__fact.getObj(uniq).estUpdate()
              if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
                  self.__pushSend(uniq, ser)
                  if manage.fast_path:
-                     self.__fact.deserLocals({uniq: ser})
+                     self.__fact.deserLocal(uniq, ser)
              else:
-                 self.__fact.deserLocals({uniq: ser}, estimated=True)
+                 self.__fact.deserLocal(uniq, ser, estimated=True)
              self.attemptSendAll()
          except AssertionError:
              print_exc()
