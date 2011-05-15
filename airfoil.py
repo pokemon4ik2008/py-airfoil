@@ -18,6 +18,7 @@
 ##//
 
 from euclid import *
+import manage
 from proxy import ControlledSer
 from pyglet.gl import *
 from pyglet.window import key
@@ -212,7 +213,6 @@ class Obj:
         self._updateVelFromEnv(timeDiff, zenithVector, noseVector)
 
     def __hitGround(self):
-        print 'Hit ground'
         self.__wasOnGround = True      
         # Point the craft along the ground plane
         self._attitude = Quaternion.new_rotate_euler(self.getWindHeading(),0,0)   
@@ -245,19 +245,35 @@ class Bullet(Obj, ControlledSer):
     __IN_FLIGHT=set()
 
     def record(self):
-        if self in Bullet.__IN_FLIGHT:
-            if not self.alive():
-                Bullet.__IN_FLIGHT.remove(self)
-            return
-        else:
-            Bullet.__IN_FLIGHT.add(self)
+        try:
+            assert self.local()
+            if self in Bullet.__IN_FLIGHT:
+                if not self.alive():
+                    Bullet.__IN_FLIGHT.remove(self)
+                    if(len(self.__class__.__IN_FLIGHT)%25==0):
+                        print 'num bullets (fewer): '+str(len(self.__class__.__IN_FLIGHT))
+                return
+            else:
+                Bullet.__IN_FLIGHT.add(self)
+                if(len(self.__class__.__IN_FLIGHT)%25==0):
+                    print 'num bullets (more): '+str(len(self.__class__.__IN_FLIGHT))
+        except AssertionError:
+            print_exc()
+
+    def isClose(self, obj):
+        return obj.getId()==self.getId()
 
     def update(self):
-        Obj.update(self)
+        if self.getId() in self._proxy:
+            rs=self._proxy.getObj(self.getId()) #rs = remote_self
+            (self._pos, self._attitude, self._velocity)=(rs._pos, rs._attitude, rs._velocity)
         if self.getPos().y<=0:
             self.markDead()
             self.markChanged()
             self.record()
+
+    def estUpdate(self):
+        Obj.update(self)
 
     @classmethod
     def getInFlight(cls):
@@ -269,10 +285,9 @@ class Bullet(Obj, ControlledSer):
         self._scales = [0.062, 0.032, 0.003]
         ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
 
-    def local_init(self):
-        ControlledSer.local_init(self)
+    def localInit(self):
+        ControlledSer.localInit(self)
         self.record()
-        print 'num bullets: '+str(len(self.__class__.__IN_FLIGHT))
 
     def draw(self):
         side = 10.0
@@ -298,8 +313,7 @@ class Bullet(Obj, ControlledSer):
 
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
-    #_FIRING_PERIOD=0.2
-    _FIRING_PERIOD=0.0
+    _FIRING_PERIOD=0.2
 
     def reset(self):
         self.__init__()

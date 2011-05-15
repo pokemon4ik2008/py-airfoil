@@ -17,11 +17,18 @@ class Controls(Enum):
     def __str__(self):
         return self.__name
 
+    def __repr__(self):
+        return self.__name
+
 class Action:
     def __init__(self, name):
         self.__name=name
+        self._auto_clears=False
 
     def __str__(self):
+        return self.__name
+
+    def __repr__(self):
         return self.__name
 
 class KeyAction(Action):
@@ -85,7 +92,9 @@ class MouseButAction(MouseAction):
     __BUT_MASK={LEFT: mouse.LEFT, MID: mouse.MIDDLE, RIGHT: mouse.RIGHT}
 
     def __init__(self, dim):
+        Action.__init__(self, 'MouseButAction: dim: '+str(dim))
         self._dim=dim
+        self._auto_clears=True
 
     def matches(self, combined, modifiers):
         masked=MouseButAction.__BUT_MASK[self.dim()] & combined
@@ -129,21 +138,20 @@ class Controller:
 
             @win.event
             def on_mouse_press(x, y, button, modifiers):
-                def set_vals((c, a)):
-                    if a.matches(button, modifiers):
-                        self.__vals[c] = 1
-                    else:
-                        self.__vals[c] = 0
-
                 for c in Controller.__INSTANCES:
-                    map(set_vals, c.__control_types.get(MouseButAction, {}).items())
+                    map(lambda (ctrl, action): c.__setMouseButtonVals(button, modifiers, (ctrl, action), 1), c.__control_types.get(MouseButAction, {}).items())
+
+            @win.event
+            def on_mouse_release(x, y, button, modifiers):
+                for c in Controller.__INSTANCES:
+                    map(lambda (ctrl, action): c.__setMouseButtonVals(button, modifiers, (ctrl, action), 0), c.__control_types.get(MouseButAction, {}).items())
 
             @win.event
             def on_key_press(symbol, mods):
                 for c in Controller.__INSTANCES:
                     for ctrl in [control for control in c.__on_key_press]:
-                        if self.__controls[ctrl].matches(symbol, mods):
-                            self.__vals[ctrl] = 1
+                        if c.__controls[ctrl].matches(symbol, mods):
+                            c.__vals[ctrl] = 1
 
             win.push_handlers(KeyAction.getKeys())
             Controller.__WINS.append(win)
@@ -156,6 +164,7 @@ class Controller:
             self.__control_types[v.__class__][k]=v
 
         self.__controls_list = self.__controls.keys()
+        print 'Controller.__init__. self: '+str(self)+' controls: '+str(self.__controls_list)
         self.__on_key_press=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if action.checkOnPress()]
         self.__on_key_press_not=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if not action.checkOnPress()]
         self.__vals=dict([(Controller.THRUST, 0), 
@@ -176,7 +185,12 @@ class Controller:
         if controls is None:
             controls=self.__controls_list
         for c in controls:
-            self.__vals[c]=0
+            if c in self.__controls and not self.__controls[c]._auto_clears:
+                self.__vals[c]=0
+
+    def __setMouseButtonVals(self, button, modifiers, (c, a), val):
+        if a.matches(button, modifiers):
+            self.__vals[c] = val
 
     def __gen_actions(self, action_class):
         mouse_ctrls=self.__control_types.get(action_class, {})
@@ -222,8 +236,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         print 'MyAirfoil. initialised airfoil thrust '+str(thrust)
         self.__controls=controls
 
-    def local_init(self):
-        ControlledSer.local_init(self)
+    def localInit(self):
+        ControlledSer.localInit(self)
         self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
         self.__thrustAdjust = 100
         self.__pitchAdjust = 0.01

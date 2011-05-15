@@ -66,20 +66,28 @@ class Mirrorable:
         self.__typ=typ
         self._flags=0
         if ident is None:
-            self.local_init()
+            self.__local=True
+            self.localInit()
         else:
-            self.remote_init(ident)
+            self.__local=False
+            self.remoteInit(ident)
 
-    def local_init(self):
+    def local(self):
+        return self.__local
+
+    def localInit(self):
         self._ident=Mirrorable.__InstCount
         Mirrorable.__InstCount+=1
 
-    def remote_init(self, ident):
+    def remoteInit(self, ident):
         (client_id, my_ident)=ident
         self._ident=my_ident
 
     def isClose(self, obj):
-        return self.getId()==obj.getId()
+        return False
+
+    def estUpdate(self):
+        return self
 
     def droppable(self):
         return droppable(self._flags)
@@ -94,10 +102,13 @@ class Mirrorable:
         return (0, self._ident)
 
     def markChanged(self):
-        if self._proxy is None:
-            raise NotImplementedError
-        self._proxy.addUpdated(self)
-        return self.alive()
+        try:
+            assert self.local()
+            self._proxy.addUpdated(self)
+            return self.alive()
+        except AssertionError:
+            print_exc()
+            return False
 
     def getType(self):
         return self.__typ
@@ -106,10 +117,14 @@ class Mirrorable:
         return (self._flags & self._DEAD_FLAG)==0
 
     def markDead(self, dead=True):
-        if dead:
-            self._flags |= self._DEAD_FLAG
-        else:
-            self._flags &= ~(self._DEAD_FLAG)
+        try:
+            assert self.local()
+            if dead:
+                self._flags |= self._DEAD_FLAG
+            else:
+                self._flags &= ~(self._DEAD_FLAG)
+        except AssertionError:
+            print_exc()
 
     def serialise(self):
         #print 'serialise. typ: '+str(self.__typ)+' ident: '+str(self._ident)
@@ -131,7 +146,7 @@ class Mirrorable:
         start_sys=Mirrorable.SHIFTS[Mirrorable.SYS]
         return (Mirrorable.deSerMeta(serialised, Mirrorable.SYS), Mirrorable.deSerMeta(serialised, Mirrorable.IDENT))
 
-    def deserialise(self, serialised):
+    def deserialise(self, serialised, estimated=False):
         flags=Mirrorable.deSerMeta(serialised, self.FLAGS)
         self._flags=flags
         return self
@@ -142,12 +157,17 @@ class ControlledSer(Mirrorable):
     def __init__(self, typ, ident=None, proxy=None):
         Mirrorable.__init__(self, typ, ident, proxy)
 
-    def local_init(self):
-        Mirrorable.local_init(self)
+    def localInit(self):
+        Mirrorable.localInit(self)
         self._flags |= self._DROPPABLE_FLAG
 
-    def isClose(self, obj):
-        return Mirrorable.isClose(self, obj) and (self.getPos()-obj.getPos()).magnitude_squared()<0.5
+    def remoteInit(self, ident):
+        Mirrorable.remoteInit(self, ident)
+        self.__lastKnownPos=Vector3(0,0,0)
+        self.__lastDelta=Vector3(0,0,0)
+        #self.__lastKnownAtt=Quaternion(1,0,0,0)
+        #self.__lastAttDelta=Quaternion(1,0,0,0)
+        self.__lastUpdateTime=0.0
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
@@ -178,26 +198,50 @@ class ControlledSer(Mirrorable):
     def qAssign(ser, idx):
         return ControlledSer.genAssign(ser, idx, 4)
 
-    def deserialise(self, ser):
+    def deserialise(self, ser, estimated=False):
         (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
-        return Mirrorable.deserialise(self, ser).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
-
-    def approxUpdate(self):
-        raise NotImplementedError
         
+        if not estimated:
+            now=time()
+            period=now-self.__lastUpdateTime
+            pos=Vector3(px,py,pz)
+            self.__lastDelta=(pos-self.__lastKnownPos)/period
+            self.__lastUpdateTime=now
+            self.__lastKnownPos=pos
+        return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
+
+    def isClose(self, obj):
+        if (self.getPos()-obj.getPos()).magnitude_squared()>=0.25:
+            return False
+        perm_att=self.getAttitude()
+        temp_att=obj.getAttitude().conjugated()
+        diff=(perm_att*temp_att)
+        
+        #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
+        return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0005
+
+    def estUpdate(self):
+        period=time()-self.__lastUpdateTime
+        self.setPos(self.__lastKnownPos+
+                    (self.__lastDelta*period))
+        return self
+
 class SerialisableFact:
     __OBJ_IDX,__TIME_IDX=range(2)
+    HIT_CNT=0
+    TOT_CNT=0
 
     def __init__(self, ctors):
         self.__notMine={}
         self.__objByType=[ [] for i in range(SerialisableFact.getMaxType()+1)]
+        self.__mine={}
+        self.__myObjsByType=[ [] for i in range(SerialisableFact.getMaxType()+1)]
         try:
             assert len(self.__objByType)==SerialisableFact.getMaxType()+1
         except:
             print 'SerialisableFact.__init__. objByTypeField wrong size: '+str(self.__objByType)
-        self.__mine={}
         self.__ctors=ctors
 
     def update(self, new_ctors):
@@ -215,61 +259,87 @@ class SerialisableFact:
         return obj
 
     def estimable(self, mirrorable):
-        if not manage.fast_path or mirrorable.getId() not in self.__notMine:
-            return False
-        if mirrorable.isClose(self.__notMine[mirrorable.getId()]):
-            print 'estimable true'
-            return True
-        else:
-            print 'estimable false'
-            return False
+        try:
+            # we compare mirrorable which is local with it deserialised version
+            assert mirrorable.local()
+            self.__class__.TOT_CNT+=1
+            if mirrorable.getId() not in self.__mine:
+                #print 'estimable. False 1'
+                return False
+            if mirrorable.isClose(self.__mine[mirrorable.getId()]):
+                self.__class__.HIT_CNT+=1
+                #print 'estimable. True'
+                return True
+            else:
+                #print 'estimable. False 2'
+                return False
+        except AssertionError:
+            print_exc()
 
-    def deserMany(self, sers):
-        deserialiseds=[]
+    def deserManyTo(self, identifier, serialised, objLookup, objByType, estimated=False):
+        if identifier in objLookup:
+            obj=objLookup[identifier]
+            obj.deserialise(serialised, estimated)
+            if not obj.alive():
+                objLookup[identifier]
+                objByType[obj.getType()].remove(obj)
+        else:
+            try:
+                typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
+                if typ in self.__ctors:
+                    #print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
+                    obj = self.__ctors[typ](ident=identifier).deserialise(serialised, estimated)
+                    objLookup[identifier] = obj
+                    objByType[typ].append(obj)
+                    if not obj.alive():
+                        del(objLookup[identifier])
+                        objByType[typ].remove(obj)
+                else:
+                    assert False
+            except AssertionError:
+                print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
+                print_exc()
+
+    def deserRemotes(self, sers):
         for identifier in sers:
             serialised=SerialisableFact.loads(sers[identifier])
-            #print 'deserialiseAll. identifier '+str(identifier)
-            if identifier in self.__notMine:
-                obj=self.__notMine[identifier]
-                obj.deserialise(serialised)
-                if not obj.alive():
-                    del self.__notMine[identifier]
-                    self.__objByType[obj.getType()].remove(obj)
-            else:
-                try:
-                    typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
-                    if typ in self.__ctors:
-                        print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
-                        obj = self.__ctors[typ](ident=identifier).deserialise(serialised)
-                        self.__notMine[identifier] = obj
-                        self.__objByType[typ].append(obj)
-                        if not obj.alive():
-                            del(self.__notMine[identifier])
-                            self.__objByType[typ].remove(obj)
-                    else:
-                        assert False
-                except AssertionError:
-                    print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
+            self.deserManyTo(identifier, serialised, self.__notMine, self.__objByType)
+
+    def deserLocals(self, sers, estimated=False):
+        for (identifier, serialised) in sers.items():
+            self.deserManyTo(identifier, serialised, self.__mine, self.__myObjsByType, estimated)
 
     def __contains__(self, ident):
-        return ident in self.__notMine
+        return ident in self.__mine or ident in self.__notMine
 
     def getObj(self, ident):
+        if ident in self.__mine:
+            return self.__mine[ident]
         return self.__notMine[ident]
 
-    def getTypeObjs(self, typ):
+    def getTypeObjs(self, typ, native=True, foreign=True):
+        objs=[]
         try:
             assert typ<=SerialisableFact.getMaxType()
-            return self.__objByType[typ]
+            if native:
+                objs.extend(self.__myObjsByType[typ])
+            if foreign:
+                objs.extend(self.__objByType[typ])
         except AssertionError:
             print 'getTypeObjs. typ too large: '+str(typ)
-        return []
+        return objs
 
-    def getTypesObjs(self, types):
+    def getTypesObjs(self, types, native=True, foreign=True):
         objs=[]
         for t in types:
-            objs.extend(self.getTypeObjs(t))
+            objs.extend(self.getTypeObjs(t, native, foreign))
         return objs
+
+    def native(self, mirrorable):
+        return mirrorable in self.__mine[mirrorable.getId()]
+
+    def foreign(self, mirrorable):
+        return mirrorable in self.__notMine[mirrorable.getId()]
 
 def read(s, rec, addSend, finalise):
     start=0
@@ -306,9 +376,9 @@ class Client(Thread, Mirrorable):
          self.__fact=factory
          Mirrorable.__init__(self, self.TYP, ident, self)
 
-     def local_init(self):
+     def localInit(self):
          Thread.__init__(self)
-         Mirrorable.local_init(self)
+         Mirrorable.localInit(self)
          self.__fact.update({ Client.TYP: Client, Sys.TYP: self.initSys })
          self.__dead_here=False
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -329,6 +399,8 @@ class Client(Thread, Mirrorable):
          self.__outbox=deque()
          self.__out=''
          self.__in=''
+         self.bytes_read=0
+         self.bytes_sent=0
          self.__lock=RLock()
          self.__open=True
          self.daemon=True
@@ -361,26 +433,41 @@ class Client(Thread, Mirrorable):
              return done
          return False
 
+     def __pushSend(self, uniq, ser):
+         if uniq not in self.__serialised:
+             self.__ids.append(uniq)
+         self.__serialised[uniq]=ser
+
      def addUpdated(self, mirrorable):
          try:
              #can't get any obj id if we don't have a sys id
              assert Sys.ID is not None
-         except AssertionError:
-             print >> sys.stderr, 'Client.addUpdated. System setup incomplete. Obj update lost'
-             return
+             assert mirrorable.local()
          
-         #store mirrorable without needing to wait for lock
-         if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
-             if mirrorable.getId() not in self.__serialised:
-                 self.__ids.append(mirrorable.getId())
-             self.__serialised[mirrorable.getId()]=mirrorable.serialise()
-         self.attemptSendAll()
+             uniq=mirrorable.getId()
+             ser=mirrorable.serialise()
+             if mirrorable.getId() in self.__fact and manage.fast_path:
+                 self.__fact.getObj(uniq).estUpdate()
+             if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
+                 self.__pushSend(uniq, ser)
+                 self.__fact.deserLocals({uniq: ser})
+             else:
+                 self.__fact.deserLocals({uniq: ser}, estimated=True)
+             self.attemptSendAll()
+         except AssertionError:
+             print_exc()
 
      def acquireLock(self, blocking=False):
          return self.__lock.acquire(blocking)
 
      def releaseLock(self):
          self.__lock.release()
+
+     def native(self, mirrorable):
+         return self.__fact.native(mirrorable)
+
+     def foreign(self, mirrorable):
+         return self.__fact.foreign(mirrorable)
 
      def __contains__(self, ident):
          return ident in self.__fact
@@ -409,6 +496,7 @@ class Client(Thread, Mirrorable):
          try:
              assert len(self.__out)>0
              sent=self.__s.send(self.__out)
+             self.bytes_sent+=sent
              self.__out=self.__out[sent:]
          except AssertionError:
              print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
@@ -453,6 +541,7 @@ class Client(Thread, Mirrorable):
                  if self.__s in reads:
                      if self.acquireLock():
                          read_now=self.__s.recv(4096)
+                         self.bytes_read+=len(read_now)
                          if read_now=='':
                              self.markDead()
                              self.releaseLock()
@@ -460,13 +549,13 @@ class Client(Thread, Mirrorable):
                              break
                          #print 'Client.run: len read: '+str(len(rec))
                          rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
-                         self.__fact.deserMany(self.__sers)
+                         self.__fact.deserRemotes(self.__sers)
+                         self.__sers={}
                          if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
                              print 'Client.run. closing socket'
                              self.releaseLock()
                              self.__open=False
                              break
-                         self.__sers={}
                          self.releaseLock()
                      else:
                          sleep_needed=True
@@ -514,12 +603,12 @@ class Sys(Mirrorable):
     def __init__(self, ident=None):
         Mirrorable.__init__(self, Sys.TYP, ident)
 
-    def local_init(self):
+    def localInit(self):
         self._ident=Sys.__NextInst
         Sys.__NextInst+=1
 
-    def remote_init(self, ident):
-        Mirrorable.remote_init(self, ident)
+    def remoteInit(self, ident):
+        Mirrorable.remoteInit(self, ident)
         ID=self
 
     def getSysId(self):
@@ -545,6 +634,8 @@ class Server(Thread):
          self.__stopped=False
          self.__outQs={}
          self.__outs={}
+         self.bytes_read=0
+         self.bytes_sent=0
          self.daemon=True
          self.__accepted_clients=False
          if own_thread:
@@ -579,7 +670,8 @@ class Server(Thread):
                 obj=int2Bytes(len(obj_str), LEN_LEN)+obj_str
                 #print 'qWrites. readers: '+str(self.__readers)
                 for reader in self.__readers:
-                    self.qWrite(reader, obj)
+                    if reader is not s or not manage.fast_path:
+                        self.qWrite(reader, obj)
         except KeyError:
             print >> sys.stderr, "qWrites. failed to find uniq: "+str(uniq)+' or sock: '+str(s)+' in dict: '+str(self.__outs)
             if s not in self.__outs:
@@ -649,6 +741,7 @@ class Server(Thread):
                                 self.__outQs[r]=[]
                                 self.__outs[r]={}
                                 read_now=r.recv(4096)
+                                self.bytes_read+=len(read_now)
                                 if read_now=='':
                                     self.__remove_sock(r)
                                     print 'closing server connection'
@@ -678,6 +771,7 @@ class Server(Thread):
                             assert len(self.__serialisables[w]) > 0
                             #print 'Server.run. w: '+str(w)
                             sent=w.send(self.__serialisables[w])
+                            self.bytes_sent+=sent
                             #print 'Client.run. sent: '+toHexStr(self.__serialisables[w][:sent])
                             if not sent:
                                 print 'clising server connection 1'
