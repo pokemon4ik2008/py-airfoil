@@ -276,15 +276,25 @@ if __name__ == '__main__':
 	loadTerrain()
 	skybox = Skybox()
 
+	start_time=time()
 	try:
 		while man.proxy.alive():
 			# move this loop to ProxyObs.loop
 			for plane in planes.itervalues():
 				if plane.alive():
 					plane.update()
-					plane.markChanged()
 			for b in set(Bullet.getInFlight()):
 				b.update()
+
+			if man.proxy.acquireLock():
+				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
+				[ b.estUpdate() for b in bots if not b.local() or not man.fast_path]
+				man.proxy.releaseLock()
+
+			for plane in planes.itervalues():
+				if plane.alive():
+					plane.markChanged()
+			for b in set(Bullet.getInFlight()):
 				b.markChanged()
 
 			now=time()
@@ -305,11 +315,6 @@ if __name__ == '__main__':
 				mouse_cap = ~mouse_cap
 				win.set_exclusive_mouse(mouse_cap)
 				win_ctrls.clearEvents()
-
-			if man.proxy.acquireLock():
-				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, 
-								  Bullet.TYP ])
-				man.proxy.releaseLock()
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
 			for view in views:
@@ -355,7 +360,6 @@ if __name__ == '__main__':
 		traceback.print_exc()
 		man.proxy.markDead()
 		man.proxy.markChanged()
-        print "fps:  %d" % clock.get_fps()
 	print 'before proxy.join'
 	if man.proxy:
 		flush_start=time()
@@ -375,3 +379,11 @@ if __name__ == '__main__':
 		except:
 			print_exc()
 	print 'quitting main thread'
+        print "fps:  %d" % clock.get_fps()
+	end_time=time()
+	if man.proxy:
+		print "client: kb/s read: "+str((man.proxy.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.proxy.bytes_sent/1024)/(end_time-start_time))
+	if man.server:
+		print "server: kb/s read: "+str((man.server.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.server.bytes_sent/1024)/(end_time-start_time))
+	if man.fast_path:
+		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
