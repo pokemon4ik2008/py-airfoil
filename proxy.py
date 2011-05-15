@@ -1,4 +1,5 @@
 import cPickle
+
 from collections import deque
 from euclid import Quaternion, Vector3
 import manage
@@ -116,13 +117,11 @@ class Mirrorable:
     def alive(self):
         return (self._flags & self._DEAD_FLAG)==0
 
-    def markDead(self, dead=True):
+    def markDead(self):
         try:
             assert self.local()
-            if dead:
-                self._flags |= self._DEAD_FLAG
-            else:
-                self._flags &= ~(self._DEAD_FLAG)
+            self._flags &= ~self._DROPPABLE_FLAG
+            self._flags |= self._DEAD_FLAG
         except AssertionError:
             print_exc()
 
@@ -450,8 +449,6 @@ class Client(Thread, Mirrorable):
              assert mirrorable.local()
 
              uniq=mirrorable.getId()
-             if not mirrorable.alive():
-                 print 'addUpdated. dead: '+str(uniq)
              ser=mirrorable.serialise()
              if uniq in self.__fact and manage.fast_path:
                  self.__fact.getObj(uniq).estUpdate()
