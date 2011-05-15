@@ -213,14 +213,14 @@ class ControlledSer(Mirrorable):
         return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
 
     def isClose(self, obj):
-        if (self.getPos()-obj.getPos()).magnitude_squared()>=0.25:
+        if (self.getPos()-obj.getPos()).magnitude_squared()>=0.22:
             return False
         perm_att=self.getAttitude()
         temp_att=obj.getAttitude().conjugated()
         diff=(perm_att*temp_att)
         
         #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
-        return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0005
+        return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0003
 
     def estUpdate(self):
         period=time()-self.__lastUpdateTime
