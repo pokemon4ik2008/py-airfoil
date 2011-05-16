@@ -26,7 +26,7 @@ import optparse
 import pyglet
 import ctypes
 import manage
-from airfoil import Bullet, Obj
+from airfoil import Airfoil, Bullet, Obj
 import os
 from proxy import *
 from pyglet.gl import *
@@ -93,6 +93,85 @@ def drawTerrain(view):
 	pointOfView[5] = cameraCenter[2]
 	cterrain.draw(pointOfView)
 
+class MyAirfoil(Airfoil, ControlledSer):
+    TYP=0
+
+    def __init__(self, controls=None, proxy=None, 
+                 pos = Vector3(0,0,0), 
+                 attitude = Vector3(0,0,0), 
+                 velocity = Vector3(0,0,0), 
+                 thrust = 0, ident=None):
+        Airfoil.__init__(self, pos, attitude, velocity, thrust)
+        ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
+        print 'MyAirfoil. initialised airfoil thrust '+str(thrust)
+        self.__controls=controls
+
+    def localInit(self):
+        ControlledSer.localInit(self)
+        self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
+        self.__thrustAdjust = 100
+        self.__pitchAdjust = 0.01
+        self.__rollAdjust = 0.01
+        self.__bullets=[]
+        self.__last_fire=time()
+
+    def remoteInit(self, ident):
+        ControlledSer.remoteInit(self, ident)
+        self.__lastKnownPos=Vector3(0,0,0)
+        self.__lastDelta=Vector3(0,0,0)
+        #self.__lastKnownAtt=Quaternion(1,0,0,0)
+        #self.__lastAttDelta=Quaternion(1,0,0,0)
+        self.__lastUpdateTime=0.0
+
+    def estUpdate(self):
+        period=time()-self.__lastUpdateTime
+        self.setPos(self.__lastKnownPos+
+                    (self.__lastDelta*period))
+        return self
+
+    def eventCheck(self):
+        if not Controls:
+            raise NotImplementedError
+        events = self.__controls.eventCheck(self.__interesting_events)
+
+        self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
+        if events[Controller.PITCH]!=0:
+            self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
+        if events[Controller.ROLL]!=0:
+            self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
+        if events[Controller.FIRE]!=0 and time()-self.__last_fire>Airfoil._FIRING_PERIOD:
+            vOff=self.getVelocity().normalized()*300
+            b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
+            b.update()
+            b.markChanged()
+            self.__last_fire=time()
+        self.__controls.clearEvents(self.__interesting_events)
+
+    def serialise(self):
+        ser=Mirrorable.serialise(self)
+        p=self.getPos()
+        ser.append(p.x)
+        ser.append(p.y)
+        ser.append(p.z)
+        a=self.getAttitude()
+        ser.append(a.w)
+        ser.append(a.x)
+        ser.append(a.y)
+        ser.append(a.z)
+        return ser
+
+    def deserialise(self, ser, estimated=False):
+        (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
+        (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
+        
+        if not estimated:
+            now=time()
+            period=now-self.__lastUpdateTime
+            pos=Vector3(px,py,pz)
+            self.__lastDelta=(pos-self.__lastKnownPos)/period
+            self.__lastUpdateTime=now
+            self.__lastKnownPos=pos
+        return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
 
 if __name__ == '__main__':               
 	man=manage
@@ -385,4 +464,7 @@ if __name__ == '__main__':
 		print "client: kb/s read: "+str((man.proxy.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.proxy.bytes_sent/1024)/(end_time-start_time))
 	if man.server:
 		print "server: kb/s read: "+str((man.server.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.server.bytes_sent/1024)/(end_time-start_time))
-	print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
+	if SerialisableFact.TOT_CNT>0:
+		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
+	else:
+		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)
