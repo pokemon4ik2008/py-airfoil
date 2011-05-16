@@ -4,3 +4,4 @@ global server
 server=None
 global fast_path
 fast_path=True
+global opt

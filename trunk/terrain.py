@@ -59,11 +59,14 @@ from math import sqrt, atan2, degrees
 import random
 import array
 import itertools
+import manage
 import optparse
 import pyglet
 import ctypes
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
+
+man=manage
 
 class FractalTerrainMesh:
 
@@ -480,7 +483,7 @@ if __name__ == '__main__':
 		glViewport(0, 0, width, height)
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
-		gluPerspective(70, 1.0*width/height, 0.1, opt.width * 1.2)
+		gluPerspective(70, 1.0*width/height, 0.1, man.opt.width * 1.2)
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
 	
@@ -500,36 +503,36 @@ if __name__ == '__main__':
 	glEnable(GL_BLEND)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
-	glFogf(GL_FOG_START, opt.width / 2)
-	glFogf(GL_FOG_END, opt.width)
+	glFogf(GL_FOG_START, man.opt.width / 2)
+	glFogf(GL_FOG_END, man.opt.width)
 	glFogi(GL_FOG_MODE, GL_LINEAR)
-	if not opt.wireframe:
+	if not man.opt.wireframe:
 		glEnable(GL_FOG)
 
 	resize(win.width, win.height)
 	clock = pyglet.clock.Clock(30)
 
 	terrain = FractalTerrainMesh(
-		iterations=opt.iterations, deviation=opt.deviation, smooth=opt.smooth, 
-		seed=opt.seed, start=opt.start, tree_line=opt.tree_line, 
-		snow_line=opt.snow_line, water_line=opt.water_line, sand_line=opt.sand_line,
-		display_width=opt.width)
-	terrain.compile(wireframe=opt.wireframe)
+		iterations=man.opt.iterations, deviation=man.opt.deviation, smooth=man.opt.smooth, 
+		seed=man.opt.seed, start=man.opt.start, tree_line=man.opt.tree_line, 
+		snow_line=man.opt.snow_line, water_line=man.opt.water_line, sand_line=man.opt.sand_line,
+		display_width=man.opt.width)
+	terrain.compile(wireframe=man.opt.wireframe)
 	r = 0.0
 
 	while not win.has_exit:
 		win.dispatch_events()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)	
 		glLoadIdentity()
-		glTranslatef(0.0, -opt.deviation * 2, zoom)
+		glTranslatef(0.0, -man.opt.deviation * 2, zoom)
 		glRotatef(xrot, 1, 0, 0)
 		glRotatef(zrot, 0, 0, 1)
 		glLightfv(GL_LIGHT0, GL_POSITION, fourfv(-0.5, 0, 1, 0))
 		# I'm not sure why I need to reset the fog, it should be preserved afaict
-		glFogf(GL_FOG_START, opt.width * 2 / 3)
-		glFogf(GL_FOG_END, opt.width)
+		glFogf(GL_FOG_START, man.opt.width * 2 / 3)
+		glFogf(GL_FOG_END, man.opt.width)
 
-		if not opt.wireframe:
+		if not man.opt.wireframe:
 			terrain.draw_composed()
 		else:
 			terrain.draw()
