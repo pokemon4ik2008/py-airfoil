@@ -19,7 +19,6 @@
 
 from euclid import *
 import manage
-from proxy import ControlledSer
 from pyglet.gl import *
 from pyglet.window import key
 import time
@@ -239,82 +238,6 @@ class Obj:
       
     def getWindHeading(self):        
         return math.pi * 2 - getAngleForXY(self._velocity.x, self._velocity.z)            
-
-class Bullet(Obj, ControlledSer):
-    TYP=3
-    __IN_FLIGHT=set()
-
-    def record(self):
-        try:
-            assert self.local()
-            if self in Bullet.__IN_FLIGHT:
-                if not self.alive():
-                    Bullet.__IN_FLIGHT.remove(self)
-                    if(len(self.__class__.__IN_FLIGHT)%25==0):
-                        print 'num bullets (fewer): '+str(len(self.__class__.__IN_FLIGHT))
-                return
-            else:
-                Bullet.__IN_FLIGHT.add(self)
-                if(len(self.__class__.__IN_FLIGHT)%25==0):
-                    print 'num bullets (more): '+str(len(self.__class__.__IN_FLIGHT))
-        except AssertionError:
-            print_exc()
-
-    def isClose(self, obj):
-        return obj.getId()==self.getId()
-
-    def update(self):
-        if self.getId() in self._proxy:
-            rs=self._proxy.getObj(self.getId()) #rs = remote_self
-            (self._pos, self._attitude, self._velocity)=(rs._pos, rs._attitude, rs._velocity)
-        if self.getPos().y<=0:
-            self.markDead()
-            self.markChanged()
-            self.record()
-
-    def estUpdate(self):
-        Obj.update(self)
-
-    @classmethod
-    def getInFlight(cls):
-        return cls.__IN_FLIGHT
-
-    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None):
-        Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
-        self._mass = 0.1 # 100g -- a guess
-        self._scales = [0.062, 0.032, 0.003]
-        ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
-
-    def localInit(self):
-        ControlledSer.localInit(self)
-        self.record()
-
-    def draw(self):
-        try:
-            assert self.alive()
-
-            side = 10.0
-            att=self.getAttitude()
-            pos = self.getPos()
-
-            vlist = [Vector3(0,0,0),
-                     Vector3(-side/2.0, -side/2.0*0, 0),
-                     Vector3(-side/2.0, side/2.0, 0),
-                     Vector3(0, 0, 0),
-                     Vector3(-side/2.0, 0, -side),
-                     Vector3(-side/4.0, 0, side)]
-
-            glDisable(GL_CULL_FACE)
-            glTranslatef(pos.x, pos.y, pos.z)
-            glBegin(GL_TRIANGLES)
-            glColor4f(0.0,0.0,0.0,1.0)
-
-            for i in vlist[3:6]:
-                    j = att * i
-                    glVertex3f(j.x, j.y, j.z)
-            glEnd()
-        except AssertionError:
-            print_exc()
 
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
