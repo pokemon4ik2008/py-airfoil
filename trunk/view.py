@@ -67,12 +67,12 @@ class View:
         View.__VIEW_COUNT+=1
         self.__win=win
         self.__num_players=num_players
-        self.__updateDimensions()
+        self.updateDimensions()
         #print "view: x orig: "+str(self.__xOrig)+" y orig: "+str(self.__yOrig)+" width: "+str(self.__width)+" height: "+str(self.__height)
         (self.__xrot, self.__zrot, self.__zoom) = (0, 0, -150)
         self.__screenMessage=''
       
-    def __updateDimensions(self):
+    def updateDimensions(self):
         self.__width=self.__win.width
         self.__height=self.__win.height/self.__num_players
         (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.__view_id))
@@ -114,7 +114,6 @@ class View:
         self.__controls.clearEvents(interesting_events)
 
     def activate(self):
-        self.__updateDimensions()
         if self.__height==0:
             height=1
         else:
