@@ -2,8 +2,8 @@ from pyglet.window import key, mouse
 from time import time
 
 from airfoil import Airfoil, Bullet
-from euclid import Vector3
-from proxy import ControlledSer
+from euclid import Vector3, Quaternion
+from proxy import ControlledSer, Mirrorable
 from util import repeat
 
 class Enum:
@@ -245,6 +245,20 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__bullets=[]
         self.__last_fire=time()
 
+    def remoteInit(self, ident):
+        ControlledSer.remoteInit(self, ident)
+        self.__lastKnownPos=Vector3(0,0,0)
+        self.__lastDelta=Vector3(0,0,0)
+        #self.__lastKnownAtt=Quaternion(1,0,0,0)
+        #self.__lastAttDelta=Quaternion(1,0,0,0)
+        self.__lastUpdateTime=0.0
+
+    def estUpdate(self):
+        period=time()-self.__lastUpdateTime
+        self.setPos(self.__lastKnownPos+
+                    (self.__lastDelta*period))
+        return self
+
     def eventCheck(self):
         if not Controls:
             raise NotImplementedError
@@ -262,3 +276,30 @@ class MyAirfoil(Airfoil, ControlledSer):
             b.markChanged()
             self.__last_fire=time()
         self.__controls.clearEvents(self.__interesting_events)
+
+    def serialise(self):
+        ser=Mirrorable.serialise(self)
+        p=self.getPos()
+        ser.append(p.x)
+        ser.append(p.y)
+        ser.append(p.z)
+        a=self.getAttitude()
+        ser.append(a.w)
+        ser.append(a.x)
+        ser.append(a.y)
+        ser.append(a.z)
+        return ser
+
+    def deserialise(self, ser, estimated=False):
+        (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
+        (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
+        
+        if not estimated:
+            now=time()
+            period=now-self.__lastUpdateTime
+            pos=Vector3(px,py,pz)
+            self.__lastDelta=(pos-self.__lastKnownPos)/period
+            self.__lastUpdateTime=now
+            self.__lastKnownPos=pos
+        return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
+
