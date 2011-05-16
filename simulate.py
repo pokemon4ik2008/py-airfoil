@@ -336,7 +336,7 @@ def simMain():
 	views = []
 	def resize(width, height):
 		for view in views:
-			view.activate()
+			view.updateDimensions()
 		return pyglet.event.EVENT_HANDLED
 
 	win.on_resize=resize       
