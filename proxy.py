@@ -261,7 +261,7 @@ class SerialisableFact:
             if not obj.alive():
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
-                print 'deserManyTo. 2 deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
+                #print 'deserManyTo. 2 deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
         else:
             try:
                 typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
@@ -273,7 +273,7 @@ class SerialisableFact:
                     if not obj.alive():
                         del(objLookup[identifier])
                         objByType[typ].remove(obj)
-                        print 'deserManyTo. deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
+                        #print 'deserManyTo. deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
                 else:
                     assert False
             except AssertionError:

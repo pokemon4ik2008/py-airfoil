@@ -43,6 +43,8 @@ from view import View
 from skybox import *
 
 global listNum
+global opt
+
 listNum = glGenLists(1)
 def genListNum():
 	global listNum
@@ -50,15 +52,15 @@ def genListNum():
 	listNum+=1
 	return num
 
-def genTerrain():
-	terrainNum=genListNum()
-	glNewList(terrainNum, GL_COMPILE)
-	if not opt.wireframe:
-		terrain.draw_composed()
-	else:
-		terrain.draw()                                                        
-	glEndList()
-	return terrainNum
+#def genTerrain():
+#	terrainNum=genListNum()
+#	glNewList(terrainNum, GL_COMPILE)
+#	if not manage.opt.wireframe:
+#		terrain.draw_composed()
+#	else:
+#		terrain.draw()                                                        
+#	glEndList()
+#	return terrainNum
 
 def loadTerrain():
 	global cterrain
@@ -134,8 +136,8 @@ class Bullet(Obj, ControlledSer):
 
     def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None):
         Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
-        self._mass = 0.1 # 100g -- a guess
-        self._scales = [0.062, 0.032, 0.003]
+        self._mass = 1.0 # 100g -- a guess
+        self._scales = [0.032, 0.032, 0.005]
         ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
 
     def localInit(self):
@@ -216,7 +218,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
         if events[Controller.FIRE]!=0 and time()-self.__last_fire>Airfoil._FIRING_PERIOD:
-            vOff=self.getVelocity().normalized()*300
+            vOff=self.getVelocity().normalized()*800
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
             b.update()
             b.markChanged()
@@ -249,7 +251,7 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.__lastKnownPos=pos
         return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
 
-if __name__ == '__main__':               
+def simMain():
 	man=manage
         try:
                 import psyco
@@ -299,23 +301,23 @@ if __name__ == '__main__':
                 help='Create a server using at this IP / domain')
         option('-C', '--client', dest='client', type='str', default=None,
                 help='Create a client connection this a server at this IP / domain')
-        opt, args = parser.parse_args()
+        man.opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
-	if opt.server is None:
-		if opt.client is None:
+	if man.opt.server is None:
+		if man.opt.client is None:
 			man.server=Server()
 			man.proxy=Client(factory=factory)
 		else:
-			man.proxy=Client(server=opt.client, factory=factory)
+			man.proxy=Client(server=man.opt.client, factory=factory)
 	else:
-		if opt.client is None:
-			man.server=Server(server=opt.server, own_thread=False)
+		if man.opt.client is None:
+			man.server=Server(server=man.opt.server, own_thread=False)
 			exit(0)
 		else:
-			man.server=Server(server=opt.server)
-			man.proxy=Client(server=opt.client, factory=factory)
+			man.server=Server(server=man.opt.server)
+			man.proxy=Client(server=man.opt.client, factory=factory)
 	Sys.init(man.proxy)
 
         #zoom = -150
@@ -375,11 +377,11 @@ if __name__ == '__main__':
         clock = pyglet.clock.Clock()
 
         terrain = FractalTerrainMesh(
-                iterations=opt.iterations, deviation=opt.deviation, smooth=opt.smooth, 
-                seed=opt.seed, start=opt.start, tree_line=opt.tree_line, 
-                snow_line=opt.snow_line, water_line=opt.water_line, sand_line=opt.sand_line,
-                display_width=opt.width)
-        terrain.compile(wireframe=opt.wireframe)
+                iterations=man.opt.iterations, deviation=man.opt.deviation, smooth=man.opt.smooth, 
+                seed=man.opt.seed, start=man.opt.start, tree_line=man.opt.tree_line, 
+                snow_line=man.opt.snow_line, water_line=man.opt.water_line, sand_line=man.opt.sand_line,
+                display_width=man.opt.width)
+        terrain.compile(wireframe=man.opt.wireframe)
         r = 0.0
 
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
@@ -393,7 +395,7 @@ if __name__ == '__main__':
 				   (Controller.CAM_Z, KeyAction(key.V, key.Z)),
 				   (Controller.CAM_X, KeyAction(key.Z, key.X))], 
 		       win)]
-	if opt.two_player == True:
+	if man.opt.two_player == True:
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
 					       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
 					       (Controller.CAM_FIXED, KeyAction(key._9)),
@@ -422,10 +424,10 @@ if __name__ == '__main__':
 				  controls=controller, proxy=man.proxy)
 		planes[plane.getId()]=plane
 
-		view = View(controller, win, plane, len(player_keys), opt)
+		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 
-	t=genTerrain()
+	#t=genTerrain()
 	mouse_cap=False
 	bots=[]
 	loadTerrain()
@@ -544,3 +546,7 @@ if __name__ == '__main__':
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
 	else:
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)
+
+if __name__ == '__main__':
+	simMain()
+
