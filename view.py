@@ -87,7 +87,7 @@ class View:
                           font_size=f_size,
                           x= - width_offset, y=self.__win.height/2.0,
                           anchor_x='left', anchor_y='top')
-        #x= - self.__win.width/2.0, y=self.__win.height/2.0,
+        self.__label.color = (0, 0, 0, 255)
 
     def getAspectRatio(self):
         return self.__width/self.__height
@@ -136,7 +136,6 @@ class View:
     def drawText(self):
             glPushMatrix()
             glTranslatef(-200, 0, -750)
-            self.__label.color = (0, 0, 0, 255)
             self.__label.text = self.__screenMessage                
             self.__label.draw()
             glPopMatrix()
