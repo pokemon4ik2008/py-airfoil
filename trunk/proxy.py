@@ -160,14 +160,6 @@ class ControlledSer(Mirrorable):
         Mirrorable.localInit(self)
         self._flags |= self._DROPPABLE_FLAG
 
-    def remoteInit(self, ident):
-        Mirrorable.remoteInit(self, ident)
-        self.__lastKnownPos=Vector3(0,0,0)
-        self.__lastDelta=Vector3(0,0,0)
-        #self.__lastKnownAtt=Quaternion(1,0,0,0)
-        #self.__lastAttDelta=Quaternion(1,0,0,0)
-        self.__lastUpdateTime=0.0
-
     def serialise(self):
         ser=Mirrorable.serialise(self)
         p=self.getPos()
@@ -202,13 +194,6 @@ class ControlledSer(Mirrorable):
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
         
-        if not estimated:
-            now=time()
-            period=now-self.__lastUpdateTime
-            pos=Vector3(px,py,pz)
-            self.__lastDelta=(pos-self.__lastKnownPos)/period
-            self.__lastUpdateTime=now
-            self.__lastKnownPos=pos
         return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
 
     def isClose(self, obj):
@@ -220,12 +205,6 @@ class ControlledSer(Mirrorable):
         
         #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
         return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0003
-
-    def estUpdate(self):
-        period=time()-self.__lastUpdateTime
-        self.setPos(self.__lastKnownPos+
-                    (self.__lastDelta*period))
-        return self
 
 class SerialisableFact:
     __OBJ_IDX,__TIME_IDX=range(2)
