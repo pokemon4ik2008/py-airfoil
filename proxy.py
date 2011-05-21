@@ -73,6 +73,9 @@ class Mirrorable:
             self.__local=False
             self.remoteInit(ident)
 
+    def mine(self):
+        return self.__local or self._client_id==Sys.ID.getSysId()
+
     def local(self):
         return self.__local
 
@@ -81,8 +84,7 @@ class Mirrorable:
         Mirrorable.__InstCount+=1
 
     def remoteInit(self, ident):
-        (client_id, my_ident)=ident
-        self._ident=my_ident
+        (self._client_id, self._ident)=ident
 
     def isClose(self, obj):
         return False
@@ -151,7 +153,7 @@ class Mirrorable:
         return self
 
 class ControlledSer(Mirrorable):
-    [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, Mirrorable.META+12)
+    [ _POS,_,_, _ATT,_,_,_, _VEL,_,_ ] = range(Mirrorable.META+1, Mirrorable.META+11)
 
     def __init__(self, typ, ident=None, proxy=None):
         Mirrorable.__init__(self, typ, ident, proxy)
@@ -288,10 +290,6 @@ class SerialisableFact:
     def deserLocal(self, identifier, serialised, estimated=False):
         self.deserManyTo(identifier, serialised, self.__mine, self.__myObjsByType, estimated)
         
-    def deserLocals(self, sers, estimated=False):
-        for (identifier, serialised) in sers.items():
-            self.deserManyTo(identifier, serialised, self.__mine, self.__myObjsByType, estimated)
-
     def __contains__(self, ident):
         return ident in self.__mine or ident in self.__notMine
 

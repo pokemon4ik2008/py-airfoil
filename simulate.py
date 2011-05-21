@@ -87,6 +87,7 @@ class Bullet(Obj, ControlledSer):
             assert self.local()
             if self in Bullet.__IN_FLIGHT:
                 if not self.alive():
+		    self._just_dead=True	
                     Bullet.__IN_FLIGHT.remove(self)
                     if(len(self.__class__.__IN_FLIGHT)%25==0):
                         print 'num bullets (fewer): '+str(len(self.__class__.__IN_FLIGHT))
@@ -112,7 +113,7 @@ class Bullet(Obj, ControlledSer):
             self.record()
 
     def estUpdate(self):
-        Obj.update(self)
+	    Obj.update(self)
 
     @classmethod
     def getInFlight(cls):
@@ -126,7 +127,15 @@ class Bullet(Obj, ControlledSer):
 
     def localInit(self):
         ControlledSer.localInit(self)
+	(self._just_born, self._just_dead)=(True, False)
         self.record()
+
+    def serialise(self):
+	    (self._just_born, self._just_dead) = (False, False)
+	    return ControlledSer.serialise(self)
+
+    def justBornOrDead(self):
+	    return self._just_born or self._just_dead
 
     def draw(self):
         try:
@@ -378,22 +387,16 @@ def simMain():
 	try:
 		while man.proxy.alive():
 			# move this loop to ProxyObs.loop
-			for plane in planes.itervalues():
-				if plane.alive():
-					plane.update()
-			for b in set(Bullet.getInFlight()):
-				b.update()
+			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
+			[ b.update() for b in set(Bullet.getInFlight())]
 
 			if man.proxy.acquireLock():
 				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
 				[ b.estUpdate() for b in bots ]
 				man.proxy.releaseLock()
 
-			for plane in planes.itervalues():
-				if plane.alive():
-					plane.markChanged()
-			for b in set(Bullet.getInFlight()):
-				b.markChanged()
+			[ plane.markChanged() for plane in planes.itervalues() if plane.alive() ]
+			[ b.markChanged() for b in set(Bullet.getInFlight()) if b.justBornOrDead() ]
 
 			now=time()
 			sleep(0)
@@ -442,12 +445,10 @@ def simMain():
 				dt=clock.tick()
 
 			for bot in bots:
-				if not bot.alive() and bot.getId() in planes:
+			       	if not bot.alive() and bot.getId() in planes:
 					del planes[bot.getId()]
 
-			for plane in planes.itervalues():
-				if plane.alive():
-					plane.eventCheck()
+			[ plane.eventCheck() for plane in planes.itervalues() if plane.alive() ]
 
 			if planes==[]:
 				break
