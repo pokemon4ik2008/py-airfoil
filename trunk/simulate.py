@@ -122,6 +122,7 @@ class Bullet(Obj, ControlledSer):
         if self.getId() in self._proxy:
             rs=self._proxy.getObj(self.getId()) #rs = remote_self
             (self._pos, self._attitude, self._velocity)=(rs._pos, rs._attitude, rs._velocity)
+
         if self.getPos().y<=0:
             self.markDead()
             self.markChanged()
@@ -253,14 +254,14 @@ class MyAirfoil(Airfoil, ControlledSer):
 
 def simMain():
 	man=manage
-        try:
-                import psyco
-        except ImportError:
-		print "failed to import psyco\n"
-                pass
-        else:
-		print "running psyco\n"
-                psyco.full()
+        #try:
+        #        import psyco
+        #except ImportError:
+	#	print "failed to import psyco\n"
+        #        pass
+        #else:
+	#	print "running psyco\n"
+        #        psyco.full()
 
         parser = optparse.OptionParser()
         option = parser.add_option
@@ -445,7 +446,7 @@ def simMain():
 
 			if man.proxy.acquireLock():
 				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
-				[ b.estUpdate() for b in bots if not b.local() or not man.fast_path]
+				[ b.estUpdate() for b in bots ]
 				man.proxy.releaseLock()
 
 			for plane in planes.itervalues():
