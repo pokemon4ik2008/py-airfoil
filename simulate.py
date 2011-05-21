@@ -45,23 +45,6 @@ from skybox import *
 global listNum
 global opt
 
-listNum = glGenLists(1)
-def genListNum():
-	global listNum
-	num=listNum
-	listNum+=1
-	return num
-
-#def genTerrain():
-#	terrainNum=genListNum()
-#	glNewList(terrainNum, GL_COMPILE)
-#	if not manage.opt.wireframe:
-#		terrain.draw_composed()
-#	else:
-#		terrain.draw()                                                        
-#	glEndList()
-#	return terrainNum
-
 def loadTerrain():
 	global cterrain
 	colFileName = ''
@@ -265,37 +248,9 @@ def simMain():
 
         parser = optparse.OptionParser()
         option = parser.add_option
-        option('-i', '--iterations', dest='iterations', type='int', default=7,
-                help=('Controls the detail of the terrain mesh. '
-                        'Increasing the iteration by one doubles the number of vertices'))
-        option('-d', '--deviation', dest='deviation', type='float', default=10.0,
-                help=('The height deviation between points in terrain. '
-                        'Larger numbers production mountainous terrain'))
-        option('-s', '--smoothing', dest='smooth', type='float', default=3.5,
-                help=('Controls the reduction in deviation between iterations. '
-                        'Smaller numbers produce jagged terrain, larger produce smooth hills. '
-                        'Typically > 1, numbers less than one generate a chaotic fractured landscape'))
-        option('-e', '--start-elevation', dest='start', type='float', default=5.0,
-                help='Mean starting elevation, used to calaulate the terrain corners')
-        option('-t', '--tree-line', dest='tree_line', type='float', default=12,
-                help=('Maximum elevation of vegitation on mountains, '
-                        'Used to determine where green shading ends and rocks and snow begin.'))
-        option('-a', '--sand-line', dest='sand_line', type='float', default=2,
-                help='Max elevation where ground is sandy.')
-        option('-n', '--snow-line', dest='snow_line', type='float', default=12.8,
-                help='Minimum snow covered elevation')
-        option('-w', '--water-line', dest='water_line', type='float', default=0,
-                help='Elevation of "sea level", terrain under this is under water')
-        option('-r', '--random-seed', dest='seed', default=123456, 
-                help=('Random number seed for generating the terrain. Due to the fractal algorithm, '
-                'The same seed will generate the same basic terrain topology regardless of the '
-                'number of iterations. This allows you to generate multiple equivilant '
-                'terrain meshes with different levels of mesh detail or different aesthetic '
-                'settings.'))
-        option('-f', '--wireframe', dest='wireframe', action='store_true', default=True,
-                help='Render mesh as wireframe')
         option('-z', '--width', dest='width', type='int', default=3000,
                 help='Overall width of the generated terrain')
+
         option('-2', '--two', dest='two_player', action='store_true', default=False,
                 help='Two player split screen action')
         option('-S', '--server', dest='server', type='str', default=None,
@@ -344,14 +299,6 @@ def simMain():
 	glClearColor(1.0, 1.0, 1.0, 1.0)
 	glClearDepth(1.0)
 	glClearStencil(0)
-	font = pyglet.font.load(None, 18, dpi=72)
-	text = pyglet.font.Text(font, 'Calculating Terrain...',
-		 x=win_width / 2,
-		 y=win_height / 2,
-		 halign=pyglet.font.Text.CENTER,
-		 valign=pyglet.font.Text.CENTER)         
-	text.color = (0, 0, 0.8, 1.0)
-	text.draw()
 	glEnable(GL_COLOR_MATERIAL)
 	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
 	glEnable(GL_LIGHT0)
@@ -377,12 +324,6 @@ def simMain():
 	resize(win.width, win.height)
         clock = pyglet.clock.Clock()
 
-        terrain = FractalTerrainMesh(
-                iterations=man.opt.iterations, deviation=man.opt.deviation, smooth=man.opt.smooth, 
-                seed=man.opt.seed, start=man.opt.start, tree_line=man.opt.tree_line, 
-                snow_line=man.opt.snow_line, water_line=man.opt.water_line, sand_line=man.opt.sand_line,
-                display_width=man.opt.width)
-        terrain.compile(wireframe=man.opt.wireframe)
         r = 0.0
 
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
@@ -428,7 +369,6 @@ def simMain():
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 
-	#t=genTerrain()
 	mouse_cap=False
 	bots=[]
 	loadTerrain()
@@ -487,7 +427,6 @@ def simMain():
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
                                 skybox.draw(view)
-				#glCallList(t)
 				drawTerrain(view)
 				
 
