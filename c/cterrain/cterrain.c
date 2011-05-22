@@ -407,7 +407,7 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_FOG);
 	GLfloat density = 0.004; 
-	GLfloat fogColor[4] = {1.0, 1.0, 1.0, 1.0}; //set the for color to grey
+	GLfloat fogColor[4] = {FOG_GREY, FOG_GREY, FOG_GREY, 1.0}; //set the for color to grey
 	glFogi (GL_FOG_MODE, GL_LINEAR); //set the fog mode to GL_EXP2
 	glFogfv (GL_FOG_COLOR, fogColor); //set the fog color to our color chosen above
 	glFogf (GL_FOG_DENSITY, density); //set the density to the value above

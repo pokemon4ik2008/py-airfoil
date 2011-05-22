@@ -2,6 +2,8 @@ from pyglet.gl import *
 from pyglet import image
 
 class Skybox:
+	FOG_GREY=0.8
+
 	def __init__(self):
 		textureDir = 'data/textures/'
 		print image.load(textureDir + 'top.bmp')
@@ -31,7 +33,7 @@ class Skybox:
 
 		pos = view.getCamera().getCameraVectors()[1]
 		glTranslatef( pos.x, pos.y, pos.z)
-		glColor3f(1.0 ,1.0 ,1.0)						
+		glColor3f(Skybox.FOG_GREY ,Skybox.FOG_GREY ,Skybox.FOG_GREY)						
 		glEnable(self.top.target)        # typically target is GL_TEXTURE_2D		
 
 		#top

@@ -12,6 +12,7 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+#define FOG_GREY (0.8f)
 #define terrain_map(x,z) (*(terrain+(z)*terrain_max_z+(x)))		//macro for accessing the terrain memory by x,z coord
 #define alt_var_const (cut_off_max/max_altitude) //rate at which view triangle dist increases with altitude or x angle rotation
 #define ambient_light .2f
