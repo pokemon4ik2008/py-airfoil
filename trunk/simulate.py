@@ -150,12 +150,11 @@ class Bullet(Obj, ControlledSer):
     def draw(self):
         try:
             assert self.alive()
-
             pos = self.getPos()
             glDisable(GL_CULL_FACE)
             glTranslatef(pos.x, pos.y, pos.z)
             glBegin(GL_POINTS)
-            glColor4f(0.0,0.0,0.0,1.0)
+            glColor4f(1.0,1.0,1.0,1.0)
 	    glVertex3f(0,0,0)
             glEnd()
         except AssertionError:
