@@ -80,24 +80,36 @@ def drawTerrain(view):
 
 class Bullet(Obj, ControlledSer):
     TYP=3
+    #LIFE_SPAN is in seconds
+    LIFE_SPAN=30 
     __IN_FLIGHT=set()
 
-    def record(self):
-        try:
-            assert self.local()
+    @classmethod
+    def getInFlight(cls):
+        return cls.__IN_FLIGHT
+
+    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None):
+        Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
+        self._mass = 1.0 # 100g -- a guess
+        self._scales = [0.032, 0.032, 0.005]
+        ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
+
+    def localInit(self):
+        ControlledSer.localInit(self)
+	(self._just_born, self._just_dead)=(True, False)
+	self.__start=manage.now
+	if self not in Bullet.__IN_FLIGHT:
+		Bullet.__IN_FLIGHT.add(self)
+		if(len(self.__class__.__IN_FLIGHT)%25==0):
+			print 'num bullets (more): '+str(len(self.__class__.__IN_FLIGHT))
+
+    def markDead(self):
+	    ControlledSer.markDead(self)
             if self in Bullet.__IN_FLIGHT:
-                if not self.alive():
-		    self._just_dead=True	
+       		    self._just_dead=True	
                     Bullet.__IN_FLIGHT.remove(self)
                     if(len(self.__class__.__IN_FLIGHT)%25==0):
                         print 'num bullets (fewer): '+str(len(self.__class__.__IN_FLIGHT))
-                return
-            else:
-                Bullet.__IN_FLIGHT.add(self)
-                if(len(self.__class__.__IN_FLIGHT)%25==0):
-                    print 'num bullets (more): '+str(len(self.__class__.__IN_FLIGHT))
-        except AssertionError:
-            print_exc()
 
     def isClose(self, obj):
         return obj.getId()==self.getId()
@@ -119,32 +131,15 @@ class Bullet(Obj, ControlledSer):
             rs=self._proxy.getObj(self.getId()) #rs = remote_self
             (self._pos, self._attitude, self._velocity)=(rs._pos, rs._attitude, rs._velocity)
 
-	if manage.now-self.__start > 10 or self.getPos().y<=0:
+	if manage.now-self.__start > Bullet.LIFE_SPAN or self.getPos().y<=0:
             self.markDead()
             self.markChanged()
-            self.record()
 
     def estUpdate(self):
         timeDiff=self._getTimeDiff()
 	self._updateFromEnv(timeDiff)
         self._updatePos(timeDiff)
   
-    @classmethod
-    def getInFlight(cls):
-        return cls.__IN_FLIGHT
-
-    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None):
-        Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
-        self._mass = 1.0 # 100g -- a guess
-        self._scales = [0.032, 0.032, 0.005]
-        ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
-
-    def localInit(self):
-        ControlledSer.localInit(self)
-	(self._just_born, self._just_dead)=(True, False)
-	self.__start=time()
-        self.record()
-
     def serialise(self):
 	    (self._just_born, self._just_dead) = (False, False)
 	    return ControlledSer.serialise(self)
@@ -156,25 +151,12 @@ class Bullet(Obj, ControlledSer):
         try:
             assert self.alive()
 
-            side = 10.0
-            att=self.getAttitude()
             pos = self.getPos()
-
-            vlist = [Vector3(0,0,0),
-                     Vector3(-side/2.0, -side/2.0*0, 0),
-                     Vector3(-side/2.0, side/2.0, 0),
-                     Vector3(0, 0, 0),
-                     Vector3(-side/2.0, 0, -side),
-                     Vector3(-side/4.0, 0, side)]
-
             glDisable(GL_CULL_FACE)
             glTranslatef(pos.x, pos.y, pos.z)
-            glBegin(GL_TRIANGLES)
+            glBegin(GL_POINTS)
             glColor4f(0.0,0.0,0.0,1.0)
-
-            for i in vlist[3:6]:
-                    j = att * i
-                    glVertex3f(j.x, j.y, j.z)
+	    glVertex3f(0,0,0)
             glEnd()
         except AssertionError:
             print_exc()
@@ -199,7 +181,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__pitchAdjust = 0.01
         self.__rollAdjust = 0.01
         self.__bullets=[]
-        self.__last_fire=time()
+        self.__last_fire=manage.now
 
     def remoteInit(self, ident):
         ControlledSer.remoteInit(self, ident)
@@ -210,7 +192,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__lastUpdateTime=0.0
 
     def estUpdate(self):
-        period=time()-self.__lastUpdateTime
+        period=manage.now-self.__lastUpdateTime
         self.setPos(self.__lastKnownPos+
                     (self.__lastDelta*period))
         return self
@@ -225,12 +207,12 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
-        if events[Controller.FIRE]!=0 and time()-self.__last_fire>Airfoil._FIRING_PERIOD:
+        if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
             vOff=self.getVelocity().normalized()*800
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
             b.update()
             b.markChanged()
-            self.__last_fire=time()
+            self.__last_fire=manage.now
         self.__controls.clearEvents(self.__interesting_events)
 
     def serialise(self):
@@ -251,7 +233,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         
         if not estimated:
-            now=time()
+            now=manage.now
             period=now-self.__lastUpdateTime
             pos=Vector3(px,py,pz)
             self.__lastDelta=(pos-self.__lastKnownPos)/period
@@ -335,6 +317,8 @@ def simMain():
 	glDepthFunc(GL_LEQUAL)
 	glShadeModel(GL_SMOOTH)
 	glEnable(GL_BLEND)
+	glEnable(GL_POINT_SMOOTH)
+	glPointSize(2)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
 	#glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
