@@ -119,7 +119,7 @@ class Bullet(Obj, ControlledSer):
             rs=self._proxy.getObj(self.getId()) #rs = remote_self
             (self._pos, self._attitude, self._velocity)=(rs._pos, rs._attitude, rs._velocity)
 
-        if self.getPos().y<=0:
+	if manage.now-self.__start > 10 or self.getPos().y<=0:
             self.markDead()
             self.markChanged()
             self.record()
@@ -142,6 +142,7 @@ class Bullet(Obj, ControlledSer):
     def localInit(self):
         ControlledSer.localInit(self)
 	(self._just_born, self._just_dead)=(True, False)
+	self.__start=time()
         self.record()
 
     def serialise(self):
@@ -400,6 +401,8 @@ def simMain():
 	start_time=time()
 	try:
 		while man.proxy.alive():
+			man.now=time()
+
 			# move this loop to ProxyObs.loop
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 			[ b.update() for b in set(Bullet.getInFlight())]
