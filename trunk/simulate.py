@@ -102,6 +102,18 @@ class Bullet(Obj, ControlledSer):
     def isClose(self, obj):
         return obj.getId()==self.getId()
 
+    def _updateVelFromEnv(self, timeDiff):
+        self._updateVelFromGrav(timeDiff)
+        #Drag, acts || to Velocity vector
+        dv  = self.getDragForce(timeDiff) * timeDiff / self._mass
+        self._velocity -= dv
+
+    def _updateFromEnv(self, timeDiff):
+        self._updateVelFromEnv(timeDiff)
+
+    def getDragForce(self, drag=0.0): 
+	    return self._velocity * 0.05
+
     def update(self):
         if self.getId() in self._proxy:
             rs=self._proxy.getObj(self.getId()) #rs = remote_self
@@ -113,8 +125,10 @@ class Bullet(Obj, ControlledSer):
             self.record()
 
     def estUpdate(self):
-	    Obj.update(self)
-
+        timeDiff=self._getTimeDiff()
+	self._updateFromEnv(timeDiff)
+        self._updatePos(timeDiff)
+  
     @classmethod
     def getInFlight(cls):
         return cls.__IN_FLIGHT
@@ -396,14 +410,9 @@ def simMain():
 				man.proxy.releaseLock()
 
 			[ plane.markChanged() for plane in planes.itervalues() if plane.alive() ]
-			[ b.markChanged() for b in set(Bullet.getInFlight()) if b.justBornOrDead() ]
+			[ b.markChanged() for b in Bullet.getInFlight() if b.justBornOrDead() ]
 
-			now=time()
-			sleep(0)
-			if time()-now>=0.2:
-				print 'long sleep: '+str(time()-now)
 			win.dispatch_events()
-
 			if win.has_exit:
 				print 'exiting window'
 				for obj in planes.itervalues():
