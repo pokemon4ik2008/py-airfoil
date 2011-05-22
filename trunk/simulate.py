@@ -234,10 +234,11 @@ class MyAirfoil(Airfoil, ControlledSer):
         if not estimated:
             now=manage.now
             period=now-self.__lastUpdateTime
-            pos=Vector3(px,py,pz)
-            self.__lastDelta=(pos-self.__lastKnownPos)/period
-            self.__lastUpdateTime=now
-            self.__lastKnownPos=pos
+	    if period>0:
+		    pos=Vector3(px,py,pz)
+		    self.__lastDelta=(pos-self.__lastKnownPos)/period
+		    self.__lastUpdateTime=now
+		    self.__lastKnownPos=pos
         return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
 
 def simMain():
@@ -301,7 +302,7 @@ def simMain():
 		return pyglet.event.EVENT_HANDLED
 
 	win.on_resize=resize       
-	glClearColor(1.0, 1.0, 1.0, 1.0)
+	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
 	glClearDepth(1.0)
 	glClearStencil(0)
 	glEnable(GL_COLOR_MATERIAL)

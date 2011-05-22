@@ -8,7 +8,7 @@ float default_map_intensity;	//this is needed so that the colour of the default 
 gl_col* colr_ref = NULL;
 int elev_var=63;		//max view triangle's centre point retraction when looking up or down (old value 82)
 //float map_expansion_const;
-gl_col backgr={1.0,1.0,1.0};
+gl_col backgr={FOG_GREY,FOG_GREY,FOG_GREY};
 //float y_scale_const;
 int drawnQuads = 0;
 int map_precision=1; //how many points to skip in the map file
@@ -142,9 +142,9 @@ int preloadTerrain(char *fname) {
 		map_precision=fscanint(fptr);
 		fgetc(fptr);
 
-		backg.r=1.0f;//must make these map dependent later
-		backg.g=1.0f;
-		backg.b=1.0f;
+		backg.r=FOG_GREY;//must make these map dependent later
+		backg.g=FOG_GREY;
+		backg.b=FOG_GREY;
 
 		hfield = new short int[size * size];
 		
@@ -176,9 +176,9 @@ int preloadTerrain(char *fname) {
 		
 		delete [] input_file;
 
-		backg.r=1.0f;//must make these map dependent later
-		backg.g=1.0f;
-		backg.b=1.0f;
+		backg.r=FOG_GREY;//must make these map dependent later
+		backg.g=FOG_GREY;
+		backg.b=FOG_GREY;
 		
 		
 	}
