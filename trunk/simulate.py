@@ -45,6 +45,13 @@ from skybox import *
 global listNum
 global opt
 
+def loadObjects():
+        global object3d
+        object3d = cdll.LoadLibrary("bin\object3d.dll")
+global object3d
+loadObjects()
+object3d.init()        
+
 def loadTerrain():
 	global cterrain
 	colFileName = ''
@@ -428,12 +435,28 @@ def simMain():
                                 skybox.draw(view)
 				drawTerrain(view)
 				
+                                
+				
 
 				for bot in bots:
 					if bot.alive():
 						glPushMatrix()
-						bot.draw()
+						bot.draw()				                                                                
 						glPopMatrix()
+
+                                                angleAxis = (bot.getAttitude() *Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
+                                                axis = angleAxis[1].normalized()
+                                                cams = view.getCamera().getCameraVectors()
+                                                fpos = (c_float * 3)()
+                                                fpos[0] = cams[0].x
+                                                fpos[1] = cams[0].y
+                                                fpos[2] = cams[0].z
+                                                object3d.setPos(fpos)
+                                                fpos[0] = axis.x
+                                                fpos[1] = axis.y
+                                                fpos[2] = axis.z
+                                                object3d.setAngleAxis(c_float(degrees(angleAxis[0])), fpos)
+                                                object3d.draw()						
 
 				view.eventCheck()
 				glLoadIdentity()

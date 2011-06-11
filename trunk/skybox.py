@@ -14,7 +14,7 @@ class Skybox:
 		self.front = image.load(textureDir + 'ft.bmp').get_texture()
 		print self.top.tex_coords
 
-        def setTexParams(self):
+        def setTexParams(self):                
                 glTexParameteri(self.top.target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
                 glTexParameteri(self.top.target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
                 glTexParameteri(self.top.target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
