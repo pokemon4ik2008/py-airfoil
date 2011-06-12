@@ -15,24 +15,18 @@ float *rotAxis = NULL;
 
 extern "C" 
 {
-	DLL_EXPORT void init()
+	DLL_EXPORT void *load(char *filename)
 	{
-		oError err = oError::ok;
-		/*
-		obj_list_node *myList = NULL;
-		err = objCreateList(&myList);
-		if (err != oError::ok)
-		{
-			printf("ERROR: when creating list\n");
-		}*/
-
+		oError err = oError::ok;		
 		unsigned int objectflags=0;
-		objectflags|=OBJ_NORMAL_POSITIVE/* | OBJ_NO_LIGHTING | OBJ_NO_FOG*/;
-		err = objCreate(&testObj, "data\\models\\biplane.csv", 100.0f, objectflags);
+		objectflags|=OBJ_NORMAL_POSITIVE;
+		err = objCreate(&testObj, filename, 100.0f, objectflags);
+		
 		if (err != oError::ok)
 		{
-			printf("ERROR: when loading object\n");
+			printf("ERROR: when loading object: %i\n", err);
 		}
+		return testObj;
 	}
 
 	DLL_EXPORT void setRot(float plotangle[])
@@ -40,26 +34,32 @@ extern "C"
 		objSetPlotAngle(plotangle[0], plotangle[1], plotangle[2]);
 	}
 
-	DLL_EXPORT void setAngleAxis(float angle, float axis[]) 
+	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
 	{
 		rotAngle = angle;
 		rotAxis = axis;
 	}
 
-	DLL_EXPORT void setPos(float plotPos[])
+	DLL_EXPORT void setPosition(float plotPos[])
 	{
 		objSetPlotPos(plotPos[0], plotPos[1], plotPos[2]);
 	}
 
-	DLL_EXPORT void draw()
+	DLL_EXPORT void draw(void *meshToPlot)
 	{
 		oError err = oError::ok;
-		err = objPlot(testObj);
+		err = objPlot(static_cast<obj_3dPrimitive *>(meshToPlot));
 		if (err != oError::ok)
 		{
 			printf("ERROR: when drawing object\n");
 		}
 	}
+
+	DLL_EXPORT void deleteMesh(void *meshToDelete)
+	{	
+		obj_3dPrimitive *meshToDeletePtr = static_cast<obj_3dPrimitive *>(meshToDelete);
+		objDelete(&meshToDeletePtr);			
+	}	
 }
 
 void	objSetCutOff		(float dist, float angle) {

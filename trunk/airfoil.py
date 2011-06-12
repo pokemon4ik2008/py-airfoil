@@ -23,6 +23,7 @@ from pyglet.gl import *
 from pyglet.window import key
 import time
 from util import *
+from math import *
 #import pdb
 
 import threading
@@ -55,6 +56,14 @@ class Obj:
         self._centreOfGravity = Vector3(0.2, 0.0, 0.0)
         self._is_real=False
         self._scales = [0.0, 0.0, 0.0]
+        self._mesh = None
+        self._meshLib = None
+        
+
+    def setObjectsMesh(self, lib, meshToUse):
+        self._mesh = meshToUse
+        self._meshLib = lib
+        print "mesh set" , self, self._mesh
 
     def getPos(self):
         return self._pos
@@ -412,55 +421,74 @@ class Airfoil(Obj):
         return self._velocity.magnitude()
 
     def draw(self):
-        side = 50.0
-        pos = self.getPos()       
-        att = self.getAttitude()
+        print self, self._mesh
+        if self._mesh == None:
+            side = 50.0
+            pos = self.getPos()       
+            att = self.getAttitude()
 
-        vlist = [Vector3(0,0,0),
-                 Vector3(-side/2.0, -side/2.0*0, 0),
-                 Vector3(-side/2.0, side/2.0, 0),
-                 Vector3(0, 0, 0),
-                 Vector3(-side/2.0, 0, -side),
-                 Vector3(-side/2.0, 0, side)]
-        
-        glDisable(GL_CULL_FACE)
-        glTranslatef(pos.x,pos.y, pos.z)
-        glBegin(GL_TRIANGLES)   
+            vlist = [Vector3(0,0,0),
+                     Vector3(-side/2.0, -side/2.0*0, 0),
+                     Vector3(-side/2.0, side/2.0, 0),
+                     Vector3(0, 0, 0),
+                     Vector3(-side/2.0, 0, -side),
+                     Vector3(-side/2.0, 0, side)]
+            
+            glDisable(GL_CULL_FACE)
+            glTranslatef(pos.x,pos.y, pos.z)
+            glBegin(GL_TRIANGLES)   
 
-        glColor4f(1.0, 0.0, 0.0, 1.0)   
-        for i in vlist[:3]:
-                j = att * i
-                glVertex3f(j.x, j.y, j.z)
+            glColor4f(1.0, 0.0, 0.0, 1.0)   
+            for i in vlist[:3]:
+                    j = att * i
+                    glVertex3f(j.x, j.y, j.z)
 
-        glColor4f(0.0, 0.0, 1.0, 1.0)
-        for i in vlist[3:6]:
-                j = att * i
-                glVertex3f(j.x, j.y, j.z)
+            glColor4f(0.0, 0.0, 1.0, 1.0)
+            for i in vlist[3:6]:
+                    j = att * i
+                    glVertex3f(j.x, j.y, j.z)
 
-        glColor4f(1.0, 0.0, 1.0, 1.0)
-        glVertex3f(self._velocity.x, self._velocity.y, self._velocity.z)
-        j = (att * vlist[1]) /8.0
-        glVertex3f(j.x, j.y, j.z)        
-        j = (att * vlist[2]) /8.0
-        glVertex3f(j.x, j.y, j.z)
-        
-        glColor4f(1.0, 1.0, 1.0, 1.0)
-        glVertex3f(self._velocity.x, self._velocity.y, self._velocity.z)
-        j = (att * vlist[4]) /8.0
-        glVertex3f(j.x, j.y, j.z)        
-        j = (att * vlist[5]) /8.0
-        glVertex3f(j.x, j.y, j.z)        
-        glEnd()
+            glColor4f(1.0, 0.0, 1.0, 1.0)
+            glVertex3f(self._velocity.x, self._velocity.y, self._velocity.z)
+            j = (att * vlist[1]) /8.0
+            glVertex3f(j.x, j.y, j.z)        
+            j = (att * vlist[2]) /8.0
+            glVertex3f(j.x, j.y, j.z)
+            
+            glColor4f(1.0, 1.0, 1.0, 1.0)
+            glVertex3f(self._velocity.x, self._velocity.y, self._velocity.z)
+            j = (att * vlist[4]) /8.0
+            glVertex3f(j.x, j.y, j.z)        
+            j = (att * vlist[5]) /8.0
+            glVertex3f(j.x, j.y, j.z)        
+            glEnd()
 
-        cog = (self._attitude * self._centreOfGravity).normalize()
-        rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize() * 100
-        glColor4f(1.0, 0.0, 0.0, 1.0)
-        glBegin(GL_LINES)
-        glVertex3f(rotAxis.x, rotAxis.y, rotAxis.z)
-        glVertex3f(-rotAxis.x, -rotAxis.y, -rotAxis.z)
-        glVertex3f(0,0,0)
-        glVertex3f(0,-100,0)
-        glEnd()
+            cog = (self._attitude * self._centreOfGravity).normalize()
+            rotAxis =  Vector3(0.0,1.0,0.0).cross(cog).normalize() * 100
+            glColor4f(1.0, 0.0, 0.0, 1.0)
+            glBegin(GL_LINES)
+            glVertex3f(rotAxis.x, rotAxis.y, rotAxis.z)
+            glVertex3f(-rotAxis.x, -rotAxis.y, -rotAxis.z)
+            glVertex3f(0,0,0)
+            glVertex3f(0,-100,0)
+            glEnd()
+        else:          
+            # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
+            angleAxis = (self.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
+            axis = angleAxis[1].normalized()
+            
+            fpos = (c_float * 3)()
+            fpos[0] = self._pos.x
+            fpos[1] = self._pos.y
+            fpos[2] = self._pos.z
+            self._meshLib.setPosition(fpos)
+            
+            fpos[0] = axis.x
+            fpos[1] = axis.y
+            fpos[2] = axis.z
+            self._meshLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+            
+            self._meshLib.draw(self._mesh)            
 
         return
 

@@ -44,13 +44,13 @@ from skybox import *
 
 global listNum
 global opt
+global object3dLib
 
-def loadObjects():
-        global object3d
-        object3d = cdll.LoadLibrary("bin\object3d.dll")
-global object3d
-loadObjects()
-object3d.init()        
+def loadMeshes():
+        global object3dLib, meshes
+        object3dLib = cdll.LoadLibrary("bin\object3d.dll")
+        meshes = {}
+        meshes["plane"] = object3dLib.load("data\\models\\biplane.csv")
 
 def loadTerrain():
 	global cterrain
@@ -362,8 +362,8 @@ def simMain():
 					       (Controller.CAM_X, KeyAction(key.O, key.P)), 
 					       (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z))], 
 					      win))
-		
 
+	loadMeshes()
 	planes = {}
 	plane_inits=[(Point3(100,0,100), 
 		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
@@ -380,6 +380,7 @@ def simMain():
 		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, 
 				  controls=controller, proxy=man.proxy)
 		planes[plane.getId()]=plane
+		planes[plane.getId()].setObjectsMesh(object3dLib, meshes["plane"])
 
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
@@ -402,6 +403,7 @@ def simMain():
 				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
 				[ b.estUpdate() for b in bots ]
 				man.proxy.releaseLock()
+			
 
 			[ plane.markChanged() for plane in planes.itervalues() if plane.alive() ]
 			[ b.markChanged() for b in Bullet.getInFlight() if b.justBornOrDead() ]
@@ -434,29 +436,13 @@ def simMain():
 
                                 skybox.draw(view)
 				drawTerrain(view)
-				
-                                
-				
-
+				                                				
 				for bot in bots:
+                                        bot.setObjectsMesh(object3dLib, meshes["plane"])
 					if bot.alive():
 						glPushMatrix()
 						bot.draw()				                                                                
-						glPopMatrix()
-
-                                                angleAxis = (bot.getAttitude() *Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
-                                                axis = angleAxis[1].normalized()
-                                                cams = view.getCamera().getCameraVectors()
-                                                fpos = (c_float * 3)()
-                                                fpos[0] = cams[0].x
-                                                fpos[1] = cams[0].y
-                                                fpos[2] = cams[0].z
-                                                object3d.setPos(fpos)
-                                                fpos[0] = axis.x
-                                                fpos[1] = axis.y
-                                                fpos[2] = axis.z
-                                                object3d.setAngleAxis(c_float(degrees(angleAxis[0])), fpos)
-                                                object3d.draw()						
+						glPopMatrix()					
 
 				view.eventCheck()
 				glLoadIdentity()
