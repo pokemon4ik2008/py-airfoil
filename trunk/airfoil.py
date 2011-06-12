@@ -63,7 +63,6 @@ class Obj:
     def setObjectsMesh(self, lib, meshToUse):
         self._mesh = meshToUse
         self._meshLib = lib
-        print "mesh set" , self, self._mesh
 
     def getPos(self):
         return self._pos
@@ -421,7 +420,6 @@ class Airfoil(Obj):
         return self._velocity.magnitude()
 
     def draw(self):
-        print self, self._mesh
         if self._mesh == None:
             side = 50.0
             pos = self.getPos()       
