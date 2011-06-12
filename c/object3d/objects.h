@@ -101,13 +101,9 @@ void	objRotY				(obj_vector *unit_vector_norm,float ay);
 void	objRotZ				(obj_vector *unit_vector_norm,float az);
 
 void	objSetCutOff		(float dist, float angle);
-void	objSetLight			(float x, float y,float z, float intensity);
 
-void	objSetLoadOrigin	(float x, float y, float z);
-void	objSetLoadAngle		(float ax, float ay, float az);
 
 void	objSetPlotPos		(float x, float y, float z);
-void	objSetPlotAngle		(float ax, float ay, float az);
 void	objSetPlotAttrib	(float x, float y, float z, float ax, float ay, float az);
 
 void	objSetViewPos		(float x, float y, float z);
@@ -115,18 +111,9 @@ void	objSetViewAngle		(float ax, float ay, float az);
 void	objSetPointOfView	(float x, float y, float z, float ax, float ay, float az);
 
 void	objSetVertexNormal	(obj_vector unit_vector_norm,unsigned int flags);
-float	objLight			(obj_vector unit_vector_norm,unsigned int flags);
 oError	objCreate			(obj_3dPrimitive **obj, char *fname, float obj_scaler, unsigned int flags);
-//oError	objCloud			(obj_3dPrimitive **obj, char *fname, float obj_scaler, unsigned int flags);
 
 void	objDelete			(obj_3dPrimitive **obj);
 oError	objPlot				(obj_3dPrimitive *obj);
-oError	objCreateList		(obj_list_node **list);
-oError	objDeleteList		(obj_list_node **list);
-obj_list_node *objAddtoList		(obj_list_node *list, obj_3dPrimitive *obj);
-oError	objPlotList			(obj_list_node *list,int *temp); 
-oError	objModifyListMember (obj_list_node *list);
-
-void	objsTest			(obj_3dPrimitive *obj,obj_plot_position *pos,int browseinc2);
 
 #endif

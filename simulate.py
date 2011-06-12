@@ -196,6 +196,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         #self.__lastKnownAtt=Quaternion(1,0,0,0)
         #self.__lastAttDelta=Quaternion(1,0,0,0)
         self.__lastUpdateTime=0.0
+        self.setObjectsMesh(object3dLib, meshes["plane"])
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -438,7 +439,6 @@ def simMain():
 				drawTerrain(view)
 				                                				
 				for bot in bots:
-                                        bot.setObjectsMesh(object3dLib, meshes["plane"])
 					if bot.alive():
 						glPushMatrix()
 						bot.draw()				                                                                
