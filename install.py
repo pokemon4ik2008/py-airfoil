@@ -11,6 +11,18 @@ elif os.name == 'posix':
 print "Running build command : \n" + cmd
 retVal = os.system(cmd)
 if retVal == 0:
-	print "Build success"
+	print "Build success : airfoil"
 else:
-	print "Build failed"
+	print "Build failed : airfoil"
+
+if os.name == 'nt':
+	cmd = '"\"%VS80COMNTOOLS%..\IDE\devenv.exe\"" c\object3d\object3d.vcproj /build debug /Out buildlog2.txt'
+elif os.name == 'posix':
+	cmd = 'g++ c/object3d/objects.cpp -lGL -o bin/object3d.so -shared -fPIC'
+
+print "Running build command : \n" + cmd
+retVal = os.system(cmd)
+if retVal == 0:
+	print "Build success : airfoil"
+else:
+	print "Build failed : airfoil"

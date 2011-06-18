@@ -48,9 +48,14 @@ global object3dLib
 
 def loadMeshes():
         global object3dLib, meshes
-        object3dLib = cdll.LoadLibrary("bin\object3d.dll")
+        object3dLib = ""
         meshes = {}
-        meshes["plane"] = object3dLib.load("data\\models\\biplane.csv")
+        if os.name == 'nt':
+                meshes["plane"] = object3dLib.load("data\\models\\biplane.csv")
+                object3dLib = cdll.LoadLibrary("bin\object3d.dll")
+        else:
+                meshes["plane"] = object3dLib.load("data/models/biplane.csv")
+                object3dLib = cdll.LoadLibrary("bin/object3d.so")
 
 def loadTerrain():
 	global cterrain
