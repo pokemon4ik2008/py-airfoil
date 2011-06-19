@@ -40,6 +40,7 @@ from threading import Condition
 from time import sleep
 import traceback
 from view import View
+from sound import *
 from skybox import *
 
 global listNum
@@ -48,14 +49,13 @@ global object3dLib
 
 def loadMeshes():
         global object3dLib, meshes
-        object3dLib = ""
         meshes = {}
         if os.name == 'nt':
-                meshes["plane"] = object3dLib.load("data\\models\\biplane.csv")
                 object3dLib = cdll.LoadLibrary("bin\object3d.dll")
+                meshes["plane"] = object3dLib.load("data\\models\\biplane.csv")
         else:
-                meshes["plane"] = object3dLib.load("data/models/biplane.csv")
                 object3dLib = cdll.LoadLibrary("bin/object3d.so")
+                meshes["plane"] = object3dLib.load("data/models/biplane.csv")
 
 def loadTerrain():
 	global cterrain
@@ -95,6 +95,7 @@ class Bullet(Obj, ControlledSer):
     #LIFE_SPAN is in seconds
     LIFE_SPAN=30 
     __IN_FLIGHT=set()
+    GUN_SHOT=GUN=SoundSlot("gun", snd=GUN_SND)
 
     @classmethod
     def getInFlight(cls):
@@ -105,6 +106,10 @@ class Bullet(Obj, ControlledSer):
         self._mass = 1.0 # 100g -- a guess
         self._scales = [0.032, 0.032, 0.005]
         ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
+
+    def remoteInit(self, ident):
+	    ControlledSer.remoteInit(self, ident)
+	    Bullet.GUN_SHOT.play()
 
     def localInit(self):
         ControlledSer.localInit(self)
@@ -188,7 +193,7 @@ class MyAirfoil(Airfoil, ControlledSer):
     def localInit(self):
         ControlledSer.localInit(self)
         self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
-        self.__thrustAdjust = 100
+        self.__thrustAdjust = 500
         self.__pitchAdjust = 0.01
         self.__rollAdjust = 0.01
         self.__bullets=[]
@@ -201,7 +206,10 @@ class MyAirfoil(Airfoil, ControlledSer):
         #self.__lastKnownAtt=Quaternion(1,0,0,0)
         #self.__lastAttDelta=Quaternion(1,0,0,0)
         self.__lastUpdateTime=0.0
+	self.__engineNoise=SoundSlot("airfoil engine "+str(ident), loop=True)
+	self.__lastNoise=-1
         self.setObjectsMesh(object3dLib, meshes["plane"])
+	self.__engineNoise.play(ENGINE_SND, pos=self.getPos())
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -239,6 +247,11 @@ class MyAirfoil(Airfoil, ControlledSer):
         ser.append(a.y)
         ser.append(a.z)
         return ser
+
+    def play(self):
+	    speed=self.__lastDelta.magnitude()
+	    #self.__engineNoise.setPos(self.getPos());
+	    self.__engineNoise.pitch = (speed/400.0)+0.75
 
     def deserialise(self, ser, estimated=False):
         (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
@@ -304,6 +317,7 @@ def simMain():
 	win_height=600
 	config_template=pyglet.gl.Config(stencil_size=1, double_buffer=True, depth_size=24)
 	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
+	win.set_vsync(False)
 	win.dispatch_events()
 	win.clear()
 	win.flip()
@@ -347,6 +361,10 @@ def simMain():
 
         r = 0.0
 
+	#@win.event
+	#def on_draw():
+	#	main_iter.next()
+
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
 
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
@@ -371,7 +389,7 @@ def simMain():
 
 	loadMeshes()
 	planes = {}
-	plane_inits=[(Point3(100,0,100), 
+	plane_inits=[(Point3(0,0,0), 
 		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
 		      Vector3(0,0,0),
 		      0),
@@ -396,10 +414,10 @@ def simMain():
 	loadTerrain()
 	skybox = Skybox()
 
-	start_time=time()
+	start_time=time.time()
 	try:
 		while man.proxy.alive():
-			man.now=time()
+			man.now=time.time()
 
 			# move this loop to ProxyObs.loop
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
@@ -414,7 +432,6 @@ def simMain():
 			[ plane.markChanged() for plane in planes.itervalues() if plane.alive() ]
 			[ b.markChanged() for b in Bullet.getInFlight() if b.justBornOrDead() ]
 
-			win.dispatch_events()
 			if win.has_exit:
 				print 'exiting window'
 				for obj in planes.itervalues():
@@ -429,6 +446,7 @@ def simMain():
 				win_ctrls.clearEvents()
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
+			
 			for view in views:
 				glLoadIdentity()
 				view.activate()
@@ -454,15 +472,17 @@ def simMain():
 				view.drawText()
 				dt=clock.tick()
 
+			#setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
+
 			for bot in bots:
-			       	if not bot.alive() and bot.getId() in planes:
-					del planes[bot.getId()]
-
+			       	if bot.getId() in planes:
+					if not bot.alive():
+						del planes[bot.getId()]
+					else:
+						bot.play()
 			[ plane.eventCheck() for plane in planes.itervalues() if plane.alive() ]
+			yield True
 
-			if planes==[]:
-				break
-			win.flip()
 	except Exception as detail:
 		print str(detail)
 		traceback.print_exc()
@@ -470,11 +490,12 @@ def simMain():
 		man.proxy.markChanged()
 	print 'before proxy.join'
 	if man.proxy:
-		flush_start=time()
+		flush_start=time.time()
 		while not man.proxy.attemptSendAll():
 			if time()-flush_start>3:
 				break
 			sleep(0)
+			yield True
 		man.proxy.join(3)
 		try:
 			assert not man.proxy.isAlive()
@@ -488,7 +509,7 @@ def simMain():
 			print_exc()
 	print 'quitting main thread'
         print "fps:  %d" % clock.get_fps()
-	end_time=time()
+	end_time=time.time()
 	if man.proxy:
 		print "client: kb/s read: "+str((man.proxy.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.proxy.bytes_sent/1024)/(end_time-start_time))
 	if man.server:
@@ -497,7 +518,15 @@ def simMain():
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
 	else:
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)
+	yield False
+
+def main_next(dt):
+	main_iter.next()
 
 if __name__ == '__main__':
-	simMain()
-
+	main_iter=simMain()
+	main_iter.next()
+	pyglet.clock.schedule_interval(main_next, 1/60.0)
+	pyglet.app.run()
+	while main_iter.next():
+		pass
