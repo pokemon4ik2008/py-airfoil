@@ -6,6 +6,9 @@ from control import Controller
 class Camera(object):
     def __init__(self, plane):
         self._plane=plane
+        self.pos = Point3(0,0,0)
+        self.eye = Point3(0,0,0)
+        self.zen = Point3(0,0,0)
         (self._xrot, self._zrot)=(0,0)
 
     def activate(self):
@@ -25,7 +28,6 @@ class Camera(object):
                   pos.x, pos.y, pos.z,
                   zen.x, zen.y, zen.z)
         
-
 class FollowCam(Camera):
     def __init__(self, plane):
         Camera.__init__(self, plane)
@@ -33,9 +35,9 @@ class FollowCam(Camera):
     def activate(self):
         att = self._plane.getAttitude()
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
-        cameraAjust = adjAtt * Vector3(-100.0,50.0, 2.0)
+        cameraAdjust = adjAtt * Vector3(-100.0,50.0, 2.0)
         pos = self._plane.getPos()
-        eye = pos + cameraAjust
+        eye = pos + cameraAdjust
         zen = adjAtt * Vector3(0.0,1.0,0.0)
         super(FollowCam, self).activate(pos,eye,zen)
 
@@ -46,9 +48,10 @@ class FixedCam(Camera):
     def activate(self):
         att = self._plane.getAttitude()
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
-        cameraAjust = att * adjAtt * Vector3(-100.0,100.0, 2.0)
+        cameraAdjust = att * adjAtt * Vector3(-100.0,100.0, 2.0)
         pos = self._plane.getPos()
-        eye = pos + cameraAjust
+        #print 'activate: adj: '+str(adjAtt)+' '+str(att)+' cam: '+str(cameraAdjust)
+        eye = pos + cameraAdjust
         zen = att * adjAtt * Vector3(0.0,1.0,0.0)
         super(FixedCam, self).activate(pos,eye,zen)
 
@@ -126,6 +129,15 @@ class View:
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         self.__currentCamera.activate()
+
+    def getPos(self):
+        return self.__currentCamera.pos
+
+    def getEye(self):
+        return self.__currentCamera.eye
+
+    def getZen(self):
+        return self.__currentCamera.zen
 
     def getCamera(self):
         return self.__currentCamera

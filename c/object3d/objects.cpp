@@ -17,12 +17,12 @@ extern "C"
 {
 	DLL_EXPORT void *load(char *filename)
 	{
-		oError err = oError::ok;		
+		oError err = ok;		
 		unsigned int objectflags=0;
 		objectflags|=OBJ_NORMAL_POSITIVE;
 		err = objCreate(&testObj, filename, 100.0f, objectflags);
 		
-		if (err != oError::ok)
+		if (err != ok)
 		{
 			printf("ERROR: when loading object: %i\n", err);
 		}
@@ -42,9 +42,9 @@ extern "C"
 
 	DLL_EXPORT void draw(void *meshToPlot)
 	{
-		oError err = oError::ok;
+		oError err = ok;
 		err = objPlot(static_cast<obj_3dPrimitive *>(meshToPlot));
-		if (err != oError::ok)
+		if (err != ok)
 		{
 			printf("ERROR: when drawing object\n");
 		}
