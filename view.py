@@ -50,7 +50,6 @@ class FixedCam(Camera):
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
         cameraAdjust = att * adjAtt * Vector3(-100.0,100.0, 2.0)
         pos = self._plane.getPos()
-        #print 'activate: adj: '+str(adjAtt)+' '+str(att)+' cam: '+str(cameraAdjust)
         eye = pos + cameraAdjust
         zen = att * adjAtt * Vector3(0.0,1.0,0.0)
         super(FixedCam, self).activate(pos,eye,zen)
@@ -71,7 +70,6 @@ class View:
         self.__win=win
         self.__num_players=num_players
         self.updateDimensions()
-        #print "view: x orig: "+str(self.__xOrig)+" y orig: "+str(self.__yOrig)+" width: "+str(self.__width)+" height: "+str(self.__height)
         (self.__xrot, self.__zrot, self.__zoom) = (0, 0, -150)
         self.__screenMessage=''
       
@@ -121,7 +119,6 @@ class View:
             height=1
         else:
             height=self.__height
-        #print "view: x orig: "+str(self.__xOrig)+" y orig: "+str(self.__yOrig)+" width: "+str(self.__width)+" height: "+str(self.__height)
         glViewport(self.__xOrig, self.__yOrig, self.__width, height)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
