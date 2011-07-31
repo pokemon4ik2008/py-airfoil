@@ -250,7 +250,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 
     def play(self):
 	    speed=self.__lastDelta.magnitude()
-	    #self.__engineNoise.setPos(self.getPos());
+	    self.__engineNoise.setPos(self.getPos());
 	    self.__engineNoise.pitch = (speed/400.0)+0.75
 
     def deserialise(self, ser, estimated=False):
@@ -389,7 +389,7 @@ def simMain():
 
 	loadMeshes()
 	planes = {}
-	plane_inits=[(Point3(0,0,0), 
+	plane_inits=[(Point3(-0.3,0,495), 
 		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
 		      Vector3(0,0,0),
 		      0),
@@ -472,7 +472,7 @@ def simMain():
 				view.drawText()
 				dt=clock.tick()
 
-			#setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
+			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
 
 			for bot in bots:
 			       	if bot.getId() in planes:
