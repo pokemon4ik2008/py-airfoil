@@ -25,8 +25,8 @@ import time
 from util import *
 from math import *
 #import pdb
-
 import threading
+
 ##[3]Spitfire Mk.XIV
 ##
 ##Weight: 3,850 kg
@@ -42,7 +42,7 @@ import threading
 rho = 1.29 # kg/m^3 density of air
 accelDueToGravity = 9.8 # m/s/s
 
-class Obj:
+class Obj(object):
     in_flight=0
 
     def __init__(self, pos, attitude, vel):
@@ -250,6 +250,7 @@ class Obj:
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
     _FIRING_PERIOD=0.2
+    MAX_THRUST=20000
 
     def reset(self):
         self.__init__()
@@ -275,7 +276,6 @@ class Airfoil(Obj):
         self.__pitchAngularVelocity = 0.0 #rad/sec                
         
         # Constants
-        self.__maxThrust = 20000 # newtons of thrust
         self.__MAX_PITCH_ANGULAR_ACCEL = math.pi /4.0# rad / s / s
         self.__MAX_ROLL_ANGULAR_ACCEL = math.pi /2.0 # rad / s / s
         self.printLiftCoeffTable()
@@ -287,6 +287,14 @@ class Airfoil(Obj):
         self._S = 22.48 # wing planform area        
         #self._mass = 0.1 # 100g -- a guess
         #self._S = 0.0016 # meters squared? also a guess
+
+    @property
+    def thrust(self):
+        return self.__thrust
+
+    @thrust.setter
+    def thrust(self, value):
+        self.__thrust=value
 
     def getDragForce(self, angleOfAttack, timeDiff):
         vMag = self._velocity.magnitude()
@@ -402,20 +410,13 @@ class Airfoil(Obj):
         Cd0 = 0.0229 # coefficient of drag at zero lift
         return inducedDragCoeff + Cd0
 
-    def setThrust(self, thrust):
-        self.__thrust=thrust
-        return self
-
     def changeThrust(self, delta):
         self.__thrust += delta
-        if self.__thrust > self.__maxThrust:
-            self.__thrust = self.__maxThrust
+        if self.__thrust > self.__class__.MAX_THRUST:
+            self.__thrust = self.__class__.MAX_THRUST
         if self.__thrust < 0.0:
             self.__thrust = 0.0        
 
-    def getThrust(self):
-        return self.__thrust
-        
     def getAirSpeed(self):
         return self._velocity.magnitude()
 
@@ -508,7 +509,7 @@ class Airfoil(Obj):
 
     def __getVelThrustDelta(self, timeDiff, noseVector):
         #Thrust, acts || to nose vector
-        dv = self.getThrust() * timeDiff / self._mass #dv, the change in velocity due to thrust               
+        dv = self.thrust * timeDiff / self._mass #dv, the change in velocity due to thrust               
         #print 'thrust noseVector: '+str(noseVector)+' time: '+str(timeDiff)+' delta: '+str(noseVector * dv)+' dv: '+str(dv)
         return noseVector * dv
 
