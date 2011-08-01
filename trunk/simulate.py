@@ -95,7 +95,7 @@ class Bullet(Obj, ControlledSer):
     #LIFE_SPAN is in seconds
     LIFE_SPAN=30 
     __IN_FLIGHT=set()
-    GUN_SHOT=GUN=SoundSlot("gun", snd=GUN_SND)
+    GUN_SHOT=SoundSlot("gun", snd=GUN_SND)
 
     @classmethod
     def getInFlight(cls):
@@ -109,8 +109,7 @@ class Bullet(Obj, ControlledSer):
 
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
-	    print 'Bullet.remoteInit. pos: '+str(self.getPos())
-	    Bullet.GUN_SHOT.play(pos=self.getPos())
+	    self.__played=False
 
     def localInit(self):
         ControlledSer.localInit(self)
@@ -120,6 +119,17 @@ class Bullet(Obj, ControlledSer):
 		Bullet.__IN_FLIGHT.add(self)
 		if(len(self.__class__.__IN_FLIGHT)%25==0):
 			print 'num bullets (more): '+str(len(self.__class__.__IN_FLIGHT))
+
+    def deserialise(self, ser, estimated):
+	    obj=ControlledSer.deserialise(self, ser, estimated)
+	    try:
+		    if not self.__played:
+			    Bullet.GUN_SHOT.play(pos=self.getPos())
+	    except AssertionError:
+		    print_exc()
+	    return obj
+    
+	    
 
     def markDead(self):
 	    ControlledSer.markDead(self)
@@ -194,7 +204,7 @@ class MyAirfoil(Airfoil, ControlledSer):
     def localInit(self):
         ControlledSer.localInit(self)
         self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
-        self.__thrustAdjust = 500
+        self.__thrustAdjust = 400
         self.__pitchAdjust = 0.01
         self.__rollAdjust = 0.01
         self.__bullets=[]
