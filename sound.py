@@ -49,19 +49,20 @@ class SoundSlot(object):
             self.__player.pause()
         self.__player=Player()
 
-        @self.__player.event
-        def on_eos():
-            self.__PLAYING.remove(self)
-
         try:
             assert self.__snd
             if self.__pos:
                 self.__player.position=(self.__pos.x, self.__pos.y, self.__pos.z)
             if self.__loop:
                 self.__player.eos_action=Player.EOS_LOOP
-            self.__player.min_distance=10
+            self.__player.min_distance=20
             self.__player.queue(self.__snd)
             self.__player.play()
+            @self.__player.event
+            def on_eos():
+                if self.__player.eos_action!=Player.EOS_LOOP:
+                    print 'on_eos. '+str(self.__player.position)
+                    self.__PLAYING.remove(self)
             self.__PLAYING.add(self)
         except:
             print_exc()
@@ -70,11 +71,10 @@ class SoundSlot(object):
         self.__pos=pos
         self.__player.position=self.__pos
 
-GUN_SND=load('data/spitfire_gun.wav', streaming=False)
+GUN_SND=load('data/gun.wav', streaming=False)
 ENGINE_SND=load('data/spitfire_engine.wav', streaming=False)
 
 def setListener(eye, pos, zen):
     listener.position=(eye.x, eye.y, eye.z)
-    #listener.position=(eye.x-pos.x, eye.y-pos.y, eye.z-pos.z)
     listener.forward_orientation=(pos.x, pos.y, pos.z)
     listener.up_orientation=(zen.x, zen.y, zen.z)
