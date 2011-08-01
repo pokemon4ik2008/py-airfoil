@@ -158,11 +158,11 @@ class Bullet(Obj, ControlledSer):
         self._updatePos(timeDiff)
   
     def serialise(self):
-	    (self._just_born, self._just_dead) = (False, False)
-	    return ControlledSer.serialise(self)
+        (self._just_born, self._just_dead) = (False, False)
+	return ControlledSer.serialise(self)
 
     def justBornOrDead(self):
-	    return self._just_born or self._just_dead
+        return self._just_born or self._just_dead
 
     def draw(self):
         try:
@@ -179,6 +179,7 @@ class Bullet(Obj, ControlledSer):
 
 class MyAirfoil(Airfoil, ControlledSer):
     TYP=0
+    _THRUST=ControlledSer._ATT+4 #ATT is a Quaternion
 
     def __init__(self, controls=None, proxy=None, 
                  pos = Vector3(0,0,0), 
@@ -187,7 +188,6 @@ class MyAirfoil(Airfoil, ControlledSer):
                  thrust = 0, ident=None):
         Airfoil.__init__(self, pos, attitude, velocity, thrust)
         ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
-        print 'MyAirfoil. initialised airfoil thrust '+str(thrust)
         self.__controls=controls
 
     def localInit(self):
@@ -203,13 +203,10 @@ class MyAirfoil(Airfoil, ControlledSer):
         ControlledSer.remoteInit(self, ident)
         self.__lastKnownPos=Vector3(0,0,0)
         self.__lastDelta=Vector3(0,0,0)
-        #self.__lastKnownAtt=Quaternion(1,0,0,0)
-        #self.__lastAttDelta=Quaternion(1,0,0,0)
         self.__lastUpdateTime=0.0
 	self.__engineNoise=SoundSlot("airfoil engine "+str(ident), loop=True)
-	self.__lastNoise=-1
-        self.setObjectsMesh(object3dLib, meshes["plane"])
 	self.__engineNoise.play(ENGINE_SND, pos=self.getPos())
+        self.setObjectsMesh(object3dLib, meshes["plane"])
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -235,6 +232,20 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.__last_fire=manage.now
         self.__controls.clearEvents(self.__interesting_events)
 
+    def play(self):
+	    if self.__engineNoise.playing:
+		    #print 'play. playing'
+		    if self.thrust<=0:
+			    self.__engineNoise.pause()
+	    else:
+		    #print 'play. not playing'
+		    if self.thrust>0:
+			    print 'play. about to play'
+			    self.__engineNoise.play()
+	    speed=self.__lastDelta.magnitude()
+	    self.__engineNoise.setPos(self.getPos())
+	    self.__engineNoise.pitch = max(((speed/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
+
     def serialise(self):
         ser=Mirrorable.serialise(self)
         p=self.getPos()
@@ -246,17 +257,16 @@ class MyAirfoil(Airfoil, ControlledSer):
         ser.append(a.x)
         ser.append(a.y)
         ser.append(a.z)
+        ser.append(self.thrust)
         return ser
-
-    def play(self):
-	    speed=self.__lastDelta.magnitude()
-	    self.__engineNoise.setPos(self.getPos());
-	    self.__engineNoise.pitch = (speed/400.0)+0.75
 
     def deserialise(self, ser, estimated=False):
         (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         
+        obj=Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
+	obj.thrust=ser[MyAirfoil._THRUST]
+
         if not estimated:
             now=manage.now
             period=now-self.__lastUpdateTime
@@ -265,7 +275,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 		    self.__lastDelta=(pos-self.__lastKnownPos)/period
 		    self.__lastUpdateTime=now
 		    self.__lastKnownPos=pos
-        return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
+	return obj
 
 def simMain():
 	man=manage
@@ -365,7 +375,8 @@ def simMain():
 	#def on_draw():
 	#	main_iter.next()
 
-	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True))], win)
+	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
+			      (Controller.TOG_SOUND_EFFECTS, KeyAction(key.N, onPress=True))], win)
 
 	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 				   (Controller.FIRE, KeyAction(key.R)),
@@ -443,7 +454,11 @@ def simMain():
 			if win_ctrls.eventCheck()[Controller.TOG_MOUSE_CAP]!=0:
 				mouse_cap = ~mouse_cap
 				win.set_exclusive_mouse(mouse_cap)
-				win_ctrls.clearEvents()
+				win_ctrls.clearEvents([Controller.TOG_MOUSE_CAP])
+			if win_ctrls.eventCheck()[Controller.TOG_SOUND_EFFECTS]!=0:
+				print 'eventcheck. sounds: '+str(manage.sound_effects)
+				SoundSlot.sound_off()
+				win_ctrls.clearEvents([Controller.TOG_SOUND_EFFECTS])
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
 			
@@ -454,7 +469,7 @@ def simMain():
 					my_plane=planes[view.getPlaneId()]
 					view.printToScreen('pos = ' + str(my_plane.getPos()))
 					view.printToScreen('vel = ' + str(my_plane.getVelocity()))
-					view.printToScreen('thrust = ' + str(my_plane.getThrust()))
+					view.printToScreen('thrust = ' + str(my_plane.thrust))
 					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 

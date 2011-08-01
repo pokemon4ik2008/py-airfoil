@@ -110,6 +110,7 @@ class Controller:
     CAM_Z=Controls("camera z")
     CAM_ZOOM=Controls("camera zoom")
     TOG_MOUSE_CAP =Controls("toggle mouse capture")
+    TOG_SOUND_EFFECTS =Controls("toggle sound effects")
     NO_ACTION=Controls("nothing")
 
     __WINS = []
@@ -173,6 +174,7 @@ class Controller:
                           (Controller.CAM_FIXED, 0),
                           (Controller.CAM_FOLLOW, 0),
                           (Controller.TOG_MOUSE_CAP, 0),
+                          (Controller.TOG_SOUND_EFFECTS, 0),
                           (Controller.NO_ACTION, 0)]);
         (self.__mouse_actions, self.__last_mouse_time) = (self.__gen_actions(MouseAction), None)
         (self.__mouse_but_actions, self.__last_but_time) = (self.__gen_actions(MouseButAction), None)

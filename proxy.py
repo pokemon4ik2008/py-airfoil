@@ -46,7 +46,7 @@ def toHexStr(string):
     return bytes
 
 def droppable(flags):
-    return (flags & Mirrorable._DROPPABLE_FLAG)==Mirrorable._DROPPABLE_FLAG
+    return (flags & Mirrorable.DROPPABLE_FLAG)==Mirrorable.DROPPABLE_FLAG
 
 class Mirrorable:
     META=0
@@ -56,7 +56,7 @@ class Mirrorable:
     SHIFTS = [sum(_SIZES[:i]) for i in __INDEXES]
     __InstCount = 0
     _DEAD_FLAG=0x1
-    _DROPPABLE_FLAG=0x2
+    DROPPABLE_FLAG=0x2
 
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
         self._proxy=proxy
@@ -122,15 +122,21 @@ class Mirrorable:
     def markDead(self):
         try:
             assert self.local()
-            self._flags &= ~self._DROPPABLE_FLAG
+            self._flags &= ~self.DROPPABLE_FLAG
             self._flags |= self._DEAD_FLAG
         except AssertionError:
             print_exc()
 
+    @property
+    def flags(self):
+        return self._flags
+
+    @flags.setter
+    def flags(self, value):
+        self._flags=value
+
     def serialise(self):
-        #print 'serialise. typ: '+str(self.__typ)+' ident: '+str(self._ident)
         return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.__typ, self._ident, Sys.ID.getSysId(), self._flags], self._SIZES)])]
-        #return [self.__typ, self._ident, self.__dead]
 
     @staticmethod
     def deSerGivenMeta(meta, idx):
@@ -160,7 +166,7 @@ class ControlledSer(Mirrorable):
 
     def localInit(self):
         Mirrorable.localInit(self)
-        self._flags |= self._DROPPABLE_FLAG
+        self._flags |= self.DROPPABLE_FLAG
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
@@ -433,6 +439,7 @@ class Client(Thread, Mirrorable):
                  self.__pushSend(uniq, ser)
                  if manage.fast_path:
                      self.__fact.deserLocal(uniq, ser)
+                 mirrorable.flags|=Mirrorable.DROPPABLE_FLAG
              else:
                  self.__fact.deserLocal(uniq, ser, estimated=True)
              self.attemptSendAll()
