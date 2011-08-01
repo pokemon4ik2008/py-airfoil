@@ -109,7 +109,8 @@ class Bullet(Obj, ControlledSer):
 
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
-	    Bullet.GUN_SHOT.play()
+	    print 'Bullet.remoteInit. pos: '+str(self.getPos())
+	    Bullet.GUN_SHOT.play(pos=self.getPos())
 
     def localInit(self):
         ControlledSer.localInit(self)
@@ -234,13 +235,10 @@ class MyAirfoil(Airfoil, ControlledSer):
 
     def play(self):
 	    if self.__engineNoise.playing:
-		    #print 'play. playing'
 		    if self.thrust<=0:
 			    self.__engineNoise.pause()
 	    else:
-		    #print 'play. not playing'
 		    if self.thrust>0:
-			    print 'play. about to play'
 			    self.__engineNoise.play()
 	    speed=self.__lastDelta.magnitude()
 	    self.__engineNoise.setPos(self.getPos())

@@ -39,28 +39,26 @@ class SoundSlot(object):
          self.__player.pitch=value
 
     def play(self, snd=None, pos=None):
-        print 'sound. play'
         if snd:
             self.__snd=snd
         if pos:
             self.__pos=pos
+        if not manage.sound_effects:
+            return
         if self.__player:
             self.__player.pause()
         self.__player=Player()
+
         @self.__player.event
         def on_eos():
-            print 'play. name: '+self.__name+' '+str(self.__player)
             self.__PLAYING.remove(self)
+
         try:
             assert self.__snd
             if self.__pos:
                 self.__player.position=(self.__pos.x, self.__pos.y, self.__pos.z)
-                #self.__player.position=(0, 0, 0)
             if self.__loop:
                 self.__player.eos_action=Player.EOS_LOOP
-            if not manage.sound_effects:
-                print 'sounds off'
-                return
             self.__player.min_distance=10
             self.__player.queue(self.__snd)
             self.__player.play()
