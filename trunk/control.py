@@ -9,6 +9,7 @@ class Enum:
 class Controls(Enum):
     def __init__(self, name):
         self.__name=name
+        self.default_val=0
 
     def __str__(self):
         return self.__name
@@ -164,18 +165,7 @@ class Controller:
         print 'Controller.__init__. self: '+str(self)+' controls: '+str(self.__controls_list)
         self.__on_key_press=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if action.checkOnPress()]
         self.__on_key_press_not=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if not action.checkOnPress()]
-        self.__vals=dict([(Controller.THRUST, 0), 
-                          (Controller.FIRE, 0),
-                          (Controller.PITCH, 0),
-                          (Controller.ROLL, 0),
-                          (Controller.CAM_Z, 0),
-                          (Controller.CAM_X, 0),
-                          (Controller.CAM_ZOOM, 0),
-                          (Controller.CAM_FIXED, 0),
-                          (Controller.CAM_FOLLOW, 0),
-                          (Controller.TOG_MOUSE_CAP, 0),
-                          (Controller.TOG_SOUND_EFFECTS, 0),
-                          (Controller.NO_ACTION, 0)]);
+        self.__vals=dict([ (c, c.default_val) for c in self.__controls]);
         (self.__mouse_actions, self.__last_mouse_time) = (self.__gen_actions(MouseAction), None)
         (self.__mouse_but_actions, self.__last_but_time) = (self.__gen_actions(MouseButAction), None)
 
