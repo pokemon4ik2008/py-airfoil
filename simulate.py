@@ -453,14 +453,14 @@ def simMain():
 				man.proxy.markDead()
 				man.proxy.markChanged()
 
-			if win_ctrls.eventCheck()[Controller.TOG_MOUSE_CAP]!=0:
+			events=win_ctrls.eventCheck()
+			if events[Controller.TOG_MOUSE_CAP]!=0:
 				mouse_cap = ~mouse_cap
 				win.set_exclusive_mouse(mouse_cap)
-				win_ctrls.clearEvents([Controller.TOG_MOUSE_CAP])
-			if win_ctrls.eventCheck()[Controller.TOG_SOUND_EFFECTS]!=0:
+			if events[Controller.TOG_SOUND_EFFECTS]!=0:
 				print 'eventcheck. sounds: '+str(manage.sound_effects)
 				SoundSlot.sound_off()
-				win_ctrls.clearEvents([Controller.TOG_SOUND_EFFECTS])
+			win_ctrls.clearEvents()
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
 			
