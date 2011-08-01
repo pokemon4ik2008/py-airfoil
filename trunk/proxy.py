@@ -263,30 +263,25 @@ class SerialisableFact:
             print_exc()
 
     def deserManyTo(self, identifier, serialised, objLookup, objByType, estimated=False):
-        if identifier in objLookup:
-            obj=objLookup[identifier]
+        try:
+            if identifier in objLookup:
+                obj=objLookup[identifier]
+                typ=obj.getType()
+            else:
+                typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
+                if typ in self.__ctors:
+                    obj = self.__ctors[typ](ident=identifier)
+                    objLookup[identifier] = obj
+                    objByType[typ].append(obj)
+                else:
+                    assert False
             obj.deserialise(serialised, estimated)
             if not obj.alive():
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
-                #print 'deserManyTo. 2 deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
-        else:
-            try:
-                typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
-                if typ in self.__ctors:
-                    #print 'found new identifier: '+str(identifier)+' typ: '+str(typ)
-                    obj = self.__ctors[typ](ident=identifier).deserialise(serialised, estimated)
-                    objLookup[identifier] = obj
-                    objByType[typ].append(obj)
-                    if not obj.alive():
-                        del(objLookup[identifier])
-                        objByType[typ].remove(obj)
-                        #print 'deserManyTo. deleting: '+str(identifier)+' remaining: '+str(len(objLookup))+' byType: '+str(len(objByType[obj.getType()]))
-                else:
-                    assert False
-            except AssertionError:
-                print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
-                print_exc()
+        except AssertionError:
+            print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
+            print_exc()
 
     def deserRemotes(self, sers):
         for identifier in sers:
