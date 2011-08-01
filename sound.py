@@ -61,7 +61,6 @@ class SoundSlot(object):
             @self.__player.event
             def on_eos():
                 if self.__player.eos_action!=Player.EOS_LOOP:
-                    print 'on_eos. '+str(self.__player.position)
                     self.__PLAYING.remove(self)
             self.__PLAYING.add(self)
         except:
