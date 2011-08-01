@@ -384,8 +384,9 @@ def simMain():
 				   (Controller.ROLL, KeyAction(key.A, key.D)),
 				   (Controller.CAM_FIXED, KeyAction(key._1)),
 				   (Controller.CAM_FOLLOW, KeyAction(key._2)),
-				   (Controller.CAM_Z, KeyAction(key.V, key.Z)),
-				   (Controller.CAM_X, KeyAction(key.Z, key.X))], 
+				   (Controller.CAM_Z, KeyAction(key.C, key.V)),
+				   (Controller.CAM_X, KeyAction(key.Z, key.X)),
+				   (Controller.CAM_ZOOM, KeyAction(key.G, key.H))], 
 		       win)]
 	if man.opt.two_player == True:
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
@@ -395,7 +396,8 @@ def simMain():
 					       (Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
 					       (Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
 					       (Controller.CAM_X, KeyAction(key.O, key.P)), 
-					       (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z))], 
+					       (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
+					       (Controller.CAM_ZOOM, KeyAction(key.J, key.K))], 
 					      win))
 
 	loadMeshes()
