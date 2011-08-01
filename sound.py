@@ -50,7 +50,7 @@ class SoundSlot(object):
         @self.__player.event
         def on_eos():
             print 'play. name: '+self.__name+' '+str(self.__player)
-            self.__PLAYING.remove(self.__player)
+            self.__PLAYING.remove(self)
         try:
             assert self.__snd
             if self.__pos:
@@ -64,7 +64,7 @@ class SoundSlot(object):
             self.__player.min_distance=10
             self.__player.queue(self.__snd)
             self.__player.play()
-            self.__PLAYING.add(self.__player)
+            self.__PLAYING.add(self)
         except:
             print_exc()
 
