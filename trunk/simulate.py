@@ -122,12 +122,11 @@ class Bullet(Obj, ControlledSer):
 
     def deserialise(self, ser, estimated):
 	    obj=ControlledSer.deserialise(self, ser, estimated)
-	    def play_bullet(dt, p):
-		    clock.unschedule(play_bullet)
-		    Bullet.GUN_SHOT.play(pos=p)
+	    def play_bullet(snd, p):
+		    snd.play(pos=p)
 	    if not self.local() and not self.__played:
 		    self.__played=True
-		    clock.schedule(play_bullet, self.getPos())
+		    Bullet.GUN_SHOT.schedule(play_bullet, self.getPos())
 	    return obj
     
     def markDead(self):
@@ -214,11 +213,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__lastKnownPos=Vector3(0,0,0)
         self.__lastDelta=Vector3(0,0,0)
         self.__lastUpdateTime=0.0
-        def play_engine(dt, i, pos):
-		clock.unschedule(play_engine)
-		self.__engineNoise=SoundSlot("airfoil engine "+str(i), loop=True)
-		self.__engineNoise.play(ENGINE_SND, pos)
-	clock.schedule(play_engine, ident, self.getPos())
+	self.__engineNoise=SoundSlot("airfoil engine "+str(ident), loop=True)
+	self.__engineNoise.schedule(SoundSlot.play, ENGINE_SND, self.getPos())
 	self.setObjectsMesh(object3dLib, meshes["plane"])
 
     def estUpdate(self):
@@ -247,17 +243,16 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__controls.clearEvents(self.__interesting_events)
 
     def play(self):
-        def play_sync(dt, thrust, speed, pos):
-	    clock.unschedule(play_sync)
-	    if self.__engineNoise.playing:
+        def play_sync(snd, thrust, speed, pos):
+	    if snd.playing:
 		    if thrust<=0:
-			    self.__engineNoise.pause()
+			    snd.pause()
 	    else:
 		    if thrust>0:
-			    self.__engineNoise.play()
-	    self.__engineNoise.setPos(pos)
-	    self.__engineNoise.pitch = max(((speed/400.0)+0.75, thrust/self.__class__.MAX_THRUST))
-	clock.schedule(play_sync, self.thrust, self.__lastDelta.magnitude(), self.getPos())
+			    snd.play()
+	    snd.setPos(pos)
+	    snd.pitch = max(((speed/400.0)+0.75, thrust/self.__class__.MAX_THRUST))
+	self.__engineNoise.schedule(play_sync, self.thrust, self.__lastDelta.magnitude(), self.getPos())
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
@@ -384,10 +379,6 @@ def simMain():
 
         r = 0.0
 
-	#@win.event
-	#def on_draw():
-	#	main_iter.next()
-
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
 			      (Controller.TOG_SOUND_EFFECTS, KeyAction(key.N, onPress=True))], win)
 
@@ -445,7 +436,6 @@ def simMain():
 		while man.proxy.alive():
 			man.now=time.time()
 
-			# move this loop to ProxyObs.loop
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 			[ b.update() for b in set(Bullet.getInFlight())]
 
@@ -471,8 +461,7 @@ def simMain():
 				mouse_cap = ~mouse_cap
 				win.set_exclusive_mouse(mouse_cap)
 			if events[Controller.TOG_SOUND_EFFECTS]!=0:
-				print 'eventcheck. sounds: '+str(manage.sound_effects)
-				SoundSlot.sound_off()
+				SoundSlot.sound_toggle()
 			win_ctrls.clearEvents()
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
@@ -504,12 +493,18 @@ def simMain():
 
 			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
 
-			for bot in bots:
-			       	if bot.getId() in planes:
-					if not bot.alive():
-						del planes[bot.getId()]
-					else:
-						bot.play()
+			if manage.sound_effects:
+				for bot in bots:
+					if bot.getId() in planes:
+						if not bot.alive():
+							del planes[bot.getId()]
+						else:
+							bot.play()
+			else:
+				for bot in bots:
+					if bot.getId() in planes and not bot.alive():
+							del planes[bot.getId()]
+
 			[ plane.eventCheck() for plane in planes.itervalues() if plane.alive() ]
 			yield True
 
