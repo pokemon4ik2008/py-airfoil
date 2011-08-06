@@ -122,15 +122,14 @@ class Bullet(Obj, ControlledSer):
 
     def deserialise(self, ser, estimated):
 	    obj=ControlledSer.deserialise(self, ser, estimated)
-	    try:
-		    if not self.__played:
-			    Bullet.GUN_SHOT.play(pos=self.getPos())
-	    except AssertionError:
-		    print_exc()
+	    def play_bullet(dt, p):
+		    clock.unschedule(play_bullet)
+		    Bullet.GUN_SHOT.play(pos=p)
+	    if not self.local() and not self.__played:
+		    self.__played=True
+		    clock.schedule(play_bullet, self.getPos())
 	    return obj
     
-	    
-
     def markDead(self):
 	    ControlledSer.markDead(self)
             if self in Bullet.__IN_FLIGHT:
@@ -215,9 +214,12 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__lastKnownPos=Vector3(0,0,0)
         self.__lastDelta=Vector3(0,0,0)
         self.__lastUpdateTime=0.0
-	self.__engineNoise=SoundSlot("airfoil engine "+str(ident), loop=True)
-	self.__engineNoise.play(ENGINE_SND, pos=self.getPos())
-        self.setObjectsMesh(object3dLib, meshes["plane"])
+        def play_engine(dt, i, pos):
+		clock.unschedule(play_engine)
+		self.__engineNoise=SoundSlot("airfoil engine "+str(i), loop=True)
+		self.__engineNoise.play(ENGINE_SND, pos)
+	clock.schedule(play_engine, ident, self.getPos())
+	self.setObjectsMesh(object3dLib, meshes["plane"])
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -235,7 +237,8 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
-        if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
+        #if events[Controller.FIRE]!=0:
+	if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
             vOff=self.getVelocity().normalized()*800
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
             b.update()
@@ -244,15 +247,17 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__controls.clearEvents(self.__interesting_events)
 
     def play(self):
+        def play_sync(dt, thrust, speed, pos):
+	    clock.unschedule(play_sync)
 	    if self.__engineNoise.playing:
-		    if self.thrust<=0:
+		    if thrust<=0:
 			    self.__engineNoise.pause()
 	    else:
-		    if self.thrust>0:
+		    if thrust>0:
 			    self.__engineNoise.play()
-	    speed=self.__lastDelta.magnitude()
-	    self.__engineNoise.setPos(self.getPos())
-	    self.__engineNoise.pitch = max(((speed/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
+	    self.__engineNoise.setPos(pos)
+	    self.__engineNoise.pitch = max(((speed/400.0)+0.75, thrust/self.__class__.MAX_THRUST))
+	clock.schedule(play_sync, self.thrust, self.__lastDelta.magnitude(), self.getPos())
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
