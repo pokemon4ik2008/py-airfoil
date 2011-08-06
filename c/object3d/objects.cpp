@@ -7,7 +7,7 @@ float obj_ambient_light=0.5f;
 obj_plot_position pos={0};
 obj_plot_position origin_offset={0};
 obj_plot_position pov={0};
-obj_light_source objlight={1.0f,0,0,0};
+obj_light_source objlight={0,0,0,1.0f};
 
 obj_3dPrimitive *testObj = NULL;
 float rotAngle = 0;
@@ -38,6 +38,13 @@ extern "C"
 	DLL_EXPORT void setPosition(float plotPos[])
 	{
 		objSetPlotPos(plotPos[0], plotPos[1], plotPos[2]);
+	}
+	
+	DLL_EXPORT void setLightPosition(float lightPos[])
+	{
+		objlight.x = lightPos[0];
+		objlight.y = lightPos[1];
+		objlight.z = lightPos[2];
 	}
 
 	DLL_EXPORT void draw(void *meshToPlot)
@@ -142,6 +149,7 @@ oError objPlot(obj_3dPrimitive *obj) {
 	unsigned int flags;
 
 	glTranslatef(pos.x ,pos.y ,pos.z );
+	glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
 
 	if (rotAxis)
 	{
