@@ -54,10 +54,10 @@ class SoundSlot(object):
             print_exc()
         f=args[0]
         other_args=args[1:]
-        f(self, *other_args)
+        f(self, *other_args, **kwargs)
 
-    def schedule(self, f, *a):
-        clock.schedule(self.run, *(f,)+a)
+    def schedule(self, f, *a, **kw):
+        clock.schedule(self.run, *(f,)+a, **kw)
 
     def pause(self):
         try:

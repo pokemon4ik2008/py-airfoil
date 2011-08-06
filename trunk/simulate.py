@@ -122,11 +122,9 @@ class Bullet(Obj, ControlledSer):
 
     def deserialise(self, ser, estimated):
 	    obj=ControlledSer.deserialise(self, ser, estimated)
-	    def play_bullet(snd, p):
-		    snd.play(pos=p)
 	    if not self.local() and not self.__played:
 		    self.__played=True
-		    Bullet.GUN_SHOT.schedule(play_bullet, self.getPos())
+		    Bullet.GUN_SHOT.schedule(SoundSlot.play, pos=self.getPos())
 	    return obj
     
     def markDead(self):
@@ -233,7 +231,6 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
-        #if events[Controller.FIRE]!=0:
 	if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
             vOff=self.getVelocity().normalized()*800
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
