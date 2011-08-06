@@ -22,7 +22,7 @@ class SoundSlot(object):
             return threading.currentThread().ident==SoundSlot.__TID
 
     @classmethod
-    def sound_off(cls):
+    def sound_toggle(cls):
         try:
             assert cls.checkTid()
         except:
@@ -30,7 +30,6 @@ class SoundSlot(object):
         manage.sound_effects=not manage.sound_effects
         def free_player(player):
             player.pause()
-            #print 'SoundSlot.play. all stop. removing: '+str(player)
             SoundSlot.__FREE.append(player)
         if not manage.sound_effects:
             [ free_player(p) for p in cls.__PLAYING ]
@@ -46,6 +45,19 @@ class SoundSlot(object):
         self.__player=None
         self.__pos=pos
         self.__snd=snd
+
+    def run(self, dt, *args, **kwargs):
+        clock.unschedule(self.run)
+        try:
+            assert self.checkTid()
+        except:
+            print_exc()
+        f=args[0]
+        other_args=args[1:]
+        f(self, *other_args)
+
+    def schedule(self, f, *a):
+        clock.schedule(self.run, *(f,)+a)
 
     def pause(self):
         try:
@@ -90,17 +102,13 @@ class SoundSlot(object):
         if not manage.sound_effects:
             return
         if self.__player and self.__player in self.__PLAYING:
-            #print 'play. 2nd. player: '+str(self.__player)
             self.__player.pause()
             SoundSlot.__FREE.append(self.__player)
             self.__PLAYING.remove(self.__player)
-            #print 'SoundSlot.play. 2nd play. removing: '+str(self.__player)+' tid '+str(threading.currentThread().ident)+' playing: '+str(self.__PLAYING)+' free: '+str(SoundSlot.__FREE)
-        #print 'SoundSlot.play. remaining: '+str(len(self.__FREE))
-        self.__player=self.__FREE.popleft()
-        #print 'play. playing: '+str(self.__player)
 
         try:
             assert self.__snd
+            self.__player=self.__FREE.popleft()
             if self.__pos:
                 self.__player.position=(self.__pos.x, self.__pos.y, self.__pos.z)
             if self.__loop:
@@ -117,12 +125,9 @@ class SoundSlot(object):
                     assert self.checkTid()
                 except:
                     print_exc()
-                #print 'on_eos. player: '+str(self.__player)
                 if self.__player and self.__player in self.__PLAYING and self.__player.eos_action!=Player.EOS_LOOP:
                     self.__PLAYING.remove(self.__player)
                     self.__FREE.append(self.__player)
-                    #print 'SoundSlot.play. freeing '+str(self.__player)+' tid '+str(threading.currentThread().ident)+' playing: '+str(self.__PLAYING)+' free: '+str(SoundSlot.__FREE)
-            #print 'SoundSlot.play. adding '+str(self.__player)
             self.__PLAYING.add(self.__player)
         except:
             print_exc()
