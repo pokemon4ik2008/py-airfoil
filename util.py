@@ -1,4 +1,5 @@
 import math
+import socket
  
 def getAngleForXY(x, y):
     angle = 0.0
@@ -29,3 +30,31 @@ class prettyfloat(float):
 
 def repeat(el, num): 
     return [ el for idx in range(num) ]
+
+def getLocalIP():
+    addr = socket.gethostbyname(socket.gethostname())
+    if addr.startswith('127'):
+        try:
+            import commands
+            return commands.getoutput("hostname -I").split('\n')[0].strip()     
+        except:
+            print_exc()
+    return addr
+        
+def int2Bytes(i, size):
+    s=''
+    for idx in range(size):
+        s+=chr((i >> (idx*8)) & 0xff)
+    return s
+
+def bytes2Int(s):
+    i=0
+    for idx in range(len(s)):
+       i |= ord(s[idx]) << (idx*8) 
+    return i
+
+def toHexStr(string):
+    bytes=''
+    for c in string:
+        bytes+='%02x'%ord(c)
+    return bytes

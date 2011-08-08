@@ -115,7 +115,7 @@ class SoundSlot(object):
                 self.__player.eos_action=Player.EOS_LOOP
             else:
                 self.__player.eos_action=Player.EOS_PAUSE
-            self.__player.min_distance=20
+            self.__player.min_distance=80
             self.__player.next()
             self.__player.queue(self.__snd)
             self.__player.play()
