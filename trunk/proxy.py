@@ -7,43 +7,15 @@ from Queue import LifoQueue
 import re
 import select
 import socket
-from socket import gethostname, gethostbyname
 from subprocess import Popen, PIPE
 import sys
 from threading import Condition, RLock, Thread
 from time import sleep, time
 from traceback import print_exc
+from util import getLocalIP, int2Bytes, bytes2Int, toHexStr
 
 PORT=8124
 LEN_LEN=4
-
-def getLocalIP():
-    addr = socket.gethostbyname(socket.gethostname())
-    if addr.startswith('127'):
-        try:
-            import commands
-            return commands.getoutput("hostname -I").split('\n')[0].strip()     
-        except:
-            print_exc()
-    return addr
-        
-def int2Bytes(i, size):
-    s=''
-    for idx in range(size):
-        s+=chr((i >> (idx*8)) & 0xff)
-    return s
-
-def bytes2Int(s):
-    i=0
-    for idx in range(len(s)):
-       i |= ord(s[idx]) << (idx*8) 
-    return i
-
-def toHexStr(string):
-    bytes=''
-    for c in string:
-        bytes+='%02x'%ord(c)
-    return bytes
 
 def droppable(flags):
     return (flags & Mirrorable.DROPPABLE_FLAG)==Mirrorable.DROPPABLE_FLAG
@@ -52,7 +24,7 @@ class Mirrorable:
     META=0
     __INDEXES=[TYPE, IDENT, SYS, FLAGS]=range(4)
     _SIZES = [2, 2, 2, 1]
-    META_SIZE=sum(_SIZES)
+    UPDATE_SIZE=META_SIZE=sum(_SIZES)
     SHIFTS = [sum(_SIZES[:i]) for i in __INDEXES]
     __InstCount = 0
     _DEAD_FLAG=0x1
@@ -104,10 +76,10 @@ class Mirrorable:
             print >> sys.stderr, 'Mirrorable.getId. System setup incomplete. '+str((self.__typ, self._ident))
         return (0, self._ident)
 
-    def markChanged(self):
+    def markChanged(self, full_ser=False):
         try:
             assert self.local()
-            self._proxy.addUpdated(self)
+            self._proxy.addUpdated(self, full_ser)
             return self.alive()
         except AssertionError:
             print_exc()
@@ -158,8 +130,16 @@ class Mirrorable:
         self._flags=flags
         return self
 
+    def serNonDroppable(self):
+        self._flags|=Mirrorable.DROPPABLE_FLAG
+        return []
+
+    def deserNonDroppable(self, *args):
+        return self
+
 class ControlledSer(Mirrorable):
-    [ _POS,_,_, _ATT,_,_,_, _VEL,_,_ ] = range(Mirrorable.META+1, Mirrorable.META+11)
+    UPDATE_SIZE=Mirrorable.META+11
+    [ _POS,_,_, _ATT,_,_,_, _VEL,_,_ ] = range(Mirrorable.META+1, UPDATE_SIZE)
 
     def __init__(self, typ, ident=None, proxy=None):
         Mirrorable.__init__(self, typ, ident, proxy)
@@ -276,6 +256,8 @@ class SerialisableFact:
                 else:
                     assert False
             obj.deserialise(serialised, estimated)
+            if len(serialised)>obj.UPDATE_SIZE:
+                obj.deserNonDroppable(serialised[obj.UPDATE_SIZE:])
             if not obj.alive():
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
@@ -420,7 +402,7 @@ class Client(Thread, Mirrorable):
              self.__ids.append(uniq)
          self.__serialised[uniq]=ser
 
-     def addUpdated(self, mirrorable):
+     def addUpdated(self, mirrorable, full_ser):
          try:
              #can't get any obj id if we don't have a sys id
              assert Sys.ID is not None
@@ -428,6 +410,8 @@ class Client(Thread, Mirrorable):
 
              uniq=mirrorable.getId()
              ser=mirrorable.serialise()
+             if full_ser:
+                 ser+=mirrorable.serNonDroppable()
              if uniq in self.__fact and manage.fast_path:
                  self.__fact.getObj(uniq).estUpdate()
              if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):

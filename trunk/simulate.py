@@ -101,10 +101,11 @@ class Bullet(Obj, ControlledSer):
     def getInFlight(cls):
         return cls.__IN_FLIGHT
 
-    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None):
+    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None, parent=None):
         Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
         self._mass = 1.0 # 100g -- a guess
         self._scales = [0.032, 0.032, 0.005]
+	self.__parent=parent
         ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
 
     def remoteInit(self, ident):
@@ -127,6 +128,20 @@ class Bullet(Obj, ControlledSer):
 		    Bullet.GUN_SHOT.schedule(SoundSlot.play, pos=self.getPos())
 	    return obj
     
+    def setParent(self, (sys, i)):
+	    self.__parent=(sys, i)
+	    if self.local():
+		    self.markChanged(self.serNonDroppable(sys, i))
+
+    def serNonDroppable(self):
+	    self._flags|=Mirrorable.DROPPABLE_FLAG
+	    return [ self.__parent ]
+
+    def deserNonDroppable(self, parent):
+	    self.__parent=parent
+	    print 'Bullet.deserNonDroppable. parent: '+str(parent)
+	    return self
+
     def markDead(self):
 	    ControlledSer.markDead(self)
             if self in Bullet.__IN_FLIGHT:
@@ -233,9 +248,9 @@ class MyAirfoil(Airfoil, ControlledSer):
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
 	if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
             vOff=self.getVelocity().normalized()*800
-            b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy)
+            b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy, parent=self.getId())
             b.update()
-            b.markChanged()
+            b.markChanged(full_ser=True)
             self.__last_fire=manage.now
         self.__controls.clearEvents(self.__interesting_events)
 
