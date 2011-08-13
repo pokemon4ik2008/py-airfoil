@@ -257,7 +257,7 @@ class SerialisableFact:
                     assert False
             obj.deserialise(serialised, estimated)
             if len(serialised)>obj.UPDATE_SIZE:
-                obj.deserNonDroppable(serialised[obj.UPDATE_SIZE:])
+                obj.deserNonDroppable(*serialised[obj.UPDATE_SIZE:])
             if not obj.alive():
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
@@ -277,9 +277,13 @@ class SerialisableFact:
         return ident in self.__mine or ident in self.__notMine
 
     def getObj(self, ident):
-        if ident in self.__mine:
-            return self.__mine[ident]
-        return self.__notMine[ident]
+        try:
+            if ident in self.__mine:
+                return self.__mine[ident]
+            return self.__notMine[ident]
+        except KeyError:
+            print_exc()
+            print 'Client.getObj. id: '+str(ident)+' mine: '+str(self.__mine.keys())+' not mine: '+str(self.__notMine.keys())
 
     def getTypeObjs(self, typ, native=True, foreign=True):
         objs=[]
