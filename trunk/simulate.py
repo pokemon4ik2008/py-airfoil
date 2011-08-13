@@ -133,7 +133,7 @@ class Bullet(Obj, ControlledSer):
 	    return self
 
     def play(self):
-	    if not self.local() and not self.__played:
+	    if not self.local() and not self.__played and self.__parent is not None and self.__parent in manage.proxy:
 		    self.__played=True
 		    manage.proxy.getObj(self.__parent).gunSlot.play(pos=self.getPos())
 
