@@ -95,7 +95,6 @@ class Bullet(Obj, ControlledSer):
     #LIFE_SPAN is in seconds
     LIFE_SPAN=30 
     __IN_FLIGHT=set()
-    GUN_SHOT=SoundSlot("gun", snd=GUN_SND)
 
     @classmethod
     def getInFlight(cls):
@@ -123,32 +122,26 @@ class Bullet(Obj, ControlledSer):
 
     def deserialise(self, ser, estimated):
 	    obj=ControlledSer.deserialise(self, ser, estimated)
-	    if not self.local() and not self.__played:
-		    self.__played=True
-		    Bullet.GUN_SHOT.schedule(SoundSlot.play, pos=self.getPos())
 	    return obj
     
-    def setParent(self, (sys, i)):
-	    self.__parent=(sys, i)
-	    if self.local():
-		    self.markChanged(self.serNonDroppable(sys, i))
-
     def serNonDroppable(self):
 	    self._flags|=Mirrorable.DROPPABLE_FLAG
 	    return [ self.__parent ]
 
     def deserNonDroppable(self, parent):
 	    self.__parent=parent
-	    print 'Bullet.deserNonDroppable. parent: '+str(parent)
 	    return self
+
+    def play(self):
+	    if not self.local() and not self.__played:
+		    self.__played=True
+		    manage.proxy.getObj(self.__parent).gunSlot.play(pos=self.getPos())
 
     def markDead(self):
 	    ControlledSer.markDead(self)
             if self in Bullet.__IN_FLIGHT:
        		    self._just_dead=True	
                     Bullet.__IN_FLIGHT.remove(self)
-                    if(len(self.__class__.__IN_FLIGHT)%25==0):
-                        print 'num bullets (fewer): '+str(len(self.__class__.__IN_FLIGHT))
 
     def isClose(self, obj):
         return obj.getId()==self.getId()
@@ -222,13 +215,12 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__last_fire=manage.now
 
     def remoteInit(self, ident):
-        ControlledSer.remoteInit(self, ident)
-        self.__lastKnownPos=Vector3(0,0,0)
-        self.__lastDelta=Vector3(0,0,0)
-        self.__lastUpdateTime=0.0
-	self.__engineNoise=SoundSlot("airfoil engine "+str(ident), loop=True)
-	self.__engineNoise.schedule(SoundSlot.play, ENGINE_SND, self.getPos())
-	self.setObjectsMesh(object3dLib, meshes["plane"])
+	    ControlledSer.remoteInit(self, ident)
+	    self.__lastKnownPos=Vector3(0,0,0)
+	    self.__lastDelta=Vector3(0,0,0)
+	    self.__lastUpdateTime=0.0
+	    self.setObjectsMesh(object3dLib, meshes["plane"])
+	    self.__played=False
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -255,16 +247,20 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__controls.clearEvents(self.__interesting_events)
 
     def play(self):
-        def play_sync(snd, thrust, speed, pos):
-	    if snd.playing:
-		    if thrust<=0:
-			    snd.pause()
+	    if not self.local() and not self.__played:
+		    self.__played=True
+		    self.__engineNoise=SoundSlot("airfoil engine "+str(self.getId()), loop=True)
+		    self.__engineNoise.play(ENGINE_SND, self.getPos())
+		    self.gunSlot=SoundSlot("gun "+str(self.getId()), snd=GUN_SND)
+
+	    if self.__engineNoise.playing:
+		    if self.thrust<=0:
+			    self.__engineNoise.pause()
 	    else:
-		    if thrust>0:
-			    snd.play()
-	    snd.setPos(pos)
-	    snd.pitch = max(((speed/400.0)+0.75, thrust/self.__class__.MAX_THRUST))
-	self.__engineNoise.schedule(play_sync, self.thrust, self.__lastDelta.magnitude(), self.getPos())
+		    if self.thrust>0:
+			    self.__engineNoise.play()
+	    self.__engineNoise.setPos(self.getPos())
+	    self.__engineNoise.pitch = max(((self.__lastDelta.magnitude()/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
@@ -321,6 +317,7 @@ def simMain():
                 help='Create a client connection this a server at this IP / domain')
         man.opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
+	loadMeshes()
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
 	if man.opt.server is None:
@@ -371,6 +368,7 @@ def simMain():
 	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
 	lightPosition = fourfv(0.0,1000.0,1.0,1.0)
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)	
+	object3dLib.setLightPosition(lightPosition)
 	glEnable(GL_DEPTH_TEST)
 	glEnable(GL_CULL_FACE)
 	glDepthFunc(GL_LEQUAL)
@@ -418,8 +416,6 @@ def simMain():
 					       (Controller.CAM_ZOOM, KeyAction(key.J, key.K))], 
 					      win))
 
-	loadMeshes()
-	object3dLib.setLightPosition(lightPosition)
 	planes = {}
 	plane_inits=[(Point3(-0.3,0,495), 
 		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
@@ -510,11 +506,11 @@ def simMain():
 
 			if manage.sound_effects:
 				for bot in bots:
-					if bot.getId() in planes:
-						if not bot.alive():
+					if not bot.alive():
+						if bot.getId() in planes:
 							del planes[bot.getId()]
-						else:
-							bot.play()
+					else:
+						bot.play()
 			else:
 				for bot in bots:
 					if bot.getId() in planes and not bot.alive():

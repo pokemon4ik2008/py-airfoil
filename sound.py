@@ -12,6 +12,7 @@ class SoundSlot(object):
     __TID=None
     __PLAYING=set()
     __FREE=deque([ Player() for i in range(5) ])
+    __SCHEDULED=deque()
 
     @staticmethod
     def checkTid():
@@ -19,7 +20,11 @@ class SoundSlot(object):
             SoundSlot.__TID=threading.currentThread().ident
             return True
         else:
-            return threading.currentThread().ident==SoundSlot.__TID
+            if threading.currentThread().ident!=SoundSlot.__TID:
+                print 'checkTid. current: '+str(threading.currentThread().ident)+' '+str(SoundSlot.__TID)+' '+str(threading.currentThread())
+                return False
+            else:
+                return True
 
     @classmethod
     def sound_toggle(cls):
@@ -46,25 +51,13 @@ class SoundSlot(object):
         self.__pos=pos
         self.__snd=snd
 
-    def run(self, dt, *args, **kwargs):
-        clock.unschedule(self.run)
-        try:
-            assert self.checkTid()
-        except:
-            print_exc()
-        f=args[0]
-        other_args=args[1:]
-        f(self, *other_args, **kwargs)
-
-    def schedule(self, f, *a, **kw):
-        clock.schedule(self.run, *(f,)+a, **kw)
-
     def pause(self):
         try:
             assert self.checkTid()
         except:
             print_exc()
-        self.__player.pause()
+        if self.__player:
+            self.__player.pause()
  
     @property
     def playing(self):
@@ -72,7 +65,7 @@ class SoundSlot(object):
             assert self.checkTid()
         except:
             print_exc()
-        return self.__player.playing
+        return self.__player is not None and self.__player.playing
 
     @property
     def pitch(self):
@@ -80,7 +73,9 @@ class SoundSlot(object):
             assert self.checkTid()
         except:
             print_exc()
-        return self.__player.pitch
+        if self.__player:
+            return self.__player.pitch
+        return 0
 
     @pitch.setter
     def pitch(self, value):
@@ -88,7 +83,8 @@ class SoundSlot(object):
             assert self.checkTid()
         except:
             print_exc()
-        self.__player.pitch=value
+        if self.__player:
+            self.__player.pitch=value
 
     def play(self, snd=None, pos=None):
         try:
@@ -138,7 +134,8 @@ class SoundSlot(object):
         except:
             print_exc()
         self.__pos=pos
-        self.__player.position=self.__pos
+        if self.__player:
+            self.__player.position=self.__pos
 
 GUN_SND=load('data/gun.wav', streaming=False)
 ENGINE_SND=load('data/spitfire_engine.wav', streaming=False)
