@@ -303,8 +303,9 @@ class MyAirfoil(Airfoil, ControlledSer):
 
     def _hitGround(self):
 	    Airfoil._hitGround(self)
-	    self.__play_tire=True
-	    self.markChanged(full_ser=True)
+	    if self._velocity:
+		    self.__play_tire=True
+		    self.markChanged(full_ser=True)
 
     def serNonDroppable(self):
 	    self._flags|=Mirrorable.DROPPABLE_FLAG
