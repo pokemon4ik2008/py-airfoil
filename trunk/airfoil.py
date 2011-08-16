@@ -219,7 +219,7 @@ class Obj(object):
         self.__updateInternalMoment(timeDiff)
         self._updateVelFromEnv(timeDiff, zenithVector, noseVector)
 
-    def __hitGround(self):
+    def _hitGround(self):
         self.__wasOnGround = True      
         # Point the craft along the ground plane
         self._attitude = Quaternion.new_rotate_euler(self.getWindHeading(),0,0)   
@@ -230,7 +230,7 @@ class Obj(object):
             self._pos.y = 0.0
             self._velocity.y = 0.0
             if not self.__wasOnGround:
-                self.__hitGround()
+                self._hitGround()
         else:
             self.__wasOnGround = False
 

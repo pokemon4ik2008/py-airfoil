@@ -139,6 +139,7 @@ class SoundSlot(object):
 
 GUN_SND=load('data/gun.wav', streaming=False)
 ENGINE_SND=load('data/spitfire_engine.wav', streaming=False)
+SCREECH_SND=load('data/104026__rutgermuller__Tire_Squeek_www.rutgermuller.wav', streaming=False)
 
 def setListener(eye, pos, zen):
     listener.position=(eye.x, eye.y, eye.z)

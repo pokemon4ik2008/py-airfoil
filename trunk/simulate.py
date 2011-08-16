@@ -193,6 +193,8 @@ class Bullet(Obj, ControlledSer):
             print_exc()
 
 class MyAirfoil(Airfoil, ControlledSer):
+    UPDATE_SIZE=Mirrorable.META+9
+    [ _POS,_,_, _ATT,_,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
     TYP=0
     _THRUST=ControlledSer._ATT+4 #ATT is a Quaternion
 
@@ -221,6 +223,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__lastUpdateTime=0.0
 	    self.setObjectsMesh(object3dLib, meshes["plane"])
 	    self.__played=False
+	    self.__play_tire=False
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -252,6 +255,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 		    self.__engineNoise=SoundSlot("airfoil engine "+str(self.getId()), loop=True)
 		    self.__engineNoise.play(ENGINE_SND, self.getPos())
 		    self.gunSlot=SoundSlot("gun "+str(self.getId()), snd=GUN_SND)
+		    self.tireSlot=SoundSlot("tire screech"+str(self.getId()), snd=SCREECH_SND)
 
 	    if self.__engineNoise.playing:
 		    if self.thrust<=0:
@@ -261,6 +265,10 @@ class MyAirfoil(Airfoil, ControlledSer):
 			    self.__engineNoise.play()
 	    self.__engineNoise.setPos(self.getPos())
 	    self.__engineNoise.pitch = max(((self.__lastDelta.magnitude()/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
+
+	    if self.__play_tire:
+		    self.tireSlot.play(pos=self.getPos())
+		    self.__play_tire=False
 
     def serialise(self):
         ser=Mirrorable.serialise(self)
@@ -292,6 +300,19 @@ class MyAirfoil(Airfoil, ControlledSer):
 		    self.__lastUpdateTime=now
 		    self.__lastKnownPos=pos
 	return obj
+
+    def _hitGround(self):
+	    Airfoil._hitGround(self)
+	    self.__play_tire=True
+	    self.markChanged(full_ser=True)
+
+    def serNonDroppable(self):
+	    self._flags|=Mirrorable.DROPPABLE_FLAG
+	    return [ self.__play_tire ]
+
+    def deserNonDroppable(self, play_tire):
+	    self.__play_tire=play_tire
+	    return self
 
 def simMain():
 	man=manage
