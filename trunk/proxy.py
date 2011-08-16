@@ -508,8 +508,6 @@ class Client(Thread, Mirrorable):
                      #writers=[self.__s]
                      #print 'proxy is dead. add writer to select'
                  reads, writes, errs = select.select([self.__s], writers, [], 1.5)
-                 if not self.alive():
-                     print 'after select. proxy is dead'
                  if self.__s in reads:
                      if self.acquireLock():
                          read_now=self.__s.recv(4096)
