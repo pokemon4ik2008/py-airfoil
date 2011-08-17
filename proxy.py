@@ -131,7 +131,7 @@ class Mirrorable:
         return self
 
     def serNonDroppable(self):
-        self._flags|=Mirrorable.DROPPABLE_FLAG
+        self._flags &= ~self.DROPPABLE_FLAG
         return []
 
     def deserNonDroppable(self, *args):

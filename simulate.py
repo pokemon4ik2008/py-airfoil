@@ -125,7 +125,7 @@ class Bullet(Obj, ControlledSer):
 	    return obj
     
     def serNonDroppable(self):
-	    self._flags|=Mirrorable.DROPPABLE_FLAG
+	    self._flags &= ~self.DROPPABLE_FLAG
 	    return [ self.__parent ]
 
     def deserNonDroppable(self, parent):
@@ -253,18 +253,30 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    if not self.local() and not self.__played:
 		    self.__played=True
 		    self.__engineNoise=SoundSlot("airfoil engine "+str(self.getId()), loop=True)
-		    self.__engineNoise.play(ENGINE_SND, self.getPos())
+		    #self.__engineNoise.play(ENGINE_SND, self.getPos())
 		    self.gunSlot=SoundSlot("gun "+str(self.getId()), snd=GUN_SND)
 		    self.tireSlot=SoundSlot("tire screech"+str(self.getId()), snd=SCREECH_SND)
 
 	    if self.__engineNoise.playing:
 		    if self.thrust<=0:
-			    self.__engineNoise.pause()
+			    if self.__engineNoise.snd is ENGINE_SND:
+				    self.__engineNoise.play(snd=WIND_SND)
+		    else:
+			    if self.__engineNoise.snd is WIND_SND:
+				    self.__engineNoise.play(snd=ENGINE_SND)
+				    self.__engineNoise.volume=1.0
+		    
 	    else:
 		    if self.thrust>0:
-			    self.__engineNoise.play()
-	    self.__engineNoise.setPos(self.getPos())
-	    self.__engineNoise.pitch = max(((self.__lastDelta.magnitude()/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
+			    self.__engineNoise.play(snd=ENGINE_SND)
+			    self.__engineNoise.volume=1.0
+		    else:
+			    self.__engineNoise.play(snd=WIND_SND)
+	    self.__engineNoise.setPos(self._pos)
+	    spd=self.__lastDelta.magnitude()
+	    self.__engineNoise.pitch = max(((spd/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
+	    if self.__engineNoise.snd is WIND_SND:
+		    self.__engineNoise.volume=min(spd, self._pos.y)/300.0
 
 	    if self.__play_tire:
 		    self.tireSlot.play(pos=self.getPos())
@@ -308,7 +320,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 		    self.markChanged(full_ser=True)
 
     def serNonDroppable(self):
-	    self._flags|=Mirrorable.DROPPABLE_FLAG
+	    self._flags &= ~self.DROPPABLE_FLAG
 	    return [ self.__play_tire ]
 
     def deserNonDroppable(self, play_tire):
