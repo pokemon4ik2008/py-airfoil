@@ -49,7 +49,7 @@ class SoundSlot(object):
         self.__loop=loop
         self.__player=None
         self.__pos=pos
-        self.__snd=snd
+        self.snd=snd
 
     def pause(self):
         try:
@@ -86,13 +86,32 @@ class SoundSlot(object):
         if self.__player:
             self.__player.pitch=value
 
+    @property
+    def volume(self):
+        try:
+            assert self.checkTid()
+        except:
+            print_exc()
+        if self.__player:
+            return self.__player.volume
+        return 0
+
+    @volume.setter
+    def volume(self, value):
+        try:
+            assert self.checkTid()
+        except:
+            print_exc()
+        if self.__player:
+            self.__player.volume=value
+
     def play(self, snd=None, pos=None):
         try:
             assert self.checkTid()
         except:
             print_exc()
         if snd:
-            self.__snd=snd
+            self.snd=snd
         if pos:
             self.__pos=pos
         if not manage.sound_effects:
@@ -103,7 +122,7 @@ class SoundSlot(object):
             self.__PLAYING.remove(self.__player)
 
         try:
-            assert self.__snd
+            assert self.snd
             self.__player=self.__FREE.popleft()
             if self.__pos:
                 self.__player.position=(self.__pos.x, self.__pos.y, self.__pos.z)
@@ -113,7 +132,7 @@ class SoundSlot(object):
                 self.__player.eos_action=Player.EOS_PAUSE
             self.__player.min_distance=80
             self.__player.next()
-            self.__player.queue(self.__snd)
+            self.__player.queue(self.snd)
             self.__player.play()
             @self.__player.event
             def on_eos():
@@ -140,6 +159,7 @@ class SoundSlot(object):
 GUN_SND=load('data/gun.wav', streaming=False)
 ENGINE_SND=load('data/spitfire_engine.wav', streaming=False)
 SCREECH_SND=load('data/104026__rutgermuller__Tire_Squeek_www.rutgermuller.wav', streaming=False)
+WIND_SND=load('data/34338__ERH__wind.wav', streaming=False)
 
 def setListener(eye, pos, zen):
     listener.position=(eye.x, eye.y, eye.z)
