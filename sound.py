@@ -11,7 +11,7 @@ import manage
 class SoundSlot(object):
     __TID=None
     __PLAYING=set()
-    __FREE=deque([ Player() for i in range(5) ])
+    __FREE=deque([ Player() for i in range(15) ])
     __SCHEDULED=deque()
 
     @staticmethod
@@ -27,18 +27,22 @@ class SoundSlot(object):
                 return True
 
     @classmethod
+    def free_player(cls, player):
+        player.pause()
+        player.volume=1.0
+        player.pitch=1.0
+        cls.__FREE.append(player)
+        cls.__PLAYING.remove(player)
+
+    @classmethod
     def sound_toggle(cls):
         try:
             assert cls.checkTid()
         except:
             print_exc()
         manage.sound_effects=not manage.sound_effects
-        def free_player(player):
-            player.pause()
-            SoundSlot.__FREE.append(player)
         if not manage.sound_effects:
-            [ free_player(p) for p in cls.__PLAYING ]
-            cls.__PLAYING.clear()
+            [ cls.free_player(p) for p in set(cls.__PLAYING) ]
 
     def __init__(self, name="", loop=False, pos=None, snd=None):
         try:
@@ -50,6 +54,9 @@ class SoundSlot(object):
         self.__player=None
         self.__pos=pos
         self.snd=snd
+
+    def __free_player(self):
+        SoundSlot.free_player(self.__player)
 
     def pause(self):
         try:
@@ -117,10 +124,7 @@ class SoundSlot(object):
         if not manage.sound_effects:
             return
         if self.__player and self.__player in self.__PLAYING:
-            self.__player.pause()
-            SoundSlot.__FREE.append(self.__player)
-            self.__PLAYING.remove(self.__player)
-
+            self.__free_player()
         try:
             assert self.snd
             self.__player=self.__FREE.popleft()
@@ -141,8 +145,7 @@ class SoundSlot(object):
                 except:
                     print_exc()
                 if self.__player and self.__player in self.__PLAYING and self.__player.eos_action!=Player.EOS_LOOP:
-                    self.__PLAYING.remove(self.__player)
-                    self.__FREE.append(self.__player)
+                    self.__free_player()
             self.__PLAYING.add(self.__player)
         except:
             print_exc()
