@@ -196,7 +196,6 @@ class MyAirfoil(Airfoil, ControlledSer):
     UPDATE_SIZE=Mirrorable.META+9
     [ _POS,_,_, _ATT,_,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
     TYP=0
-    _THRUST=ControlledSer._ATT+4 #ATT is a Quaternion
 
     def __init__(self, controls=None, proxy=None, 
                  pos = Vector3(0,0,0), 
