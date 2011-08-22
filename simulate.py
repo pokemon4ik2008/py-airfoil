@@ -269,7 +269,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 			    self.__engineNoise.play(snd=WIND_SND)
 	    self.__engineNoise.setPos(self._pos)
 	    spd=self.__lastDelta.magnitude()
-	    self.__engineNoise.pitch = max(((spd/400.0)+0.75, self.thrust/self.__class__.MAX_THRUST))
+	    self.__engineNoise.pitch = max(((spd/300.0)+0.67, self.thrust/self.__class__.MAX_THRUST))
 	    if self.__engineNoise.snd is WIND_SND:
 		    self.__engineNoise.volume=min(spd, self._pos.y)/100.0
 
