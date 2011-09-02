@@ -107,6 +107,7 @@ class Controller:
     FIRE=Controls("fire")
     CAM_FIXED=Controls("fixed camera")
     CAM_FOLLOW=Controls("follow camera")
+    CAM_INTERNAL=Controls("internal camera")
     CAM_X=Controls("camera x")
     CAM_Z=Controls("camera z")
     CAM_ZOOM=Controls("camera zoom")
