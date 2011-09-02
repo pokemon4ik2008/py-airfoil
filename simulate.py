@@ -56,6 +56,7 @@ def loadMeshes():
         else:
                 object3dLib = cdll.LoadLibrary("bin/object3d.so")
                 meshes["plane"] = object3dLib.load("data/models/biplane.csv")
+                #meshes["plane"] = object3dLib.load("data/models/cockpit.csv")
 
 def loadTerrain():
 	global cterrain
@@ -429,6 +430,7 @@ def simMain():
 				   (Controller.ROLL, KeyAction(key.A, key.D)),
 				   (Controller.CAM_FIXED, KeyAction(key._1)),
 				   (Controller.CAM_FOLLOW, KeyAction(key._2)),
+				   (Controller.CAM_INTERNAL, KeyAction(key._3)),
 				   (Controller.CAM_Z, KeyAction(key.C, key.V)),
 				   (Controller.CAM_X, KeyAction(key.Z, key.X)),
 				   (Controller.CAM_ZOOM, KeyAction(key.G, key.H))], 
@@ -436,8 +438,9 @@ def simMain():
 	if man.opt.two_player == True:
 		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
 					       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-					       (Controller.CAM_FIXED, KeyAction(key._9)),
-					       (Controller.CAM_FOLLOW, KeyAction(key._0)), 
+					       (Controller.CAM_FIXED, KeyAction(key._8)),
+					       (Controller.CAM_FOLLOW, KeyAction(key._9)), 
+					       (Controller.CAM_INTERNAL, KeyAction(key._0)), 
 					       (Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
 					       (Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
 					       (Controller.CAM_X, KeyAction(key.O, key.P)), 
