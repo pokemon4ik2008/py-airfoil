@@ -1,7 +1,6 @@
 #!./blender_script data/models/cockpit.blend  
 
 import bpy
-#from euclid import *
 from mathutils import Color, Vector
 
 scene=bpy.context.scene
@@ -63,8 +62,6 @@ for o in obs:
                 r=o.rotation_euler.to_quaternion()
                 vsr=r*Vector((v.co.x*s.x, v.co.y*s.y, v.co.z*s.z))
                 print(v_num,', ', vsr.x+l.x, ', ', vsr.y+l.y, ', ', vsr.z+l.z)
-                #if m.name == 'Circle':
-                #    print('lookup: m ', m, 'v ', v, 'v_num ', v_num)
     except AttributeError:
         pass
 
