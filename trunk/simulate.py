@@ -335,8 +335,10 @@ def simMain():
                 help='Create a client connection this a server at this IP / domain')
         man.opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (["data/models/biplane.csv"], mesh.Mesh),
-			  (MyAirfoil.TYP, INTERNAL): (["data/models/cockpit/*"], mesh.Mesh) })
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
+			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", mesh.Mesh),
+						       ("data/models/cockpit/Plane", mesh.CompassMesh) ]
+			  })
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
 	if man.opt.server is None:
