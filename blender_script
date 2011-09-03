@@ -1,3 +1,0 @@
-#!/bin/bash
-
-/usr/local/bin/blender --background $1 --factory-startup --python $2
