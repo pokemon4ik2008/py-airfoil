@@ -1,15 +1,24 @@
 from euclid import *
 from pyglet.gl import *
-
 from control import Controller
 
+class ViewType:
+    def __init__(self, name):
+        self.__name=name
+
+EXTERNAL=ViewType('external view')
+INTERNAL=ViewType('internal view')
+
 class Camera(object):
-    def __init__(self, plane, xrot=0, zrot=0, zoom=10):
+    TYPE=EXTERNAL
+
+    def __init__(self, plane, offset, zoom=10):
         self._plane=plane
         self.pos = Point3(0,0,0)
         self.eye = Point3(0,0,0)
         self.zen = Point3(0,0,0)
-        (self._xrot, self._zrot, self._zoom)=(xrot, zrot, zoom)
+        self._offset=offset
+        (self._xrot, self._zrot, self._zoom)=(0.0, 0.0, zoom)
 
     def activate(self):
         pass
@@ -22,8 +31,8 @@ class Camera(object):
     def vantage(self, (xrot, zrot, zoom)):
         if zoom<1:
             zoom=1
-        if zoom>20:
-            zoom=20
+        if zoom>40:
+            zoom=40
         (self._xrot, self._zrot, self._zoom)=(xrot, zrot, zoom)
 
     def getCameraVectors(self):
@@ -38,33 +47,44 @@ class Camera(object):
                   zen.x, zen.y, zen.z)
         
 class FollowCam(Camera):
-    def __init__(self, plane, offset=Vector3(-10.0, 5.0, 0.2)):
-        self.__offset=offset
-        Camera.__init__(self, plane)
+    def __init__(self, plane, offset=Vector3(-10.0, 5.0, 0.2), zoom=10):
+        Camera.__init__(self, plane, offset, zoom)
 
     def activate(self):
         att = self._plane.getAttitude()
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
-        cameraAdjust = adjAtt * self.__offset * self._zoom
+        cameraAdjust = adjAtt * self._offset * self._zoom
         pos = self._plane.getPos()
         eye = pos + cameraAdjust
         zen = adjAtt * Vector3(0.0,1.0,0.0)
         super(FollowCam, self).activate(pos,eye,zen)
 
 class FixedCam(Camera):
-    def __init__(self, plane, offset=Vector3(-10.0, 10.0, 0.2)):
-        self.__offset=offset
-        Camera.__init__(self, plane)
+    def __init__(self, plane, offset=Vector3(-10.0, 10.0, 0.2), zoom=10):
+        Camera.__init__(self, plane, offset, zoom)
 
     def activate(self):
         att = self._plane.getAttitude()
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
-        cameraAdjust = att * adjAtt * self.__offset * self._zoom
+        cameraAdjust = att * adjAtt * self._offset * self._zoom
         pos = self._plane.getPos()
         eye = pos + cameraAdjust
         zen = att * adjAtt * Vector3(0.0,1.0,0.0)
         super(FixedCam, self).activate(pos,eye,zen)
 
+class InternalCam(FixedCam):
+    TYPE=INTERNAL
+
+    def __init__(self, plane, offset=Vector3(-10.0, 0.0, 0.0), zoom=1):
+        FixedCam.__init__(self, plane, offset, zoom)    
+
+    @property
+    def vantage(self):
+        return (self._xrot, self._zrot, self._zoom)
+
+    @vantage.setter
+    def vantage(self, (xrot, zrot, zoom)):
+        (self._xrot, self._zrot)=(xrot, zrot)
 class View:
     __FOLLOW=0
     __FIXED=1
@@ -73,7 +93,7 @@ class View:
 
     def __init__(self, controller, win, plane, num_players, opt):
         self.__opt=opt
-        self.__cams=[FollowCam(plane), FixedCam(plane), FixedCam(plane, offset=Vector3(-50.0,50.0,2.0))]
+        self.__cams=[FollowCam(plane), FixedCam(plane), InternalCam(plane)]
         self.__currentCamera = self.__cams[View.__FIXED]
         self.__controls = controller
         self.__plane_id=plane.getId()
@@ -123,6 +143,7 @@ class View:
             self.__currentCamera = self.__cams[View.__FIXED]
         if events[Controller.CAM_INTERNAL]!=0:
             self.__currentCamera = self.__cams[View.__INTERNAL]
+        self.v_type=self.__currentCamera.TYPE
         (xrot, zrot, zoom)=self.__currentCamera.vantage
         zrot += events[Controller.CAM_X]
         xrot += events[Controller.CAM_Z]
@@ -142,6 +163,12 @@ class View:
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         self.__currentCamera.activate()
+
+    def getPlaneView(self, plane_id):
+        if plane_id==self.getPlaneId():
+            return self.v_type
+        else:
+            return EXTERNAL
 
     def getPos(self):
         return self.__currentCamera.pos

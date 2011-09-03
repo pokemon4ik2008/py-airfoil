@@ -9,7 +9,6 @@ obj_plot_position origin_offset={0};
 obj_plot_position pov={0};
 obj_light_source objlight={0,0,0,1.0f};
 
-obj_3dPrimitive *testObj = NULL;
 float rotAngle = 0;
 float *rotAxis = NULL;
 
@@ -19,14 +18,15 @@ extern "C"
 	{
 		oError err = ok;		
 		unsigned int objectflags=0;
+		obj_3dPrimitive *obj = NULL;
 		objectflags|=OBJ_NORMAL_POSITIVE;
-		err = objCreate(&testObj, filename, 100.0f, objectflags);
+		err = objCreate(&obj, filename, 100.0f, objectflags);
 		
 		if (err != ok)
 		{
 			printf("ERROR: when loading object: %i\n", err);
 		}
-		return testObj;
+		return obj;
 	}
 
 	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 

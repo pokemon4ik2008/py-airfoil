@@ -28,6 +28,7 @@ import ctypes
 import manage
 from airfoil import Airfoil, Obj
 import os
+import view
 from proxy import *
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
@@ -49,13 +50,19 @@ global object3dLib
 
 def loadMeshes():
         global object3dLib, meshes
+	mesh_paths = { ("plane", view.EXTERNAL): "data/models/biplane.csv",
+		       ("plane", view.INTERNAL): "data/models/cockpit.csv" }
         meshes = {}
         if os.name == 'nt':
                 object3dLib = cdll.LoadLibrary("bin\object3d.dll")
-                meshes["plane"] = object3dLib.load("data\\models\\biplane.csv")
+		for mesh_key in mesh_paths:
+			meshes[mesh_key] = object3dLib.load(re.sub(r'/', r'\\', mesh_paths[mesh_key]))
         else:
                 object3dLib = cdll.LoadLibrary("bin/object3d.so")
-                meshes["plane"] = object3dLib.load("data/models/biplane.csv")
+		for mesh_key in mesh_paths:
+			meshes[mesh_key] = object3dLib.load(mesh_paths[mesh_key])
+			
+		#meshes["plane"] = object3dLib.load("data/models/biplane.csv")
                 #meshes["plane"] = object3dLib.load("data/models/cockpit.csv")
 
 def loadTerrain():
@@ -180,7 +187,7 @@ class Bullet(Obj, ControlledSer):
     def justBornOrDead(self):
         return self._just_born or self._just_dead
 
-    def draw(self):
+    def draw(self, mine, view_type):
         try:
             assert self.alive()
             pos = self.getPos()
@@ -221,7 +228,9 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__lastKnownPos=Vector3(0,0,0)
 	    self.__lastDelta=Vector3(0,0,0)
 	    self.__lastUpdateTime=0.0
-	    self.setObjectsMesh(object3dLib, meshes["plane"])
+	    self.setObjectsLib(object3dLib)
+	    self._mesh={ view.INTERNAL: meshes[("plane", view.INTERNAL)],
+			 view.EXTERNAL: meshes[("plane", view.EXTERNAL)] }
 	    self.__played=False
 	    self.__play_tire=False
 
@@ -464,8 +473,6 @@ def simMain():
 		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, 
 				  controls=controller, proxy=man.proxy)
 		planes[plane.getId()]=plane
-		planes[plane.getId()].setObjectsMesh(object3dLib, meshes["plane"])
-
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 
@@ -526,8 +533,8 @@ def simMain():
 				for bot in bots:
 					if bot.alive():
 						glPushMatrix()
-						bot.draw()
-						glPopMatrix()					
+						bot.draw(bot.mine(), view.getPlaneView(bot.getId()))
+						glPopMatrix()
 
 				view.eventCheck()
 				glLoadIdentity()
