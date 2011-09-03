@@ -58,10 +58,8 @@ class Obj(object):
         self._scales = [0.0, 0.0, 0.0]
         self._mesh = None
         self._meshLib = None
-        
 
-    def setObjectsMesh(self, lib, meshToUse):
-        self._mesh = meshToUse
+    def setObjectsLib(self, lib):
         self._meshLib = lib
 
     def getPos(self):
@@ -420,8 +418,7 @@ class Airfoil(Obj):
     def getAirSpeed(self):
         return self._velocity.magnitude()
 
-    def draw(self):
-
+    def draw(self, mine, view_type):
         if self._mesh == None:
             side = 50.0
             pos = self.getPos()       
@@ -488,7 +485,7 @@ class Airfoil(Obj):
             fpos[2] = axis.z
             
             self._meshLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-            self._meshLib.draw(self._mesh)            
+            self._meshLib.draw(self._mesh[ view_type ])            
 
         return
 
