@@ -84,7 +84,9 @@ class InternalCam(FixedCam):
 
     @vantage.setter
     def vantage(self, (xrot, zrot, zoom)):
+        # disable zoom
         (self._xrot, self._zrot)=(xrot, zrot)
+
 class View:
     __FOLLOW=0
     __FIXED=1

@@ -18,52 +18,34 @@
 ##//    You should have received a copy of the GNU General Public License
 ##//    along with FtpServerMobile.  If not, see <http://www.gnu.org/licenses/>.
 ##//
-from math import sqrt, atan2, degrees
+from math import sqrt, atan2
 import random
 import array
 import itertools
 import optparse
 import pyglet
-import ctypes
 import manage
 from airfoil import Airfoil, Obj
 import os
-import view
+#import view
 from proxy import *
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
 from pyglet.window import key
 from control import *
 from euclid import *
+import mesh
 import sys
 from terrain import FractalTerrainMesh
 from threading import Condition
 from time import sleep
 import traceback
-from view import View
+from view import EXTERNAL, INTERNAL, View
 from sound import *
 from skybox import *
 
 global listNum
 global opt
-global object3dLib
-
-def loadMeshes():
-        global object3dLib, meshes
-	mesh_paths = { ("plane", view.EXTERNAL): "data/models/biplane.csv",
-		       ("plane", view.INTERNAL): "data/models/cockpit.csv" }
-        meshes = {}
-        if os.name == 'nt':
-                object3dLib = cdll.LoadLibrary("bin\object3d.dll")
-		for mesh_key in mesh_paths:
-			meshes[mesh_key] = object3dLib.load(re.sub(r'/', r'\\', mesh_paths[mesh_key]))
-        else:
-                object3dLib = cdll.LoadLibrary("bin/object3d.so")
-		for mesh_key in mesh_paths:
-			meshes[mesh_key] = object3dLib.load(mesh_paths[mesh_key])
-			
-		#meshes["plane"] = object3dLib.load("data/models/biplane.csv")
-                #meshes["plane"] = object3dLib.load("data/models/cockpit.csv")
 
 def loadTerrain():
 	global cterrain
@@ -187,7 +169,7 @@ class Bullet(Obj, ControlledSer):
     def justBornOrDead(self):
         return self._just_born or self._just_dead
 
-    def draw(self, mine, view_type):
+    def draw(self):
         try:
             assert self.alive()
             pos = self.getPos()
@@ -228,9 +210,6 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__lastKnownPos=Vector3(0,0,0)
 	    self.__lastDelta=Vector3(0,0,0)
 	    self.__lastUpdateTime=0.0
-	    self.setObjectsLib(object3dLib)
-	    self._mesh={ view.INTERNAL: meshes[("plane", view.INTERNAL)],
-			 view.EXTERNAL: meshes[("plane", view.EXTERNAL)] }
 	    self.__played=False
 	    self.__play_tire=False
 
@@ -356,7 +335,8 @@ def simMain():
                 help='Create a client connection this a server at this IP / domain')
         man.opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
-	loadMeshes()
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (["data/models/biplane.csv"], mesh.Mesh),
+			  (MyAirfoil.TYP, INTERNAL): (["data/models/cockpit.csv"], mesh.Mesh) })
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
 	if man.opt.server is None:
@@ -407,7 +387,7 @@ def simMain():
 	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
 	lightPosition = fourfv(0.0,1000.0,1.0,1.0)
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)	
-	object3dLib.setLightPosition(lightPosition)
+	mesh.object3dLib.setLightPosition(lightPosition)
 	glEnable(GL_DEPTH_TEST)
 	glEnable(GL_CULL_FACE)
 	glDepthFunc(GL_LEQUAL)
@@ -533,7 +513,7 @@ def simMain():
 				for bot in bots:
 					if bot.alive():
 						glPushMatrix()
-						bot.draw(bot.mine(), view.getPlaneView(bot.getId()))
+						mesh.draw(bot, view.getPlaneView(bot.getId()))
 						glPopMatrix()
 
 				view.eventCheck()
