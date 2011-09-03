@@ -1,5 +1,4 @@
-#!./blender_script data/models/cockpit.blend  
-
+# Usage: ./blend data/models/cockpit.blend blend2csv.py 
 import bpy
 from mathutils import Color, Vector
 
