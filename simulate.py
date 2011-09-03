@@ -336,7 +336,7 @@ def simMain():
         man.opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (["data/models/biplane.csv"], mesh.Mesh),
-			  (MyAirfoil.TYP, INTERNAL): (["data/models/cockpit.csv"], mesh.Mesh) })
+			  (MyAirfoil.TYP, INTERNAL): (["data/models/cockpit/*"], mesh.Mesh) })
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
 	if man.opt.server is None:
@@ -512,9 +512,7 @@ def simMain():
 				                                				
 				for bot in bots:
 					if bot.alive():
-						glPushMatrix()
 						mesh.draw(bot, view.getPlaneView(bot.getId()))
-						glPopMatrix()
 
 				view.eventCheck()
 				glLoadIdentity()
