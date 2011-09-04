@@ -71,6 +71,7 @@ typedef struct OBJ_3DPRIMITIVE
 							//points to NULL if last in obj
 	primitiveType		type;		//describes the type of the data held
 	unsigned int		flags;		//holds details about normals/shiny surface etc.		
+	obj_vertex mid;
 } obj_3dPrimitive;
 
 typedef struct {

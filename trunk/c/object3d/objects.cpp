@@ -28,6 +28,13 @@ extern "C"
 		}
 		return obj;
 	}
+  
+	DLL_EXPORT void getMid(void *meshToPlot, float mid[])
+	{
+		mid[0]=static_cast<obj_3dPrimitive *>(meshToPlot)->mid.x;
+ 		mid[1]=static_cast<obj_3dPrimitive *>(meshToPlot)->mid.y;
+		mid[2]=static_cast<obj_3dPrimitive *>(meshToPlot)->mid.z;
+	}
 
 	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
 	{
@@ -246,13 +253,14 @@ oError objPlot(obj_3dPrimitive *obj) {
 //Pre: call to objSetLoadPos.. angle not yet supported
 oError objCreate(obj_3dPrimitive **obj, 
 					char *fname,float obj_scaler
-					, unsigned int flags) {
+		 , unsigned int flags ) {
 	oError error=ok;
 	obj_3dPrimitive *curr_obj;
 	FILE *file=fopen(fname,"rb");
 	if (file==NULL) return nofile;
 	int i,j;
 	int temp;
+	obj_vertex mid;
 	obj_vertex *inverts=NULL;
 	int inverts_max;
 	obj_3dPrimitive *inprims;
@@ -282,24 +290,36 @@ oError objCreate(obj_3dPrimitive **obj,
 	while (fgetc(file)!=0x0a);
 	while (fgetc(file)!=0x0a);
 
+	mid.x=0;
+	mid.y=0;
+	mid.z=0;
 	//begin reading in vertex coords
 	for (i=0;i<inverts_max;i++) {
 		while (fgetc(file)!=','); //skip first comma
 		fscanf(file,"%f",&(inverts[i].x));
 		inverts[i].x-=origin_offset.x;
+		if(inverts_max) {
+		  mid.x+=inverts[i].x/inverts_max;
+		}
 		inverts[i].x*=obj_scaler;
 		while (fgetc(file)!=','); //skip second comma
 		fscanf(file,"%f",&(inverts[i].y));
 		inverts[i].y-=origin_offset.y;
+		if(inverts_max) {
+		  mid.y+=inverts[i].y/inverts_max;
+		}
 		inverts[i].y*=obj_scaler;
 		while (fgetc(file)!=','); //skip third comma
 		fscanf(file,"%f",&(inverts[i].z));
 		inverts[i].z-=origin_offset.z;
+		if(inverts_max) {
+		  mid.z+=inverts[i].z/inverts_max;
+		}
 		inverts[i].z*=obj_scaler;
 		while (fgetc(file)!=0x0a);//skip to next line
 		inverts[i].shared=0;
 	}
-
+	//printf("mid: %f %f %f\n", mid.x, mid.y, mid.z);
 	//skip 1 lines
 	while (fgetc(file)!=0x0a);
 	//skip a comma
@@ -422,6 +442,7 @@ oError objCreate(obj_3dPrimitive **obj,
 	if (*obj==NULL) return noMemory;
 	(*obj)->flags=flags;
 	(*obj)->type=empty;
+	(*obj)->mid=mid;
 //	(*obj)->next_ref=NULL;
 	curr_obj=*obj;
 	curr_obj->vertex_list=inverts;

@@ -69,7 +69,10 @@ class CompassMesh(Mesh):
         axisRotator=Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0))
         headingRot=Quaternion.new_rotate_euler(-bot.getHeading(), 0.0, 0.0)
         angleAxis= (att * headingRot * axisRotator ).get_angle_axis()
-        midPt=Vector3(-00.2122343, -264.7308826, -059.4305157661438)
+        
+        mid = (c_float * 3)()
+        object3dLib.getMid(self._mesh, mid)
+        midPt=Vector3(mid[0], mid[1], mid[2]) * 100
         rotOrig=(att * axisRotator * (midPt))
         rotNew=(att * headingRot * axisRotator * (midPt))
 
