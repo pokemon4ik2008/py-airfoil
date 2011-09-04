@@ -40,29 +40,52 @@ def loadMeshes(mesh_paths):
 
 class Mesh(object):
     def __init__(self, mesh):
-        self.__mesh=mesh
+        self._mesh=mesh
 
     def draw(self, bot):
-            # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
-            angleAxis = (bot.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
-            axis = angleAxis[1].normalized()
-            
-            fpos = (c_float * 3)()
-            fpos[0] = bot._pos.x
-            fpos[1] = bot._pos.y
-            fpos[2] = bot._pos.z
-            object3dLib.setPosition(fpos)
-            
-            fpos[0] = axis.x
-            fpos[1] = axis.y
-            fpos[2] = axis.z
-            
-            object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-            object3dLib.draw(self.__mesh)            
-
+        # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
+        angleAxis = (bot.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
+        axis = angleAxis[1].normalized()
+        
+        fpos = (c_float * 3)()
+        fpos[0] = bot._pos.x
+        fpos[1] = bot._pos.y
+        fpos[2] = bot._pos.z
+        object3dLib.setPosition(fpos)
+        
+        fpos[0] = axis.x
+        fpos[1] = axis.y
+        fpos[2] = axis.z
+        
+        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        object3dLib.draw(self._mesh)            
+        
 class CompassMesh(Mesh):
     def __init__(self, mesh):
         Mesh.__init__(self, mesh)
 
     def draw(self, bot):
-        Mesh.draw(self, bot)
+        att=bot.getAttitude()
+        axisRotator=Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0))
+        headingRot=Quaternion.new_rotate_euler(-bot.getHeading(), 0.0, 0.0)
+        angleAxis= (att * headingRot * axisRotator ).get_angle_axis()
+        midPt=Vector3(-00.2122343, -264.7308826, -059.4305157661438)
+        rotOrig=(att * axisRotator * (midPt))
+        rotNew=(att * headingRot * axisRotator * (midPt))
+
+        axis = angleAxis[1].normalized()
+        c=bot.getPos()-(rotNew-rotOrig)
+
+        fpos = (c_float * 3)()
+        fpos[0] = c.x
+        fpos[1] = c.y
+        fpos[2] = c.z
+        object3dLib.setPosition(fpos)
+        
+        fpos[0] = axis.x
+        fpos[1] = axis.y
+        fpos[2] = axis.z
+            
+        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        object3dLib.draw(self._mesh)            
+        
