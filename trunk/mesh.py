@@ -128,7 +128,6 @@ class CompassMesh(Mesh):
         for (view_id, bot_id) in self.__bot_details:
             if view_id is not view:
                 new_details[(view_id, bot_id)]=self.__bot_details[(view_id, bot_id)]
-            else:
         self.__bot_details=new_details
 
     def draw(self, bot, view_id):
