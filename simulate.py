@@ -183,8 +183,8 @@ class Bullet(Obj, ControlledSer):
             print_exc()
 
 class MyAirfoil(Airfoil, ControlledSer):
-    UPDATE_SIZE=Mirrorable.META+9
-    [ _POS,_,_, _ATT,_,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
+    UPDATE_SIZE=Mirrorable.META+12
+    [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
     TYP=0
 
     def __init__(self, controls=None, proxy=None, 
@@ -277,14 +277,19 @@ class MyAirfoil(Airfoil, ControlledSer):
         ser.append(a.x)
         ser.append(a.y)
         ser.append(a.z)
+	v=self.getVelocity()
+	ser.append(v.x)
+	ser.append(v.y)
+	ser.append(v.z)
         ser.append(self.thrust)
         return ser
 
     def deserialise(self, ser, estimated=False):
         (px, py, pz)=ControlledSer.vAssign(ser, ControlledSer._POS)
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
+        (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
         
-        obj=Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az))
+        obj=Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx, vy, vz))
 	obj.thrust=ser[MyAirfoil._THRUST]
 
         if not estimated:
@@ -457,7 +462,10 @@ def simMain():
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", mesh.Mesh),
 						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
-						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh) ]
+						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh), 
+						       ("data/models/cockpit/Plane.005", mesh.ClimbMesh), 
+						       ("data/models/cockpit/Plane.006", mesh.AirSpeedMesh)
+						       ]
 			  }, views)
 	mouse_cap=False
 	bots=[]
