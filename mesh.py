@@ -129,7 +129,6 @@ class CompassMesh(Mesh):
             if view_id is not view:
                 new_details[(view_id, bot_id)]=self.__bot_details[(view_id, bot_id)]
             else:
-                print 'view_change. resetting: '+str((view_id, bot_id))
         self.__bot_details=new_details
 
     def draw(self, bot, view_id):
