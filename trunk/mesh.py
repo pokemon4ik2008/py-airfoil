@@ -114,8 +114,31 @@ class AltMeterMesh(Mesh):
     def draw(self, bot, view_id):
         try:
             assert 'data/models/cockpit/Circle.001' in name_to_mesh
-            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(2*math.pi)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
-        except:
+            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
+        except AssertionError:
+            print_exc()
+
+class ClimbMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+
+    def draw(self, bot, view_id):
+        try:
+            assert 'data/models/cockpit/Circle.002' in name_to_mesh
+            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getVelocity().y % 250)/250)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002'].mesh)
+        except AssertionError:
+            print_exc()
+
+class AirSpeedMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+
+    def draw(self, bot, view_id):
+        try:
+            #print 'rotating air speed: '+str(bot.getVelocity())
+            assert 'data/models/cockpit/Circle.003' in name_to_mesh
+            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003'].mesh)
+        except AssertionError:
             print_exc()
 
 class CompassMesh(Mesh):
