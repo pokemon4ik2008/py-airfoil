@@ -337,7 +337,8 @@ def simMain():
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", mesh.Mesh),
-						       ("data/models/cockpit/Plane", mesh.CompassMesh) ]
+						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
+						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh) ]
 			  })
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
