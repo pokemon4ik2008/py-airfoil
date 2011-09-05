@@ -7,6 +7,7 @@ from math import degrees
 import os
 from traceback import print_exc
 
+import manage
 from pyglet.gl import *
 
 global object3dLib
@@ -112,6 +113,42 @@ class AltMeterMesh(Mesh):
 class CompassMesh(Mesh):
     def __init__(self, mesh):
         Mesh.__init__(self, mesh)
+        self.__last_heading=math.pi*1.5
+        self.__speed=0
+        self.__last_update=manage.now
 
     def draw(self, bot):
-        drawRotatedMesh(bot, Quaternion.new_rotate_euler(-bot.getHeading(), 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
+        heading=bot.getHeading()
+        
+        full_rot=2*math.pi
+        #handle wrapping by calculating the heading when greating than last_heading and when less
+        if heading > self.__last_heading:
+            alt_heading = heading - full_rot
+        else:
+            alt_heading = heading + full_rot
+        if math.fabs(heading - self.__last_heading) > math.fabs(alt_heading - self.__last_heading):
+            heading=alt_heading
+
+        interval=manage.now-self.__last_update
+        if heading > self.__last_heading:
+            if self.__speed>=0:
+                self.__speed += interval*0.00075
+            else:
+                self.__speed += interval*0.001            
+        else:
+            if heading < self.__last_heading:
+                if self.__speed<=0:
+                    self.__speed -= interval*0.00075
+                else:
+                    self.__speed -= interval*0.001
+        spd_limit=math.pi/12 * interval
+        #print 'comp: last: '+str(self.__last_heading)+' cur: '+str(heading)+' spd: '+str(self.__speed)+' tm: '+str(manage.now-self.__last_update)+' ltd: '+str(spd_limit)
+        if self.__speed>spd_limit:
+            self.__speed=spd_limit
+        else:
+            if self.__speed<-spd_limit:
+                self._speed=-spd_lmit
+        self.__last_heading+=self.__speed
+        self.__last_heading = self.__last_heading % full_rot
+        self.__last_update=manage.now
+        drawRotatedMesh(bot, Quaternion.new_rotate_euler(-self.__last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
