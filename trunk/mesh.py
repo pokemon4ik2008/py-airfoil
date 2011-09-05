@@ -5,6 +5,7 @@ import glob
 import itertools
 from math import degrees
 import os
+from traceback import print_exc
 
 from pyglet.gl import *
 
@@ -26,21 +27,31 @@ else:
             glPopMatrix()
 
 def loadMeshes(mesh_paths):
-        global meshes
-        meshes = {}
-	paths = {}
-        if os.name == 'nt':
-            convert=lambda s: re.sub(r'/', r'\\', s)
-        else:
-            convert=lambda s: s
-        for mesh_key in mesh_paths:
-            paths[mesh_key]=dict(itertools.chain(*[ [ (path, cls) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls) in mesh_paths[mesh_key] ])).items()
-	for mesh_key in mesh_paths:
-            meshes[mesh_key] = [ cls(object3dLib.load(path)) for (path, cls) in paths[mesh_key] ]
+    lookup = {}
+    global meshes
+    meshes = {}
+    global name_to_mesh
+    name_to_mesh = {}
+    paths = {}
+    if os.name == 'nt':
+        convert=lambda s: re.sub(r'/', r'\\', s)
+    else:
+        convert=lambda s: s
+
+    for mesh_key in mesh_paths:
+        paths[mesh_key]=dict(itertools.chain(*[ [ (path, cls) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls) in mesh_paths[mesh_key] ])).items()
+
+    name_lookups=[]
+    for mesh_key in mesh_paths:
+        name_lookups.extend([ (path, cls(object3dLib.load(path))) for (path, cls) in paths[mesh_key] ])
+
+    name_to_mesh=dict(name_lookups)
+    for mesh_key in mesh_paths:
+        meshes[mesh_key] = [ name_to_mesh[path] for (path, cls) in paths[mesh_key] ]
 
 class Mesh(object):
     def __init__(self, mesh):
-        self._mesh=mesh
+        self.mesh=mesh
 
     def draw(self, bot):
         # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
@@ -58,23 +69,18 @@ class Mesh(object):
         fpos[2] = axis.z
         
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(self._mesh)            
-        
-class CompassMesh(Mesh):
-    def __init__(self, mesh):
-        Mesh.__init__(self, mesh)
+        object3dLib.draw(self.mesh)            
 
-    def draw(self, bot):
+def drawRotatedMesh(bot, angle_quat, drawing_mesh, centre_mesh):
         att=bot.getAttitude()
         axisRotator=Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0))
-        headingRot=Quaternion.new_rotate_euler(-bot.getHeading(), 0.0, 0.0)
-        angleAxis= (att * headingRot * axisRotator ).get_angle_axis()
+        angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
         
         mid = (c_float * 3)()
-        object3dLib.getMid(self._mesh, mid)
+        object3dLib.getMid(centre_mesh, mid)
         midPt=Vector3(mid[0], mid[1], mid[2]) * 100
         rotOrig=(att * axisRotator * (midPt))
-        rotNew=(att * headingRot * axisRotator * (midPt))
+        rotNew=(att * angle_quat * axisRotator * (midPt))
 
         axis = angleAxis[1].normalized()
         c=bot.getPos()-(rotNew-rotOrig)
@@ -90,5 +96,22 @@ class CompassMesh(Mesh):
         fpos[2] = axis.z
             
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(self._mesh)            
+        object3dLib.draw(drawing_mesh)
         
+class AltMeterMesh(Mesh):
+    def __init__(self, mesh):
+        Mesh.__init__(self, mesh)
+
+    def draw(self, bot):
+        try:
+            assert 'data/models/cockpit/Circle.001' in name_to_mesh
+            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(2*math.pi)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
+        except:
+            print_exc()
+
+class CompassMesh(Mesh):
+    def __init__(self, mesh):
+        Mesh.__init__(self, mesh)
+
+    def draw(self, bot):
+        drawRotatedMesh(bot, Quaternion.new_rotate_euler(-bot.getHeading(), 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
