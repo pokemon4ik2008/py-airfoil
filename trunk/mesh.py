@@ -10,24 +10,27 @@ from traceback import print_exc
 import manage
 from pyglet.gl import *
 
+PI2=2*math.pi
 global object3dLib
 if os.name == 'nt':
     object3dLib = cdll.LoadLibrary("bin\object3d.dll")
 else:
     object3dLib = cdll.LoadLibrary("bin/object3d.so")
 
-    def draw(bot, v_type):
-        if (bot.TYP, v_type) in meshes:
-            for m in meshes[(bot.TYPE, v_type)]:
-                glPushMatrix()
-                m.draw(bot)
-                glPopMatrix()
-        else:
+last_cams={}
+def draw(bot, view):
+    v_type=view.getPlaneView(bot.getId())
+    if (bot.TYP, v_type) in meshes:
+        for m in meshes[(bot.TYPE, v_type)]:
             glPushMatrix()
-            bot.draw()
+            m.draw(bot, view.view_id)
             glPopMatrix()
+    else:
+        glPushMatrix()
+        bot.draw()
+        glPopMatrix()
 
-def loadMeshes(mesh_paths):
+def loadMeshes(mesh_paths, views):
     lookup = {}
     global meshes
     meshes = {}
@@ -44,17 +47,22 @@ def loadMeshes(mesh_paths):
 
     name_lookups=[]
     for mesh_key in mesh_paths:
-        name_lookups.extend([ (path, cls(object3dLib.load(path))) for (path, cls) in paths[mesh_key] ])
+        name_lookups.extend([ (path, cls(object3dLib.load(path), views)) for (path, cls) in paths[mesh_key] ])
 
     name_to_mesh=dict(name_lookups)
     for mesh_key in mesh_paths:
         meshes[mesh_key] = [ name_to_mesh[path] for (path, cls) in paths[mesh_key] ]
 
 class Mesh(object):
-    def __init__(self, mesh):
+    def __init__(self, mesh, views):
         self.mesh=mesh
+        for v in views:
+            v.push_handlers(self)
 
-    def draw(self, bot):
+    def view_change(self, view_id):
+        pass
+
+    def draw(self, bot, view_id):
         # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
         angleAxis = (bot.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
         axis = angleAxis[1].normalized()
@@ -100,10 +108,10 @@ def drawRotatedMesh(bot, angle_quat, drawing_mesh, centre_mesh):
         object3dLib.draw(drawing_mesh)
         
 class AltMeterMesh(Mesh):
-    def __init__(self, mesh):
-        Mesh.__init__(self, mesh)
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
 
-    def draw(self, bot):
+    def draw(self, bot, view_id):
         try:
             assert 'data/models/cockpit/Circle.001' in name_to_mesh
             drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(2*math.pi)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
@@ -111,44 +119,55 @@ class AltMeterMesh(Mesh):
             print_exc()
 
 class CompassMesh(Mesh):
-    def __init__(self, mesh):
-        Mesh.__init__(self, mesh)
-        self.__last_heading=math.pi*1.5
-        self.__speed=0
-        self.__last_update=manage.now
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+        self.__bot_details={}
 
-    def draw(self, bot):
+    def view_change(self, view):
+        new_details={}
+        for (view_id, bot_id) in self.__bot_details:
+            if view_id is not view:
+                new_details[(view_id, bot_id)]=self.__bot_details[(view_id, bot_id)]
+            else:
+                print 'view_change. resetting: '+str((view_id, bot_id))
+        self.__bot_details=new_details
+
+    def draw(self, bot, view_id):
         heading=bot.getHeading()
-        
-        full_rot=2*math.pi
+        ident=bot.getId()
+        if ident not in self.__bot_details:
+            self.__bot_details[(view_id, ident)]=(heading, 0.0, manage.now)
+
+        (last_heading, speed, last_update) = self.__bot_details[(view_id, ident)]
         #handle wrapping by calculating the heading when greating than last_heading and when less
-        if heading > self.__last_heading:
-            alt_heading = heading - full_rot
+        if heading > last_heading:
+            alt_heading = heading - PI2
         else:
-            alt_heading = heading + full_rot
-        if math.fabs(heading - self.__last_heading) > math.fabs(alt_heading - self.__last_heading):
+            alt_heading = heading + PI2
+        if math.fabs(heading - last_heading) > math.fabs(alt_heading - last_heading):
             heading=alt_heading
 
-        interval=manage.now-self.__last_update
-        if heading > self.__last_heading:
-            if self.__speed>=0:
-                self.__speed += interval*0.00075
+        interval=manage.now-last_update
+        if heading > last_heading:
+            if speed>=0:
+                speed += interval*0.00075
             else:
-                self.__speed += interval*0.001            
+                speed += interval*0.001            
         else:
-            if heading < self.__last_heading:
-                if self.__speed<=0:
-                    self.__speed -= interval*0.00075
+            if heading < last_heading:
+                if speed<=0:
+                    speed -= interval*0.00075
                 else:
-                    self.__speed -= interval*0.001
+                    speed -= interval*0.001
         spd_limit=math.pi/12 * interval
-        #print 'comp: last: '+str(self.__last_heading)+' cur: '+str(heading)+' spd: '+str(self.__speed)+' tm: '+str(manage.now-self.__last_update)+' ltd: '+str(spd_limit)
-        if self.__speed>spd_limit:
-            self.__speed=spd_limit
+        #print 'comp: last: '+str(last_heading)+' cur: '+str(heading)+' spd: '+str(speed)+' tm: '+str(manage.now-last_update)+' ltd: '+str(spd_limit)
+        if speed>spd_limit:
+            speed=spd_limit
         else:
-            if self.__speed<-spd_limit:
-                self._speed=-spd_limit
-        self.__last_heading+=self.__speed
-        self.__last_heading = self.__last_heading % full_rot
-        self.__last_update=manage.now
-        drawRotatedMesh(bot, Quaternion.new_rotate_euler(-self.__last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
+            if speed<-spd_limit:
+                speed=-spd_limit
+        last_heading+=speed
+        last_heading = last_heading % PI2
+        last_update=manage.now
+        drawRotatedMesh(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
+        self.__bot_details[(view_id, ident)]=(last_heading, speed, last_update)

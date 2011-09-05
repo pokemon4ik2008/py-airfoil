@@ -335,11 +335,6 @@ def simMain():
                 help='Create a client connection this a server at this IP / domain')
         man.opt, args = parser.parse_args()
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
-			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", mesh.Mesh),
-						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
-						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh) ]
-			  })
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
 	if man.opt.server is None:
@@ -459,6 +454,11 @@ def simMain():
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
+			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", mesh.Mesh),
+						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
+						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh) ]
+			  }, views)
 	mouse_cap=False
 	bots=[]
 	loadTerrain()
@@ -515,7 +515,7 @@ def simMain():
 				                                				
 				for bot in bots:
 					if bot.alive():
-						mesh.draw(bot, view.getPlaneView(bot.getId()))
+						mesh.draw(bot, view)
 
 				view.eventCheck()
 				glLoadIdentity()
