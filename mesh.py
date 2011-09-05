@@ -147,7 +147,7 @@ class CompassMesh(Mesh):
             self.__speed=spd_limit
         else:
             if self.__speed<-spd_limit:
-                self._speed=-spd_lmit
+                self._speed=-spd_limit
         self.__last_heading+=self.__speed
         self.__last_heading = self.__last_heading % full_rot
         self.__last_update=manage.now
