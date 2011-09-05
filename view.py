@@ -87,7 +87,7 @@ class InternalCam(FixedCam):
         # disable zoom
         (self._xrot, self._zrot)=(xrot, zrot)
 
-class View:
+class View(pyglet.event.EventDispatcher):
     __FOLLOW=0
     __FIXED=1
     __INTERNAL=2
@@ -99,7 +99,7 @@ class View:
         self.__currentCamera = self.__cams[View.__FIXED]
         self.__controls = controller
         self.__plane_id=plane.getId()
-        self.__view_id=View.__VIEW_COUNT
+        self.view_id=View.__VIEW_COUNT
         View.__VIEW_COUNT+=1
         self.__win=win
         self.__num_players=num_players
@@ -110,7 +110,7 @@ class View:
     def updateDimensions(self):
         self.__width=self.__win.width
         self.__height=self.__win.height/self.__num_players
-        (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.__view_id))
+        (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.view_id))
         if self.__num_players==1:
             f_size=16
             width_offset=self.__win.width*0.5
@@ -141,10 +141,13 @@ class View:
 
         if events[Controller.CAM_FOLLOW]!=0:
             self.__currentCamera = self.__cams[View.__FOLLOW]
+            self.dispatch_event('view_change', self.view_id)
         if events[Controller.CAM_FIXED]!=0:
             self.__currentCamera = self.__cams[View.__FIXED]
+            self.dispatch_event('view_change', self.view_id)
         if events[Controller.CAM_INTERNAL]!=0:
             self.__currentCamera = self.__cams[View.__INTERNAL]
+            self.dispatch_event('view_change', self.view_id)
         self.v_type=self.__currentCamera.TYPE
         (xrot, zrot, zoom)=self.__currentCamera.vantage
         zrot += events[Controller.CAM_X]
@@ -197,3 +200,4 @@ class View:
 
     def __clearText(self):
         self.__screenMessage = ''
+View.register_event_type('view_change')
