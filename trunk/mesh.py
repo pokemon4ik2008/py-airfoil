@@ -133,7 +133,7 @@ class CompassMesh(Mesh):
     def draw(self, bot, view_id):
         heading=bot.getHeading()
         ident=bot.getId()
-        if ident not in self.__bot_details:
+        if (view_id, ident) not in self.__bot_details:
             self.__bot_details[(view_id, ident)]=(heading, 0.0, manage.now)
 
         (last_heading, speed, last_update) = self.__bot_details[(view_id, ident)]
@@ -157,12 +157,14 @@ class CompassMesh(Mesh):
                     speed -= interval*0.00075
                 else:
                     speed -= interval*0.001
-        spd_limit=math.pi/12 * interval
+        spd_limit=math.pi/14 * interval
         #print 'comp: last: '+str(last_heading)+' cur: '+str(heading)+' spd: '+str(speed)+' tm: '+str(manage.now-last_update)+' ltd: '+str(spd_limit)
         if speed>spd_limit:
+            #print 'hit spd_limit 1'
             speed=spd_limit
         else:
             if speed<-spd_limit:
+                #print 'hit spd_limit 2'
                 speed=-spd_limit
         last_heading+=speed
         last_heading = last_heading % PI2
