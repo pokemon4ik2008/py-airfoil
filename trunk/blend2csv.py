@@ -2,19 +2,21 @@
 import bpy
 from mathutils import Color, Vector
 import os
-from os.path import join, splitext
+from os.path import exists, join, splitext
 import sys
+from traceback import print_exc
 
 blender_file=sys.argv[2]
 dest_dir=splitext(blender_file)[0]
 print('dest_dir: '+dest_dir)
-try:
-    for path in os.listdir(dest_dir):
+for path in os.listdir(dest_dir):
+    try:
         os.remove(join(*(dest_dir,path)))
-    os.rmdir(dest_dir)
-except OSError:
-    pass
-os.mkdir(dest_dir)
+    except OSError:
+        pass
+
+if not os.path.isdir(dest_dir):
+    os.mkdir(dest_dir)
 
 scene=bpy.context.scene
 obs=scene.objects
