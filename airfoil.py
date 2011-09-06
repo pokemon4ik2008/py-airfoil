@@ -244,7 +244,7 @@ class Obj(object):
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
     _FIRING_PERIOD=0.2
-    MAX_THRUST=20000
+    MAX_THRUST=20000.0
 
     def reset(self):
         self.__init__()
