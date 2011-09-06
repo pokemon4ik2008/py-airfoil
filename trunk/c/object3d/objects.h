@@ -72,6 +72,7 @@ typedef struct OBJ_3DPRIMITIVE
 	primitiveType		type;		//describes the type of the data held
 	unsigned int		flags;		//holds details about normals/shiny surface etc.		
 	obj_vertex mid;
+	float scale;
 } obj_3dPrimitive;
 
 typedef struct {

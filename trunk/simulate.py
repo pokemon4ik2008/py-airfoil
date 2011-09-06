@@ -458,13 +458,17 @@ def simMain():
 		planes[plane.getId()]=plane
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
-
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
-			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", mesh.Mesh),
-						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
-						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh), 
-						       ("data/models/cockpit/Plane.005", mesh.ClimbMesh), 
-						       ("data/models/cockpit/Plane.006", mesh.AirSpeedMesh)
+	
+	if man.opt.two_player:
+		int_scale=100.0
+	else:
+		int_scale=100.0
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", 100.0, mesh.Mesh) ],
+			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", int_scale, mesh.Mesh),
+						       ("data/models/cockpit/Plane.004", int_scale, mesh.CompassMesh),
+						       ("data/models/cockpit/Plane.003", int_scale, mesh.AltMeterMesh), 
+						       ("data/models/cockpit/Plane.005", int_scale, mesh.ClimbMesh), 
+						       ("data/models/cockpit/Plane.006", int_scale, mesh.AirSpeedMesh)
 						       ]
 			  }, views)
 	mouse_cap=False
