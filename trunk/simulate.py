@@ -36,7 +36,6 @@ from control import *
 from euclid import *
 import mesh
 import sys
-from terrain import FractalTerrainMesh
 from threading import Condition
 from time import sleep
 import traceback
