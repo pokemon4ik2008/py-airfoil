@@ -143,6 +143,26 @@ class AirSpeedMesh(Mesh):
         except AssertionError:
             print_exc()
 
+class RPMMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+
+    def getRPMFraction(self, bot):
+        t=bot.thrust
+        # 195 max vel when level at full thrust
+        max_vel=195*(t/bot.MAX_THRUST)
+        if max_vel==0:
+            return 0.0
+        return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
+
+    def draw(self, bot, view_id):
+        try:
+            #print 'rotating air speed: '+str(bot.getVelocity())
+            assert 'data/models/cockpit/Circle.004' in name_to_mesh
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.004'].mesh)
+        except AssertionError:
+            print_exc()
+
 class CompassMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
