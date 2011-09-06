@@ -14,13 +14,13 @@ float *rotAxis = NULL;
 
 extern "C" 
 {
-	DLL_EXPORT void *load(char *filename)
+ 	DLL_EXPORT void *load(char *filename, float scalingFactor)
 	{
 		oError err = ok;		
 		unsigned int objectflags=0;
 		obj_3dPrimitive *obj = NULL;
 		objectflags|=OBJ_NORMAL_POSITIVE;
-		err = objCreate(&obj, filename, 100.0f, objectflags);
+		err = objCreate(&obj, filename, scalingFactor, objectflags);
 		
 		if (err != ok)
 		{
@@ -34,6 +34,11 @@ extern "C"
 		mid[0]=static_cast<obj_3dPrimitive *>(meshToPlot)->mid.x;
  		mid[1]=static_cast<obj_3dPrimitive *>(meshToPlot)->mid.y;
 		mid[2]=static_cast<obj_3dPrimitive *>(meshToPlot)->mid.z;
+	}
+
+	DLL_EXPORT float getScale(void *meshToPlot)
+	{
+		return static_cast<obj_3dPrimitive *>(meshToPlot)->scale;
 	}
 
 	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
@@ -443,6 +448,7 @@ oError objCreate(obj_3dPrimitive **obj,
 	(*obj)->flags=flags;
 	(*obj)->type=empty;
 	(*obj)->mid=mid;
+	(*obj)->scale=obj_scaler;
 //	(*obj)->next_ref=NULL;
 	curr_obj=*obj;
 	curr_obj->vertex_list=inverts;

@@ -16,6 +16,7 @@ if os.name == 'nt':
     object3dLib = cdll.LoadLibrary("bin\object3d.dll")
 else:
     object3dLib = cdll.LoadLibrary("bin/object3d.so")
+object3dLib.getScale.restype=c_float
 
 last_cams={}
 def draw(bot, view):
@@ -43,19 +44,20 @@ def loadMeshes(mesh_paths, views):
         convert=lambda s: s
 
     for mesh_key in mesh_paths:
-        paths[mesh_key]=dict(itertools.chain(*[ [ (path, cls) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls) in mesh_paths[mesh_key] ])).items()
+        paths[mesh_key]=dict(itertools.chain(*[ [ (path, (scale, cls)) for path in glob.glob(convert(glob_path)) ] for (glob_path, scale, cls) in mesh_paths[mesh_key] ])).items()
 
     name_lookups=[]
     for mesh_key in mesh_paths:
-        name_lookups.extend([ (path, cls(object3dLib.load(path), views)) for (path, cls) in paths[mesh_key] ])
+        name_lookups.extend([ (path, cls(object3dLib.load(path, c_float(scale)), views)) for (path, (scale, cls)) in paths[mesh_key] ])
 
     name_to_mesh=dict(name_lookups)
     for mesh_key in mesh_paths:
-        meshes[mesh_key] = [ name_to_mesh[path] for (path, cls) in paths[mesh_key] ]
+        meshes[mesh_key] = [ name_to_mesh[path] for (path, (scale, cls)) in paths[mesh_key] ]
 
 class Mesh(object):
     def __init__(self, mesh, views):
         self.mesh=mesh
+        self._scale=object3dLib.getScale(self.mesh)
         for v in views:
             v.push_handlers(self)
 
@@ -80,32 +82,32 @@ class Mesh(object):
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
         object3dLib.draw(self.mesh)            
 
-def drawRotatedMesh(bot, angle_quat, drawing_mesh, centre_mesh):
-        att=bot.getAttitude()
-        axisRotator=Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0))
-        angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
-        
-        mid = (c_float * 3)()
-        object3dLib.getMid(centre_mesh, mid)
-        midPt=Vector3(mid[0], mid[1], mid[2]) * 100
-        rotOrig=(att * axisRotator * (midPt))
-        rotNew=(att * angle_quat * axisRotator * (midPt))
+    def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
+            att=bot.getAttitude()
+            axisRotator=Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0))
+            angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
 
-        axis = angleAxis[1].normalized()
-        c=bot.getPos()-(rotNew-rotOrig)
+            mid = (c_float * 3)()
+            object3dLib.getMid(centre_mesh, mid)
+            midPt=Vector3(mid[0], mid[1], mid[2]) * self._scale
+            rotOrig=(att * axisRotator * (midPt))
+            rotNew=(att * angle_quat * axisRotator * (midPt))
 
-        fpos = (c_float * 3)()
-        fpos[0] = c.x
-        fpos[1] = c.y
-        fpos[2] = c.z
-        object3dLib.setPosition(fpos)
-        
-        fpos[0] = axis.x
-        fpos[1] = axis.y
-        fpos[2] = axis.z
-            
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(drawing_mesh)
+            axis = angleAxis[1].normalized()
+            c=bot.getPos()-(rotNew-rotOrig)
+
+            fpos = (c_float * 3)()
+            fpos[0] = c.x
+            fpos[1] = c.y
+            fpos[2] = c.z
+            object3dLib.setPosition(fpos)
+
+            fpos[0] = axis.x
+            fpos[1] = axis.y
+            fpos[2] = axis.z
+
+            object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+            object3dLib.draw(drawing_mesh)
         
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views):
@@ -114,7 +116,7 @@ class AltMeterMesh(Mesh):
     def draw(self, bot, view_id):
         try:
             assert 'data/models/cockpit/Circle.001' in name_to_mesh
-            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
         except AssertionError:
             print_exc()
 
@@ -125,7 +127,7 @@ class ClimbMesh(Mesh):
     def draw(self, bot, view_id):
         try:
             assert 'data/models/cockpit/Circle.002' in name_to_mesh
-            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getVelocity().y % 250)/250)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002'].mesh)
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getVelocity().y % 300)/300)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002'].mesh)
         except AssertionError:
             print_exc()
 
@@ -137,7 +139,7 @@ class AirSpeedMesh(Mesh):
         try:
             #print 'rotating air speed: '+str(bot.getVelocity())
             assert 'data/models/cockpit/Circle.003' in name_to_mesh
-            drawRotatedMesh(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003'].mesh)
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003'].mesh)
         except AssertionError:
             print_exc()
 
@@ -160,6 +162,7 @@ class CompassMesh(Mesh):
             self.__bot_details[(view_id, ident)]=(heading, 0.0, manage.now)
 
         (last_heading, speed, last_update) = self.__bot_details[(view_id, ident)]
+
         #handle wrapping by calculating the heading when greating than last_heading and when less
         if heading > last_heading:
             alt_heading = heading - PI2
@@ -183,14 +186,14 @@ class CompassMesh(Mesh):
         spd_limit=math.pi/14 * interval
         #print 'comp: last: '+str(last_heading)+' cur: '+str(heading)+' spd: '+str(speed)+' tm: '+str(manage.now-last_update)+' ltd: '+str(spd_limit)
         if speed>spd_limit:
-            #print 'hit spd_limit 1'
+            #print 'hit spd_limit 1: '+str(interval)+' now: '+str(manage.now)+' last: '+str(last_update)
             speed=spd_limit
         else:
             if speed<-spd_limit:
-                #print 'hit spd_limit 2'
+                #print 'hit spd_limit 2: '+str(interval)
                 speed=-spd_limit
         last_heading+=speed
         last_heading = last_heading % PI2
         last_update=manage.now
-        drawRotatedMesh(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
         self.__bot_details[(view_id, ident)]=(last_heading, speed, last_update)
