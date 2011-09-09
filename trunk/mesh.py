@@ -10,6 +10,7 @@ from traceback import print_exc
 import manage
 from pyglet.gl import *
 
+HALF_PI=0.5*math.pi
 PI2=2*math.pi
 global object3dLib
 if os.name == 'nt':
@@ -60,9 +61,14 @@ class Mesh(object):
         self._scale=object3dLib.getScale(self.mesh)
         for v in views:
             v.push_handlers(self)
+        self._bot_details={}
 
-    def view_change(self, view_id):
-        pass
+    def view_change(self, view):
+        new_details={}
+        for (view_id, bot_id) in self._bot_details:
+            if view_id is not view:
+                new_details[(view_id, bot_id)]=self._bot_details[(view_id, bot_id)]
+        self._bot_details=new_details
 
     def draw(self, bot, view_id):
         # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
@@ -126,8 +132,44 @@ class ClimbMesh(Mesh):
 
     def draw(self, bot, view_id):
         try:
+            assert 'data/models/cockpit/Cylinder' in name_to_mesh
+            ident=bot.getId()
+            if (view_id, ident) not in self._bot_details:
+                self._bot_details[(view_id, ident)]=(manage.now, 0.0)
+
+            (last_update, smoothed_rate) = self._bot_details[(view_id, ident)]
+            interval=manage.now-last_update
+            if interval>1:
+                interval=1.0
+
+            smoothed_rate+=(bot.getVelocity().y-smoothed_rate)*interval
+            
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((smoothed_rate % 300)/300)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002'].mesh)
+
+            self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
+        except AssertionError:
+            print_exc()
+
+class BankingMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+
+    def draw(self, bot, view_id):
+        try:
             assert 'data/models/cockpit/Circle.002' in name_to_mesh
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getVelocity().y % 300)/300)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002'].mesh)
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getAttitude()*bot.getVelocity()).x*0.1*HALF_PI)), self.mesh, name_to_mesh['data/models/cockpit/Cylinder'].mesh)
+        except AssertionError:
+            print_exc()
+
+class RollingMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+
+    def draw(self, bot, view_id):
+        try:
+            assert 'data/models/cockpit/Cylinder' in name_to_mesh
+            pass
+#self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude() * Vector3(0.0, 1.0, 0.0)).normalized().x*HALF_PI), self.mesh, name_to_mesh['data/models/cockpit/Cylinder'].mesh)
         except AssertionError:
             print_exc()
 
@@ -153,35 +195,29 @@ class RPMMesh(Mesh):
         max_vel=195*(t/bot.MAX_THRUST)
         if max_vel==0:
             return 0.0
-        return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
+        #return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
+        #print 'rpm. '+str((bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*6)/6)+' vel: '+str((t/bot.MAX_THRUST)*6)+' thrust: '+str(bot.getVelocity().magnitude()/max_vel)
+        return (bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*2)/3
 
     def draw(self, bot, view_id):
         try:
             #print 'rotating air speed: '+str(bot.getVelocity())
             assert 'data/models/cockpit/Circle.004' in name_to_mesh
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.004'].mesh)
+            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, name_to_mesh['data/models/cockpit/Circle.004'].mesh)
         except AssertionError:
             print_exc()
 
 class CompassMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
-        self.__bot_details={}
-
-    def view_change(self, view):
-        new_details={}
-        for (view_id, bot_id) in self.__bot_details:
-            if view_id is not view:
-                new_details[(view_id, bot_id)]=self.__bot_details[(view_id, bot_id)]
-        self.__bot_details=new_details
 
     def draw(self, bot, view_id):
         heading=bot.getHeading()
         ident=bot.getId()
-        if (view_id, ident) not in self.__bot_details:
-            self.__bot_details[(view_id, ident)]=(heading, 0.0, manage.now)
+        if (view_id, ident) not in self._bot_details:
+            self._bot_details[(view_id, ident)]=(heading, 0.0, manage.now)
 
-        (last_heading, speed, last_update) = self.__bot_details[(view_id, ident)]
+        (last_heading, speed, last_update) = self._bot_details[(view_id, ident)]
 
         #handle wrapping by calculating the heading when greating than last_heading and when less
         if heading > last_heading:
@@ -216,4 +252,4 @@ class CompassMesh(Mesh):
         last_heading = last_heading % PI2
         last_update=manage.now
         self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
-        self.__bot_details[(view_id, ident)]=(last_heading, speed, last_update)
+        self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)
