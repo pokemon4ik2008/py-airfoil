@@ -465,7 +465,9 @@ def simMain():
 						       ("data/models/cockpit/Plane.003", int_scale, mesh.AltMeterMesh), 
 						       ("data/models/cockpit/Plane.005", int_scale, mesh.ClimbMesh), 
 						       ("data/models/cockpit/Plane.011", int_scale, mesh.RPMMesh), 
-						       ("data/models/cockpit/Plane.006", int_scale, mesh.AirSpeedMesh)
+						       ("data/models/cockpit/Plane.006", int_scale, mesh.AirSpeedMesh),
+						       ("data/models/cockpit/Plane.014", int_scale, mesh.BankingMesh),
+						       ("data/models/cockpit/Plane.015", int_scale, mesh.RollingMesh)
 						       ]
 			  }, views)
 	mouse_cap=False
