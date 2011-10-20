@@ -18,7 +18,7 @@
 #define ambient_light .2f
 #define cut_off_max (200)	//absolute max dist of view triangle
 #define max_altitude 100.0
-#define lod_dist 70.0			//the thickness of the level of detail bands (should only be about 2 bands) btw, i think this is exponential ie 2^x or something similar
+#define lod_dist 50.0			//the thickness of the level of detail bands (should only be about 2 bands) btw, i think this is exponential ie 2^x or something similar
 
 
 #define PI	(22.0f/7.0f)
@@ -26,6 +26,7 @@
 #define deg_to_rad (PI/180.0f)
 #define rad_to_deg (180.0f/PI)
 #define small_number -32627.0f
+
 
 
 

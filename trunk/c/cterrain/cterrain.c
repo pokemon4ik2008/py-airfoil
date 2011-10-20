@@ -57,7 +57,7 @@ extern "C"
 		pov.ay = -getAngleForXY(viewVector[2], viewVector[0]); // 0 radians points down the positive Z-axis
 		pov.az = 0;
 
-		terDrawLandscape(pov, aspectRatio, 1);	
+		terDrawLandscape(pov, aspectRatio, 4);	
 	}
 }
 
@@ -644,24 +644,15 @@ void terCalc_view_triangle(int topz,	int botz,
 				//printf("1\n");
 				//calc distance for vertex from view position if not already done
 				terCalcVertexDistance(x,z, pov);
-				terCalcVertexDistance(x+detail,z, pov);
-				terCalcVertexDistance(x,z+detail, pov);
-				terCalcVertexDistance(x+detail,z+detail, pov);				
-
 				
 				//if vertex lies on detail level mesh and all 4 vertexes are greater than the near detail level boundary
 				if (	(x%detail==0)&&(z%detail==0) &&
-						(terrain_map(x,z).dist>(detail/min_detail_level/2)*lod_dist) &&
-						(terrain_map(x+detail,z).dist>(detail/min_detail_level/2)*lod_dist) &&
-						(terrain_map(x,z+detail).dist>(detail/min_detail_level/2)*lod_dist) &&
-						(terrain_map(x+detail,z+detail).dist>(detail/min_detail_level/2)*lod_dist) ){
+					(terrain_map(x,z).dist>(detail/min_detail_level/2*lod_dist))){
+
 
 					//printf("2\n");
 					//if all 4 vert's are within before far detail level boundary (+a little more)
-					if (	(terrain_map(x,z).dist<detail/min_detail_level*lod_dist+3.0*detail)&&
-							(terrain_map(x+detail,z).dist<detail/min_detail_level*lod_dist+3.0*detail) &&
-							(terrain_map(x,z+detail).dist<detail/min_detail_level*lod_dist+3.0*detail) &&
-							(terrain_map(x+detail,z+detail).dist<detail/min_detail_level*lod_dist+3.0*detail)) {	
+					  if (	(terrain_map(x,z).dist<(detail/min_detail_level*lod_dist*2))) {	
 						//printf("3\n");
 						//if this quad hasn't already been plotted
 						if (!terrain_map(x,z).plotted) {
