@@ -191,9 +191,10 @@ class MyAirfoil(Airfoil, ControlledSer):
                  attitude = Quaternion(w=0.0, x=0.0, y=0.0, z=0.0), 
                  velocity = Vector3(0,0,0), 
                  thrust = 0, ident=None):
-        Airfoil.__init__(self, pos, attitude, velocity, thrust)
-        ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
-        self.__controls=controls
+	    global cterrain
+	    Airfoil.__init__(self, pos, attitude, velocity, thrust, cterrain)
+	    ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
+	    self.__controls=controls
 
     def localInit(self):
         ControlledSer.localInit(self)
@@ -411,7 +412,7 @@ def simMain():
 	print "width: "+str(win_width)+" height: "+str(win_height)
 	resize(win.width, win.height)
         clock = pyglet.clock.Clock()
-
+	loadTerrain()
         r = 0.0
 
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
@@ -463,6 +464,7 @@ def simMain():
 		views.append(view)
 	
 	int_scale=100.0
+
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", 100.0, mesh.Mesh) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", int_scale, mesh.Mesh),
 						       ("data/models/cockpit/Plane.004", int_scale, mesh.CompassMesh),
@@ -476,7 +478,6 @@ def simMain():
 			  }, views)
 	mouse_cap=False
 	bots=[]
-	loadTerrain()
 	skybox = Skybox()
 
 	start_time=time.time()

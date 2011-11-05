@@ -45,7 +45,7 @@ accelDueToGravity = 9.8 # m/s/s
 class Obj(object):
     in_flight=0
 
-    def __init__(self, pos, attitude, vel):
+    def __init__(self, pos, attitude, vel, cterrain):
         self._pos = pos
         self._attitude = attitude
         self._lastClock = time.time()
@@ -57,6 +57,7 @@ class Obj(object):
         self._is_real=False
         self._scales = [0.0, 0.0, 0.0]
         self._mesh = None
+        self._cterrain = cterrain
 
     def getPos(self):
         return self._pos
@@ -235,6 +236,15 @@ class Obj(object):
         else:
             self.__wasOnGround = False
 
+        if (self._cterrain != None):
+            colArgs = (c_float * 4)()
+            colArgs[0] = self._pos.x
+            colArgs[1] = self._pos.y
+            colArgs[2] = self._pos.z
+            colArgs[3] = 10.0
+            print self._cterrain.checkCollision(colArgs)
+            print "col check"
+
     def _updatePos(self, timeDiff):
         self._pos += (self._velocity * timeDiff)
         self.__collisionDetect()
@@ -259,8 +269,9 @@ class Airfoil(Obj):
     def __init__(self, pos = Vector3(0,0,0), 
                  attitude = Quaternion(w=0.0, x=0.0, y=0.0, z=0.0), 
                  vel = Vector3(0, 0, 0),
-                 thrust = 0):
-        Obj.__init__(self, pos, attitude, vel)
+                 thrust = 0, 
+                 cterrain = None):
+        Obj.__init__(self, pos, attitude, vel, cterrain)
         self.__thrust = thrust
         #self._scales = [40.0, 20.0, 2.0]
         self._scales = [0.62, 0.32, 0.03]
