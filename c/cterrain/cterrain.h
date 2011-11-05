@@ -90,6 +90,7 @@ typedef struct {
 	unsigned char* texture;
 } terrain_tile;
 
+bool checkSimpleCollision(float details[]);
 float getAngleForXY(float x, float y);
 int preloadTerrain(char *fname);
 int load_hm_colour_ref(char *fname);

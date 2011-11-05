@@ -59,6 +59,11 @@ extern "C"
 
 		terDrawLandscape(pov, aspectRatio, 4);	
 	}
+
+	DLL_EXPORT int checkCollision(float details[])
+	{
+		return checkSimpleCollision(details);
+	}
 }
 
 float getAngleForXY(float adj, float opp)
@@ -386,6 +391,62 @@ void terPrecalc_vertex_intensities() {
 		(float) fabs(light.intensity*(calc_mag));
 	if (default_map_intensity>1) default_map_intensity=1;//just checking
 				
+}
+
+bool checkSimpleCollision(float details[])
+{
+	float *point = details;
+	float *radius = &details[3];
+
+	// Find approx map index
+	int xi = details[0]/map_expansion_const;
+	int zi = details[2]/map_expansion_const;
+	int checkRadius = (*radius)/map_expansion_const;
+
+	// Calc search bounds
+	int lowx = xi - checkRadius;
+	int highx = xi + 1 + checkRadius;
+	int lowz = zi - checkRadius;
+	int highz = zi + 1 + checkRadius;
+       
+	for (int x=lowx; x<=highx; x++)
+	{
+		for (int z=lowz; z<=highz; z++)
+		{
+			int y = -1;
+
+			// if coord out of bounds, pick sea level as y
+			if (x < 0) y = 0;
+			if (z < 0) y = 0;
+			if (x >= terrain_max_x) y=0;
+			if (z >= terrain_max_z) y=0;
+
+			// For x,z points located in the terrain map, load y from the terrain map
+			if (y==-1)
+			{
+				// load y from terrain map
+				y = terrain_map(x,z).y;
+			}
+
+			// Get actual coords of point to check against
+			float xf = x * map_expansion_const;
+			float yf = y * y_scale_const;
+			float zf = z * map_expansion_const;
+
+			// Calc dist between two points
+			float dist = sqrt(	sqr(xf - point[0]) +
+						sqr(yf - point[1]) +
+						sqr(zf - point[2]) );
+
+			if (dist < *radius)
+			{
+				// collision found
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 void terDrawLandscape(point_of_view &input_pov,float aspect
