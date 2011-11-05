@@ -45,7 +45,7 @@ accelDueToGravity = 9.8 # m/s/s
 class Obj(object):
     in_flight=0
 
-    def __init__(self, pos, attitude, vel, cterrain):
+    def __init__(self, pos, attitude, vel, cterrain=None):
         self._pos = pos
         self._attitude = attitude
         self._lastClock = time.time()
@@ -243,7 +243,7 @@ class Obj(object):
             colArgs[2] = self._pos.z
             colArgs[3] = 10.0
             print self._cterrain.checkCollision(colArgs)
-            print "col check"
+            #print "col check"
 
     def _updatePos(self, timeDiff):
         self._pos += (self._velocity * timeDiff)
