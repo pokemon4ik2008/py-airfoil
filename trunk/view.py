@@ -65,9 +65,12 @@ class FixedCam(Camera):
 
     def activate(self):
         att = self._plane.getAttitude()
+        #print 'att: '+str(att)
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
         cameraAdjust = att * adjAtt * self._offset * self._zoom
+        #pos is where you want to look
         pos = self._plane.getPos()
+        #pos = pos + (att * Vector3(200.0, 0.0, 0.0))
         eye = pos + cameraAdjust
         zen = att * adjAtt * Vector3(0.0,1.0,0.0)
         super(FixedCam, self).activate(pos,eye,zen)

@@ -188,7 +188,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 
     def __init__(self, controls=None, proxy=None, 
                  pos = Vector3(0,0,0), 
-                 attitude = Vector3(0,0,0), 
+                 attitude = Quaternion(w=0.0, x=0.0, y=0.0, z=0.0), 
                  velocity = Vector3(0,0,0), 
                  thrust = 0, ident=None):
         Airfoil.__init__(self, pos, attitude, velocity, thrust)
@@ -276,6 +276,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         ser.append(a.x)
         ser.append(a.y)
         ser.append(a.z)
+	#print 'MyAirfoil.serialise: '+str((a.w, a.x, a.y, a.z))
 	v=self.getVelocity()
 	ser.append(v.x)
 	ser.append(v.y)
@@ -288,6 +289,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         (aw, ax, ay, az)=ControlledSer.qAssign(ser, ControlledSer._ATT)
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
         
+	#print 'MyAirfoil.deserialise: '+str((aw, ax, ay, az))
         obj=Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx, vy, vz))
 	obj.thrust=ser[MyAirfoil._THRUST]
 
@@ -441,6 +443,7 @@ def simMain():
 
 	planes = {}
 	plane_inits=[(Point3(-0.3,0,495), 
+		      #Quaternion( w=-0.71, x=0.02, y=0.71, z=0.02), 
 		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
 		      Vector3(0,0,0),
 		      0),
@@ -452,6 +455,7 @@ def simMain():
 	for i in range(len(player_keys)):
 		controller=player_keys[i]
 		(pos, att, vel, thrust)=plane_inits[i]
+		print 'att: '+str(att)
 		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, 
 				  controls=controller, proxy=man.proxy)
 		planes[plane.getId()]=plane
