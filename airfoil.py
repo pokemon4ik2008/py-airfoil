@@ -72,7 +72,9 @@ class Obj(object):
         return self
 
     def setAttitude(self, att):
+        #print 'setAttitude start: '+str(self._attitude)
         self._attitude=att
+        #print 'setAttitude: '+str(self._attitude)
         return self
 
     def setVelocity(self, vel):
@@ -132,6 +134,7 @@ class Obj(object):
         angularChange = dot * (math.pi/3.0) * self._getSpeedRatio() * timeDiff
 
         self._attitude = self._attitude * Quaternion.new_rotate_euler( 0.0, angularChange, 0.0)
+        #print 'updatePitch: '+str(self._attitude)
         
     def _updateRoll(self, timeDiff):
         pass
@@ -179,6 +182,7 @@ class Obj(object):
             global prettyfloat
             #self.log(str(map(prettyfloat, drags)))
         #print 'getDragForce. vMag: '+str(vMag)+' drag: '+str(drag)
+        #print 'getDragForce: '+str(self._attitude)
         return drag
 
     def _updateVelFromGrav(self, timeDiff):
@@ -216,7 +220,10 @@ class Obj(object):
     def _hitGround(self):
         self.__wasOnGround = True      
         # Point the craft along the ground plane
-        self._attitude = Quaternion.new_rotate_euler(self.getWindHeading(),0,0)   
+        print 'Airfoil. hitGround: '+str(self._attitude)
+        #self._attitude=Quaternion( w=-0.71, x=0.02, y=0.71, z=0.02)
+        self._attitude = Quaternion.new_rotate_euler(self.getWindHeading(), 0.0, 0.0)
+        print 'Airfoil. hitGround: '+str(self._attitude)
 
     def __collisionDetect(self):
         # Check collision with ground
@@ -250,7 +257,7 @@ class Airfoil(Obj):
         self.__init__()
     
     def __init__(self, pos = Vector3(0,0,0), 
-                 attitude = Vector3(0,0,0), 
+                 attitude = Quaternion(w=0.0, x=0.0, y=0.0, z=0.0), 
                  vel = Vector3(0, 0, 0),
                  thrust = 0):
         Obj.__init__(self, pos, attitude, vel)
