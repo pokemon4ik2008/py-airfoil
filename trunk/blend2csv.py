@@ -186,12 +186,14 @@ for obj_i in range(0, len(obs)):
         for f in uv_map.data:
             t_num+=1
             face=o.data.faces[face_idx]
-            if face.material_index not in tex_slots:
-                face_idx+=1
-                continue
             verts=[]
             for v_ref in face.vertices:
                 verts.append(v_ref)
+            if face.material_index not in tex_slots:
+                face_idx+=1
+                if len(verts)==4:
+                    t_num+=1
+                continue
             try:
                 out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0] +', '+ prec % f.uv[0][1]+', '+ prec % f.uv[1][0]+', '+ prec % f.uv[1][1]+', '+ prec % f.uv[2][0]+', '+ prec % f.uv[2][1]+'\n')
                 if len(verts)==4:
