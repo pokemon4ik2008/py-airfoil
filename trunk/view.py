@@ -89,6 +89,7 @@ class InternalCam(FixedCam):
     def vantage(self, (xrot, zrot, zoom)):
         # disable zoom
         (self._xrot, self._zrot)=(xrot, zrot)
+        self._zoom=zoom
 
 class View(pyglet.event.EventDispatcher):
     __FOLLOW=0

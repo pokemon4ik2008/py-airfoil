@@ -463,17 +463,15 @@ def simMain():
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 	
-	int_scale=100.0
-
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", 100.0, mesh.Mesh) ],
-			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*", int_scale, mesh.Mesh),
-						       ("data/models/cockpit/Plane.004", int_scale, mesh.CompassMesh),
-						       ("data/models/cockpit/Plane.003", int_scale, mesh.AltMeterMesh), 
-						       ("data/models/cockpit/Plane.005", int_scale, mesh.ClimbMesh), 
-						       ("data/models/cockpit/Plane.011", int_scale, mesh.RPMMesh), 
-						       ("data/models/cockpit/Plane.006", int_scale, mesh.AirSpeedMesh),
-						       ("data/models/cockpit/Plane.014", int_scale, mesh.BankingMesh),
-						       ("data/models/cockpit/Plane.015", int_scale, mesh.RollingMesh)
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
+			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh),
+						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
+						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh), 
+						       ("data/models/cockpit/Plane.005", mesh.ClimbMesh), 
+						       ("data/models/cockpit/Plane.011", mesh.RPMMesh), 
+						       ("data/models/cockpit/Plane.006", mesh.AirSpeedMesh),
+						       ("data/models/cockpit/Plane.014", mesh.BankingMesh),
+						       ("data/models/cockpit/Plane.015", mesh.RollingMesh)
 						       ]
 			  }, views)
 	mouse_cap=False
@@ -579,6 +577,7 @@ def simMain():
 			assert not man.server.isAlive()
 		except:
 			print_exc()
+	mesh.deleteMeshes()
 	print 'quitting main thread'
         print "fps:  %d" % clock.get_fps()
 	end_time=time.time()

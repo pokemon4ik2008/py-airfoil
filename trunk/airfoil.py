@@ -242,7 +242,7 @@ class Obj(object):
             colArgs[1] = self._pos.y
             colArgs[2] = self._pos.z
             colArgs[3] = 10.0
-            print self._cterrain.checkCollision(colArgs)
+            #print self._cterrain.checkCollision(colArgs)
             #print "col check"
 
     def _updatePos(self, timeDiff):

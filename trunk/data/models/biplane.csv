@@ -15918,3 +15918,9 @@ Triangle:, Red:, Green:, Blue:
 6270, 0, 0, 0
 6271, 0, 0, 0
 6272, 0, 0, 0
+
+Textures, 0
+UV Map Id:, Texture_Path
+
+UVMaps, 0
+Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x

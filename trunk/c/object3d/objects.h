@@ -12,6 +12,7 @@
 #define OBJ_NO_LIGHTING		16
 #define OBJ_NO_FOG			32
 #define OBJ_USE_FAST_LIGHT	64
+#define OBJ_USE_TEXTURE	128
 
 //all objects within this dist from viewer will be plotted.
 //this ensure's that object when looking directly up or down
@@ -45,6 +46,17 @@ typedef enum {line,tri,quad,empty} primitiveType;
 #define DLL_EXPORT 
 #endif
 
+#define PATH_LEN 256
+#define PATH_MATCH "%256s"
+typedef char uint8;
+typedef unsigned int uint32;
+
+//uint8** uvMap2Texture;
+//uint32* uvMap2Id;
+
+#define UNTEXTURED 0xffffffff
+//#define TEXTURED_FLAG 0xf
+
 typedef struct {
 	float				x,y,z;
 	float				ax,ay,az;
@@ -55,12 +67,12 @@ typedef struct {
 } obj_vector;
 
 typedef struct {
-	float				x,y,z;
-	float				r,g,b;		//now redundant..instead use colour in primitive
-	obj_vector			norm;		//vertex normal
-	ubyte				shared;		//holds number of primitives sharing this vertex
+  float				x,y,z;
+  float				u,v;
+  obj_vector			norm;		//vertex normal
+  ubyte				shared;		//holds number of primitives sharing this vertex
+  ubyte reserved[3];
 } obj_vertex;
-
 
 typedef struct OBJ_3DPRIMITIVE
 {
@@ -71,9 +83,20 @@ typedef struct OBJ_3DPRIMITIVE
 							//points to NULL if last in obj
 	primitiveType		type;		//describes the type of the data held
 	unsigned int		flags;		//holds details about normals/shiny surface etc.		
-	obj_vertex mid;
 	float scale;
+  uint32 uv_id;
 } obj_3dPrimitive;
+
+typedef struct {
+  obj_3dPrimitive *p_prim;
+  obj_vertex mid;
+  uint32 num_uv_maps;
+  uint32 *p_tex_ids;
+  uint8 **pp_tex_paths;
+  uint8 mesh_path[PATH_LEN];
+  void *p_vert_start;
+  void *p_vert_end;
+} obj_3dMesh;
 
 typedef struct {
 	// incident light source position and intensity
@@ -113,9 +136,9 @@ void	objSetViewAngle		(float ax, float ay, float az);
 void	objSetPointOfView	(float x, float y, float z, float ax, float ay, float az);
 
 void	objSetVertexNormal	(obj_vector unit_vector_norm,unsigned int flags);
-oError	objCreate			(obj_3dPrimitive **obj, char *fname, float obj_scaler, unsigned int flags);
+oError	objCreate			(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags);
 
-void	objDelete			(obj_3dPrimitive **obj);
-oError	objPlot				(obj_3dPrimitive *obj);
+void	objDelete			(obj_3dMesh **pp_mesh);
+oError	objPlot				(obj_3dMesh *p_mesh);
 
 #endif
