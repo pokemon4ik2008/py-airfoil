@@ -465,13 +465,13 @@ def simMain():
 	
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh),
-						       ("data/models/cockpit/Plane.004", mesh.CompassMesh),
-						       ("data/models/cockpit/Plane.003", mesh.AltMeterMesh), 
-						       ("data/models/cockpit/Plane.005", mesh.ClimbMesh), 
-						       ("data/models/cockpit/Plane.011", mesh.RPMMesh), 
-						       ("data/models/cockpit/Plane.006", mesh.AirSpeedMesh),
-						       ("data/models/cockpit/Plane.014", mesh.BankingMesh),
-						       ("data/models/cockpit/Plane.015", mesh.RollingMesh)
+						       ("data/models/cockpit/Plane.004.csv", mesh.CompassMesh),
+						       ("data/models/cockpit/Plane.003.csv", mesh.AltMeterMesh), 
+						       ("data/models/cockpit/Plane.005.csv", mesh.ClimbMesh), 
+						       ("data/models/cockpit/Plane.011.csv", mesh.RPMMesh), 
+						       ("data/models/cockpit/Plane.006.csv", mesh.AirSpeedMesh),
+						       ("data/models/cockpit/Plane.014.csv", mesh.BankingMesh),
+						       ("data/models/cockpit/Plane.015.csv", mesh.RollingMesh)
 						       ]
 			  }, views)
 	mouse_cap=False

@@ -2,4 +2,4 @@
 
 BLEND_FILE=$1
 shift
-/usr/local/bin/blender --background $BLEND_FILE --factory-startup --python $@
+~kieran/bin/blender --background $BLEND_FILE --factory-startup --python $@
