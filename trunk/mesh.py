@@ -90,14 +90,10 @@ class Mesh(object):
             path=c_path
             img=image.load(path)
             self.tex=img.get_texture()
-            #print "upload_textures: "+str(self.tex.target)+" id: "+str(self.tex.id)+" tex: "+str(self.tex.get_texture())+" coords: "+str(self.tex.tex_coords)
+            print "upload_textures: "+str(self.tex.target)+" id: "+str(self.tex.id)+" tex: "+str(self.tex.get_texture())+" coords: "+str(self.tex.tex_coords)
             object3dLib.setTexId(self.mesh, uvId, self.tex.id)
             #object3dLib.createTexture(self.mesh,
-            #                          uvId,
-            #                          img.get_data('RGBA', img.width*len('RGBA')),
-            #                          img.width,
-            #                          img.height,
-            #                          GL_RGBA)
+            #                          uvId, img.get_data('RGBA', img.width*len('RGBA')), img.width, img.height, GL_RGBA)
             uvId+=1
             c_path=object3dLib.getUvPath(self.mesh, uvId)
 
@@ -165,7 +161,7 @@ class Mesh(object):
 
             mid = (c_float * 3)()
             object3dLib.getMid(centre_mesh, mid)
-            midPt=Vector3(mid[0], mid[1], mid[2])
+            midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
             rotOrig=(att * axisRotator * (midPt))
             rotNew=(att * angle_quat * axisRotator * (midPt))
 
@@ -190,70 +186,49 @@ class AltMeterMesh(Mesh):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        try:
-            assert 'data/models/cockpit/Circle.001' in name_to_mesh
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001'].mesh)
-        except AssertionError:
-            print_exc()
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001.csv'].mesh)
 
 class ClimbMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        try:
-            assert 'data/models/cockpit/Cylinder' in name_to_mesh
-            ident=bot.getId()
-            if (view_id, ident) not in self._bot_details:
-                self._bot_details[(view_id, ident)]=(manage.now, 0.0)
+        ident=bot.getId()
+        if (view_id, ident) not in self._bot_details:
+            self._bot_details[(view_id, ident)]=(manage.now, 0.0)
 
-            (last_update, smoothed_rate) = self._bot_details[(view_id, ident)]
-            interval=manage.now-last_update
-            if interval>1:
-                interval=1.0
+        (last_update, smoothed_rate) = self._bot_details[(view_id, ident)]
+        interval=manage.now-last_update
+        if interval>1:
+            interval=1.0
 
-            smoothed_rate+=(bot.getVelocity().y-smoothed_rate)*interval
-            
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((smoothed_rate % 300)/300)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002'].mesh)
+        smoothed_rate+=(bot.getVelocity().y-smoothed_rate)*interval
 
-            self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
-        except AssertionError:
-            print_exc()
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((smoothed_rate % 300)/300)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002.csv'].mesh)
+
+        self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
 
 class BankingMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        try:
-            assert 'data/models/cockpit/Circle.002' in name_to_mesh
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getAttitude()*bot.getVelocity()).x*0.1*HALF_PI)), self.mesh, name_to_mesh['data/models/cockpit/Cylinder'].mesh)
-        except AssertionError:
-            print_exc()
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getAttitude()*bot.getVelocity()).x*0.1*HALF_PI)), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
 
 class RollingMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        try:
-            assert 'data/models/cockpit/Cylinder' in name_to_mesh
             pass
-#self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude() * Vector3(0.0, 1.0, 0.0)).normalized().x*HALF_PI), self.mesh, name_to_mesh['data/models/cockpit/Cylinder'].mesh)
-        except AssertionError:
-            print_exc()
+#self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude() * Vector3(0.0, 1.0, 0.0)).normalized().x*HALF_PI), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        try:
-            #print 'rotating air speed: '+str(bot.getVelocity())
-            assert 'data/models/cockpit/Circle.003' in name_to_mesh
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003'].mesh)
-        except AssertionError:
-            print_exc()
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003.csv'].mesh)
 
 class RPMMesh(Mesh):
     def __init__(self, mesh, views):
@@ -270,12 +245,7 @@ class RPMMesh(Mesh):
         return (bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*2)/3
 
     def draw(self, bot, view_id):
-        try:
-            #print 'rotating air speed: '+str(bot.getVelocity())
-            assert 'data/models/cockpit/Circle.004' in name_to_mesh
-            self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, name_to_mesh['data/models/cockpit/Circle.004'].mesh)
-        except AssertionError:
-            print_exc()
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, name_to_mesh['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
     def __init__(self, mesh, views):
@@ -321,5 +291,5 @@ class CompassMesh(Mesh):
         last_heading+=speed
         last_heading = last_heading % PI2
         last_update=manage.now
-        self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)

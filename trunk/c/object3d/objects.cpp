@@ -240,9 +240,9 @@ oError objPlot(obj_3dMesh *p_mesh) {
 	while(curr_prim->next_ref!=NULL) {
 		curr_prim=curr_prim->next_ref;
 		if(curr_prim->uv_id!=UNTEXTURED) {
-		  glDisable( GL_DEPTH_TEST);
-		  glDisable(GL_FOG);
-		  glDisable( GL_LIGHTING);
+		  //glDisable( GL_DEPTH_TEST);
+		  //glDisable(GL_FOG);
+		  //glDisable( GL_LIGHTING);
 		  glEnable(GL_TEXTURE_2D);
 		  //printf("texturing %s with %u\n", p_mesh->mesh_path, p_mesh->p_tex_ids[curr_prim->uv_id]);
 		  glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
@@ -256,9 +256,11 @@ oError objPlot(obj_3dMesh *p_mesh) {
 		case line: 
 			glBegin(  GL_LINES );
 			for (i=0;i<2;i++) {
-				glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
 				if(curr_prim->uv_id != UNTEXTURED) {
+				  glColor3f(1.0f, 1.0f, 1.0f);
 				  glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+				} else {
+				  glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
 				}
 				glVertex3f(curr_prim->vert[i]->x, curr_prim->vert[i]->y, curr_prim->vert[i]->z);	
 			}
@@ -273,11 +275,11 @@ oError objPlot(obj_3dMesh *p_mesh) {
 				    curr_prim->g,
 				    curr_prim->b,1.0f};
 		    glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
-		    glColor3f(curr_prim->r*intensity
-			      , curr_prim->g*intensity
-			      , curr_prim->b*intensity);
 		    if(curr_prim->uv_id != UNTEXTURED) {
+		      glColor3f(intensity, intensity, intensity);
 		      glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+		    } else {
+		      glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
 		    }
 		    glVertex3f(	curr_prim->vert[i]->x, 
 				curr_prim->vert[i]->y, 
@@ -303,15 +305,15 @@ oError objPlot(obj_3dMesh *p_mesh) {
 							curr_prim->g,
 							curr_prim->b,1.0f};
 				glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
-				glColor3f(curr_prim->r*intensity
-							, curr_prim->g*intensity
-							, curr_prim->b*intensity);
 				if(curr_prim->uv_id != UNTEXTURED) {
+				  glColor3f(intensity, intensity, intensity);
 				  glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+				} else {
+				  glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
 				}
 				glVertex3f(	curr_prim->vert[i]->x, 
-							curr_prim->vert[i]->y, 
-							curr_prim->vert[i]->z);	
+						curr_prim->vert[i]->y, 
+						curr_prim->vert[i]->z);	
 			}
 			glEnd();			
 			break;
