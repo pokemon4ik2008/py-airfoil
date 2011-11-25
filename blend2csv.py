@@ -137,8 +137,9 @@ for obj_i in range(0, len(obs)):
 
     texture_count=0
     for t in o.material_slots:
-        if t.material.texture_slots[0] is not None:
-            texture_count+=1
+        for s in t.material.texture_slots:
+            if s is not None:
+                texture_count+=1
 
     map2Idx={}
     mapIdx=0
@@ -147,17 +148,18 @@ for obj_i in range(0, len(obs)):
     idx=0
     tex_slots=[]
     for t in o.material_slots:
-        if t.material.texture_slots[0] is None:
-            idx+=1
-            continue
-        path=t.material.texture_slots[0].texture.image.filepath
-        match=re.search('(data/textures/.*$)', path)
-        if match is not None:
-            map2Idx[t.material.texture_slots[0].uv_layer]=mapIdx
-            out.write(str(mapIdx)+ ', '+ match.group(0) +'\n')
-            tex_slots.append(idx)
-            idx+=1
-            mapIdx+=1
+        for s in t.material.texture_slots:
+            if s is None:
+                #mapIdx+=1
+                continue
+            path=s.texture.image.filepath
+            match=re.search('(data/textures/.*$)', path)
+            if match is not None:
+                map2Idx[s.uv_layer]=mapIdx
+                out.write(str(mapIdx)+ ', '+ match.group(0) +'\n')
+                tex_slots.append(mapIdx)
+                idx+=1
+                mapIdx+=1
     m=o.data
     t_num=0
 
@@ -166,16 +168,18 @@ for obj_i in range(0, len(obs)):
         face_idx=0
         for f in uv_map.data:
             face=o.data.faces[face_idx]
-            if face.material_index not in tex_slots:
-                face_idx+=1
-                continue
+            #if face.material_index not in tex_slots:
+            #    face_idx+=1
+            #    continue
             try:
-                uv_tri_count+=1
-                if len(face.vertices)==4:
-                    uv_tri_count+=1
                 assert len(face.vertices)<=4
+                #assert face.material_index<len(m.uv_textures)
+                if uv_map.name in map2Idx:
+                    uv_tri_count+=1
+                    if len(face.vertices)==4:
+                        uv_tri_count+=1
             except AssertionError:
-                print('Expecting 4 verts in triangles: ', verts, ' m: ', m, ' f: ', f)
+                print('vert len: ', str(len(face.vertices)), ' mat idx: '+str(face.material_index), ' num textures: ', str(len(m.uv_textures)))
                 exit(-1)
             face_idx+=1
 
@@ -184,22 +188,28 @@ for obj_i in range(0, len(obs)):
     for uv_map in m.uv_textures:
         face_idx=0
         for f in uv_map.data:
-            t_num+=1
             face=o.data.faces[face_idx]
             verts=[]
             for v_ref in face.vertices:
                 verts.append(v_ref)
-            if face.material_index not in tex_slots:
-                face_idx+=1
-                if len(verts)==4:
-                    t_num+=1
-                continue
             try:
-                out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0] +', '+ prec % f.uv[0][1]+', '+ prec % f.uv[1][0]+', '+ prec % f.uv[1][1]+', '+ prec % f.uv[2][0]+', '+ prec % f.uv[2][1]+'\n')
-                if len(verts)==4:
+                pass
+                #assert face.material_index>len(m.uv_textures)
+            except AssertionError:
+                print('material index ', str(face.material_index), ' too large: ', len(m.uv_textures))
+                exit(-1)
+            #face_idx+=1
+            #if len(verts)==4:
+            #    t_num+=1
+            #continue
+            try:
+                if uv_map.name in map2Idx:
                     t_num+=1
-                    out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0]+', '+prec % f.uv[0][1]+', '+prec % f.uv[2][0]+', '+prec % f.uv[2][1]+', '+ prec % f.uv[3][0]+', '+ prec % f.uv[3][1]+'\n')
-                assert len(verts)<=4
+                    out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0] +', '+ prec % f.uv[0][1]+', '+ prec % f.uv[1][0]+', '+ prec % f.uv[1][1]+', '+ prec % f.uv[2][0]+', '+ prec % f.uv[2][1]+'\n')
+                    if len(verts)==4:
+                        t_num+=1
+                        out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0]+', '+prec % f.uv[0][1]+', '+prec % f.uv[2][0]+', '+prec % f.uv[2][1]+', '+ prec % f.uv[3][0]+', '+ prec % f.uv[3][1]+'\n')
+                    assert len(verts)<=4
             except AssertionError:
                 print('Expecting 4 verts in triangles: ', verts, ' m: ', m, ' f: ', f)
                 exit(-1)

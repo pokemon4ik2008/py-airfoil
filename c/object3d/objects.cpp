@@ -337,6 +337,7 @@ oError objPlot(obj_3dMesh *p_mesh) {
 oError objCreate(obj_3dMesh **pp_mesh, 
 					char *fname,float obj_scaler
 		 , unsigned int flags ) {
+  printf("objCreate for %s\n", fname);
   *pp_mesh=new obj_3dMesh;
   p_meshes[num_meshes++]=*pp_mesh;
 
@@ -531,18 +532,6 @@ oError objCreate(obj_3dMesh **pp_mesh,
 		while (fgetc(file)!=0x0a);
 	}
 
-
-
-
-
-
-
-
-
-
-
-
-
 	//skip 1 lines
 	while (fgetc(file)!=0x0a);
 	//skip a comma
@@ -558,7 +547,6 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	uint32 pathLen;
 	uint32 uvId;
 	uint8 path[PATH_LEN];
-	//start reading in triangles
 	for (i=0;i<(*pp_mesh)->num_uv_maps;i++) {
 	  fscanf(file,"%i",&uvId);
 	  while (fgetc(file)!=','); //skip comma
@@ -568,7 +556,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	  strncpy((*pp_mesh)->pp_tex_paths[uvId], path, pathLen+1);
 	  while (fgetc(file)!=0x0a);
 	}
-
+	
 	uint32 num_uv_mapped_faces=0;
 	uint32 face_id, map_id;
 	while (fgetc(file)!=0x0a);
@@ -591,19 +579,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	  while (fgetc(file)!=0x0a);
 	}
 
-
-
-
-
-
-
-
-
-
-
 	fclose(file);
-
-	
 //-----------------------------------------------------------
 	(*pp_mesh)->mid=mid;
 	*obj= new obj_3dPrimitive;
@@ -617,9 +593,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	curr_obj->vertex_list=inverts;
 //	curr_obj->next_ref=inprims;
 	
-	
 	i=0;
-
 	while (i<inprims_max) {
 		curr_obj->next_ref=new obj_3dPrimitive[1];
 		if (curr_obj->next_ref==NULL) return noMemory;
