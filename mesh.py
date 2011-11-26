@@ -68,6 +68,8 @@ def loadMeshes(mesh_paths, views):
     for mesh_key in mesh_paths:
         meshes[mesh_key] = [ name_to_mesh[path] for (path, cls) in paths[mesh_key] ]
 
+    print 'loadMeshes done'
+
 all_meshes=[]
 def deleteMeshes():
     for mesh in all_meshes:
@@ -186,7 +188,7 @@ class AltMeterMesh(Mesh):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.001.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/AltDial.csv'].mesh)
 
 class ClimbMesh(Mesh):
     def __init__(self, mesh, views):
