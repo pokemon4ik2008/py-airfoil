@@ -146,74 +146,61 @@ for obj_i in range(0, len(obs)):
     mapIdx=0
     out.write('\nTextures, '+ str(texture_count)+'\n')
     out.write('UV Map Id:, Texture_Path\n')
-    idx=0
     tex_slots=[]
-    for t in o.material_slots:
+    for matIdx in range(0, len(o.material_slots)):
+        t=o.material_slots[matIdx]
         for s in t.material.texture_slots:
             if s is None:
-                #mapIdx+=1
                 continue
             path=s.texture.image.filepath
             match=re.search('(data/textures/.*$)', path)
             if match is not None:
-                map2Idx[s.uv_layer]=mapIdx
+                map2Idx[(matIdx, s.uv_layer)]=mapIdx
                 out.write(str(mapIdx)+ ', '+ match.group(0) +'\n')
                 tex_slots.append(mapIdx)
-                idx+=1
                 mapIdx+=1
     m=o.data
     t_num=0
-
-    uv_tri_count=0
     for uv_map in m.uv_textures:
-        face_idx=0
-        for f in uv_map.data:
-            face=o.data.faces[face_idx]
-            #if face.material_index not in tex_slots:
-            #    face_idx+=1
-            #    continue
-            try:
-                assert len(face.vertices)<=4
-                #assert face.material_index<len(m.uv_textures)
-                if uv_map.name in map2Idx:
-                    uv_tri_count+=1
-                    if len(face.vertices)==4:
-                        uv_tri_count+=1
-            except AssertionError:
-                print('vert len: ', str(len(face.vertices)), ' mat idx: '+str(face.material_index), ' num textures: ', str(len(m.uv_textures)))
-                exit(-1)
-            face_idx+=1
-
-    out.write('\nUVMaps, '+str(uv_tri_count)+'\n')
-    out.write('Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x\n')
-    for uv_map in m.uv_textures:
-        face_idx=0
-        for f in uv_map.data:
-            face=o.data.faces[face_idx]
+        t_num=0
+        for uv_face in range(0, len(uv_map.data)):
+            f=uv_map.data[uv_face]
+            face=o.data.faces[uv_face]
             verts=[]
             for v_ref in face.vertices:
                 verts.append(v_ref)
             try:
-                pass
-                #assert face.material_index>len(m.uv_textures)
-            except AssertionError:
-                print('material index ', str(face.material_index), ' too large: ', len(m.uv_textures))
-                exit(-1)
-            #face_idx+=1
-            #if len(verts)==4:
-            #    t_num+=1
-            #continue
-            try:
-                if uv_map.name in map2Idx:
+                if (face.material_index, uv_map.name) in map2Idx:
                     t_num+=1
-                    out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0] +', '+ prec % f.uv[0][1]+', '+ prec % f.uv[1][0]+', '+ prec % f.uv[1][1]+', '+ prec % f.uv[2][0]+', '+ prec % f.uv[2][1]+'\n')
                     if len(verts)==4:
                         t_num+=1
-                        out.write(str(t_num)+', '+str(map2Idx[uv_map.name])+', '+ prec % f.uv[0][0]+', '+prec % f.uv[0][1]+', '+prec % f.uv[2][0]+', '+prec % f.uv[2][1]+', '+ prec % f.uv[3][0]+', '+ prec % f.uv[3][1]+'\n')
                     assert len(verts)<=4
             except AssertionError:
                 print('Expecting 4 verts in triangles: ', verts, ' m: ', m, ' f: ', f)
                 exit(-1)
-            face_idx+=1
+
+    out.write('\nUVMaps, '+str(t_num)+'\n')
+    out.write('Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x\n')
+    for uv_map in m.uv_textures:
+        t_num=0
+        for uv_face in range(0, len(uv_map.data)):
+            f=uv_map.data[uv_face]
+            face=o.data.faces[uv_face]
+            verts=[]
+            for v_ref in face.vertices:
+                verts.append(v_ref)
+            t_num+=1
+            tri=t_num
+            if len(verts)==4:
+                t_num+=1
+            try:
+                if (face.material_index, uv_map.name) in map2Idx:
+                    out.write(str(tri)+', '+str(map2Idx[face.material_index, uv_map.name])+', '+ prec % f.uv[0][0] +', '+ prec % f.uv[0][1]+', '+ prec % f.uv[1][0]+', '+ prec % f.uv[1][1]+', '+ prec % f.uv[2][0]+', '+ prec % f.uv[2][1]+'\n')
+                    if len(verts)==4:
+                        out.write(str(tri+1)+', '+str(map2Idx[face.material_index, uv_map.name])+', '+ prec % f.uv[0][0]+', '+prec % f.uv[0][1]+', '+prec % f.uv[2][0]+', '+prec % f.uv[2][1]+', '+ prec % f.uv[3][0]+', '+ prec % f.uv[3][1]+'\n')
+                    assert len(verts)<=4
+            except AssertionError:
+                print('Expecting 4 verts in triangles: ', verts, ' m: ', m, ' f: ', f)
+                exit(-1)
 
     out.close()
