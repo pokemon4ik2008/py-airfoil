@@ -30,6 +30,7 @@ for path in os.listdir(dest_dir):
 if not os.path.isdir(dest_dir):
     os.mkdir(dest_dir)
 
+bpy.ops.file.make_paths_absolute()
 scene=bpy.context.scene
 obs=scene.objects
 for obj_i in range(0, len(obs)):
