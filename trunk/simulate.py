@@ -463,7 +463,7 @@ def simMain():
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 	
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.ExternMesh) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh),
 						       ("data/models/cockpit/Plane.004.csv", mesh.CompassMesh),
 						       ("data/models/cockpit/Plane.003.csv", mesh.AltMeterMesh), 
