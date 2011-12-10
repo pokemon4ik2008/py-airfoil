@@ -117,15 +117,16 @@ for obj_i in range(0, len(obs)):
     BLACK=Color((0,0,0))
 
     m=o.data
-    if len(m.materials):
-        c=m.materials[0].diffuse_color
-    else:
-        c=BLACK
     for f in m.faces:
-        verts=[]
-        for v_ref in f.vertices:
-            verts.append(v_ref)
         try:
+            if len(o.data.materials)>=f.material_index:
+                c=o.data.materials[f.material_index].diffuse_color
+            else:
+                c=BLACK
+                assert False
+            verts=[]
+            for v_ref in f.vertices:
+                verts.append(v_ref)
             t_num+=1
             out.write(str(t_num)+', '+str(round(c.r*0xff))+', '+str(round(c.g*0xff))+', '+str(round(c.b*0xff))+'\n')
             if len(verts)==4:
