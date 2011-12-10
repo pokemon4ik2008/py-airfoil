@@ -1,5 +1,6 @@
 import ctypes
 from ctypes import *
+from math import cos, sin
 from euclid import *
 import glob
 import itertools
@@ -30,6 +31,9 @@ object3dLib.setTexId.restype=c_uint
 
 object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
 object3dLib.createTexture.restype=c_uint
+
+object3dLib.draw.argtypes=[ c_void_p ]
+object3dLib.draw.restype=None
 
 last_cams={}
 def draw(bot, view):
@@ -74,7 +78,7 @@ all_meshes=[]
 def deleteMeshes():
     for mesh in all_meshes:
         object3dLib.deleteMesh(mesh)
-        
+
 class Mesh(object):
     def __init__(self, mesh, views):
         self.mesh=mesh
@@ -84,7 +88,28 @@ class Mesh(object):
         for v in views:
             v.push_handlers(self)
         self._bot_details={}
+        self.rot=0.0
 
+    def test_draw(self, bot):
+        glPushMatrix()
+        glLoadIdentity()
+        #glTranslatef(bot._pos.x, bot._pos.y, bot._pos.z)
+        
+        #new stuff
+        glDisable( GL_DEPTH_TEST);
+        glDisable(GL_FOG);
+        glDisable( GL_LIGHTING);
+        glBegin(GL_QUADS)
+        glColor3f(1.0 ,1.0 ,0.0)
+        scaler=50.0
+        glVertex3f(-1.0*scaler, 1.0*scaler, 1.0*scaler-100)
+        glVertex3f( 1.0*scaler, 1.0*scaler, 1.0*scaler-100)
+        glVertex3f( 1.0*scaler, 1.0*scaler,-1.0*scaler-100)
+        glVertex3f(-1.0*scaler, 1.0*scaler,-1.0*scaler-100)
+        glEnd()
+        glEnable( GL_DEPTH_TEST)
+        glPopMatrix()
+        
     def upload_textures(self):
         uvId=0
         c_path=object3dLib.getUvPath(self.mesh, uvId)
@@ -99,36 +124,6 @@ class Mesh(object):
             uvId+=1
             c_path=object3dLib.getUvPath(self.mesh, uvId)
 
-    def test_draw(self, bot):
-        glTranslatef(bot._pos.x, bot._pos.y, bot._pos.z)
-
-        #new stuff
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_LIGHTING);
-        glDisable( GL_DEPTH_TEST);
-        glDisable(GL_FOG);
-        glDisable( GL_LIGHTING);
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(self.tex.target, self.tex.id)
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP)
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP)
-        glBegin(GL_QUADS)
-        glColor3f(1.0 ,1.0 ,0.0)
-        scaler=10.0
-        glTexCoord2f(1.0,1.0)
-        glVertex3f(-1.0*scaler, 1.0*scaler, 1.0*scaler)
-        glTexCoord2f(1.0,0.0)
-        glVertex3f( 1.0*scaler, 1.0*scaler, 1.0*scaler)
-        glTexCoord2f(0.0,0.0)
-        glVertex3f( 1.0*scaler, 1.0*scaler,-1.0*scaler)
-        glTexCoord2f(0.0,1.0)
-        glVertex3f(-1.0*scaler, 1.0*scaler,-1.0*scaler)
-        glEnd()
-        glDisable(GL_TEXTURE_2D)
-        glEnable( GL_DEPTH_TEST)
-
     def view_change(self, view):
         new_details={}
         for (view_id, bot_id) in self._bot_details:
@@ -137,10 +132,92 @@ class Mesh(object):
         self._bot_details=new_details
 
     def draw(self, bot, view_id):
-        #if self.tex is not None:
-        #    self.test_draw(bot)
+        glPushMatrix()
+        glLoadIdentity()
+        angleAxis = Quaternion(0.0, 0.0, 0.71, 0.71).get_angle_axis()
+        axis = angleAxis[1].normalized()
+
+        fpos = (c_float * 3)()
+        fpos[0] = 0.0
+        fpos[1] = 0.0
+        fpos[2] = -10.0
+        object3dLib.setPosition(fpos)
+
+        fpos[0] = axis.x
+        fpos[1] = axis.y
+        fpos[2] = axis.z
+
+        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        object3dLib.draw(self.mesh)            
+        glPopMatrix()
+
+    def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
+        att=bot.getAttitude()
+        axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
+        angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
+        
+        mid = (c_float * 3)()
+        object3dLib.getMid(centre_mesh, mid)
+        midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
+        rotOrig=(att * axisRotator * (midPt))
+        rotNew=(att * angle_quat * axisRotator * (midPt))
+
+        axis = angleAxis[1].normalized()
+        c=bot.getPos()-(rotNew-rotOrig)
+        
+        fpos = (c_float * 3)()
+        fpos[0] = c.x
+        fpos[1] = c.y
+        fpos[2] = c.z
+        object3dLib.setPosition(fpos)
+        
+        fpos[0] = axis.x
+        fpos[1] = axis.y
+        fpos[2] = axis.z
+        
+        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        object3dLib.draw(drawing_mesh)
+
+        # glPushMatrix()
+        # glLoadIdentity()
+        # #att=bot.getAttitude()
+        # #axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
+        # axisRotator=Quaternion(0.0, 0.0, 0.71, 0.71)
+        # angleAxis= (angle_quat * axisRotator ).get_angle_axis()
+        
+        # mid = (c_float * 3)()
+        # object3dLib.getMid(centre_mesh, mid)
+        # midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
+        # rotOrig=(axisRotator * (midPt))
+        # rotNew=(angle_quat * axisRotator * (midPt))
+
+        # axis = angleAxis[1].normalized()
+        # #c=bot.getPos()-(rotNew-rotOrig)
+        # c=-(rotNew-rotOrig)
+        
+        # fpos = (c_float * 3)()
+        # fpos[0] = c.x
+        # fpos[1] = c.y
+        # fpos[2] = c.z
+        # object3dLib.setPosition(fpos)
+        
+        # fpos[0] = axis.x
+        # fpos[1] = axis.y
+        # fpos[2] = axis.z
+        
+        # object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        # object3dLib.draw(drawing_mesh)
+        # glPopMatrix()
+                
+class ExternMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+        
+    def draw(self, bot, view_id):
+        #self.test_draw(bot)
         # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
-        angleAxis = (bot.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
+        #angleAxis = (bot.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
+        angleAxis = (bot.getAttitude() * Quaternion(0.5, -0.5, 0.5, 0.5) ).get_angle_axis()
         axis = angleAxis[1].normalized()
 
         fpos = (c_float * 3)()
@@ -154,34 +231,34 @@ class Mesh(object):
         fpos[2] = axis.z
 
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(self.mesh)            
+        object3dLib.draw(self.mesh)
 
     def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
-            att=bot.getAttitude()
-            axisRotator=Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0))
-            angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
+        att=bot.getAttitude()
+        axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
+        angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
+        
+        mid = (c_float * 3)()
+        object3dLib.getMid(centre_mesh, mid)
+        midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
+        rotOrig=(att * axisRotator * (midPt))
+        rotNew=(att * angle_quat * axisRotator * (midPt))
 
-            mid = (c_float * 3)()
-            object3dLib.getMid(centre_mesh, mid)
-            midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
-            rotOrig=(att * axisRotator * (midPt))
-            rotNew=(att * angle_quat * axisRotator * (midPt))
-
-            axis = angleAxis[1].normalized()
-            c=bot.getPos()-(rotNew-rotOrig)
-
-            fpos = (c_float * 3)()
-            fpos[0] = c.x
-            fpos[1] = c.y
-            fpos[2] = c.z
-            object3dLib.setPosition(fpos)
-
-            fpos[0] = axis.x
-            fpos[1] = axis.y
-            fpos[2] = axis.z
-
-            object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-            object3dLib.draw(drawing_mesh)
+        axis = angleAxis[1].normalized()
+        c=bot.getPos()-(rotNew-rotOrig)
+        
+        fpos = (c_float * 3)()
+        fpos[0] = c.x
+        fpos[1] = c.y
+        fpos[2] = c.z
+        object3dLib.setPosition(fpos)
+        
+        fpos[0] = axis.x
+        fpos[1] = axis.y
+        fpos[2] = axis.z
+        
+        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        object3dLib.draw(drawing_mesh)
         
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views):
@@ -222,8 +299,7 @@ class RollingMesh(Mesh):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-            pass
-#self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude() * Vector3(0.0, 1.0, 0.0)).normalized().x*HALF_PI), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude() * Vector3(0.0, 1.0, 0.0)).normalized().x*HALF_PI), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
     def __init__(self, mesh, views):
