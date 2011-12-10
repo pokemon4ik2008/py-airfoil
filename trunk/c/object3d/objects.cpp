@@ -236,7 +236,7 @@ oError objPlot(obj_3dMesh *p_mesh) {
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LIGHTING);
-	
+	glDisable(GL_CULL_FACE);
 	while(curr_prim->next_ref!=NULL) {
 		curr_prim=curr_prim->next_ref;
 		if(curr_prim->uv_id!=UNTEXTURED) {
