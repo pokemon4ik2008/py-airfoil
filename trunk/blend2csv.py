@@ -107,7 +107,7 @@ for obj_i in range(0, len(obs)):
             assert len(verts)<=4
         except AssertionError:
             print('Expecting 4 verts in triangles: ', verts, ' m: ', m, ' f: ', f)
-            exit(-1)
+            sys.exit(-1)
 
     out.write('\n')
     out.write('Colors, '+str(t_tot)+'\n')
@@ -119,7 +119,7 @@ for obj_i in range(0, len(obs)):
     m=o.data
     for f in m.faces:
         try:
-            if len(o.data.materials)>=f.material_index:
+            if len(o.data.materials)>f.material_index:
                 c=o.data.materials[f.material_index].diffuse_color
             else:
                 c=BLACK
@@ -134,8 +134,8 @@ for obj_i in range(0, len(obs)):
                 out.write(str(t_num)+', '+str(round(c.r*0xff))+', '+str(round(c.g*0xff))+', '+str(round(c.b*0xff))+'\n')
             assert len(verts)<=4
         except AssertionError:
-            print('Expecting 4 verts in colours: ', verts, ' m: ', m, ' f: ', f)
-            exit(-1)
+            print('Expecting 4 verts in colours: ', verts, ' m: ', m, ' f: ', f, ' mesh: ', m.name, ' num materials: ', str(len(o.data.materials)), ' mat idx: ', str(f.material_index))
+            sys.exit(-1)
 
     texture_count=0
     for t in o.material_slots:
