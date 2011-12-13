@@ -463,15 +463,16 @@ def simMain():
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 	
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.ExternMesh) ],
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh),
 						       ("data/models/cockpit/Plane.004.csv", mesh.CompassMesh),
 						       ("data/models/cockpit/Plane.003.csv", mesh.AltMeterMesh), 
 						       ("data/models/cockpit/Plane.005.csv", mesh.ClimbMesh), 
 						       ("data/models/cockpit/Plane.011.csv", mesh.RPMMesh), 
 						       ("data/models/cockpit/Plane.006.csv", mesh.AirSpeedMesh),
-						       ("data/models/cockpit/Plane.014.csv", mesh.BankingMesh),
-						       ("data/models/cockpit/Plane.015.csv", mesh.RollingMesh)
+						       ("data/models/cockpit/Circle.007.csv", mesh.WingAirSpeedMesh),
+						       ("data/models/cockpit/Plane.014.csv", mesh.BankingMesh)
+#						       ("data/models/cockpit/Plane.015.csv", mesh.RollingMesh)
 						       ]
 			  }, views)
 	mouse_cap=False
@@ -519,10 +520,11 @@ def simMain():
 				if view.getPlaneId() in planes:
 					my_plane=planes[view.getPlaneId()]
 					view.printToScreen('pos = ' + str(my_plane.getPos()))
-					view.printToScreen('vel = ' + str(my_plane.getVelocity()))
-					view.printToScreen('thrust = ' + str(my_plane.thrust))
+					view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
+					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
+					#view.printToScreen('thrust = ' + str(my_plane.thrust))
 					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
-					view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
+					#view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
                                 skybox.draw(view)
 				drawTerrain(view)

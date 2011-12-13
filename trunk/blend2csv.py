@@ -162,9 +162,9 @@ for obj_i in range(0, len(obs)):
                 mapIdx+=1
     m=o.data
     t_num=0
-    print('map2Idx: ',str(map2Idx))
+    #print('map2Idx: ',str(map2Idx))
     for uv_map in m.uv_textures:
-        t_num=0
+        #t_num=0
         for uv_face in range(0, len(uv_map.data)):
             f=uv_map.data[uv_face]
             face=o.data.faces[uv_face]
@@ -177,12 +177,8 @@ for obj_i in range(0, len(obs)):
                     if len(verts)==4:
                         t_num+=1
                     assert len(verts)<=4
-                else:
-                    if len(map2Idx)>0:
-                        assert False
             except AssertionError:
                 print('Expecting 4 verts in triangles: ', verts, ' m: ', m, ' f: ', f)
-                print('or missing key: idx ', str(face.material_index), ' name: ', str(uv_map.name))
                 sys.exit(-1)
 
     out.write('\nUVMaps, '+str(t_num)+'\n')

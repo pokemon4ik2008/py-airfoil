@@ -12,7 +12,6 @@
 #define OBJ_NO_LIGHTING		16
 #define OBJ_NO_FOG			32
 #define OBJ_USE_FAST_LIGHT	64
-#define OBJ_USE_TEXTURE	128
 
 //all objects within this dist from viewer will be plotted.
 //this ensure's that object when looking directly up or down

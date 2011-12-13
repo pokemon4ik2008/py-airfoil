@@ -1346,6 +1346,20 @@ class Quaternion:
                               1 - 2 * sqx - 2 * sqz)
         return heading, attitude, bank
 
+    def get_bank(self):
+        t = self.x * self.y + self.z * self.w
+        if t > 0.4999:
+            bank = 0
+        elif t < -0.4999:
+            bank = 0
+        else:
+            sqx = self.x ** 2
+            sqy = self.y ** 2
+            sqz = self.z ** 2
+            bank = math.atan2(2 * self.x * self.w - 2 * self.y * self.z,
+                              1 - 2 * sqx - 2 * sqz)
+        return bank
+
     def get_matrix(self):
         xx = self.x ** 2
         xy = self.x * self.y

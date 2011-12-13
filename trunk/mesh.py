@@ -13,6 +13,7 @@ import manage
 from pyglet import image
 from pyglet.gl import *
 
+QUART_PI=0.25*math.pi
 HALF_PI=0.5*math.pi
 PI2=2*math.pi
 global object3dLib
@@ -83,7 +84,10 @@ class Mesh(object):
     def __init__(self, mesh, views):
         self.mesh=mesh
         all_meshes.append(mesh)
-        self.tex=None
+
+        # self.textures exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
+        self.textures=[]
+
         self.upload_textures()
         for v in views:
             v.push_handlers(self)
@@ -116,9 +120,10 @@ class Mesh(object):
         while c_path!=None:
             path=c_path
             img=image.load(path)
-            self.tex=img.get_texture()
-            print "upload_textures: "+str(self.tex.target)+" id: "+str(self.tex.id)+" tex: "+str(self.tex.get_texture())+" coords: "+str(self.tex.tex_coords)
-            object3dLib.setTexId(self.mesh, uvId, self.tex.id)
+            tex=img.get_texture()
+            self.textures.append(tex)
+            print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)
+            object3dLib.setTexId(self.mesh, uvId, tex.id)
             #object3dLib.createTexture(self.mesh,
             #                          uvId, img.get_data('RGBA', img.width*len('RGBA')), img.width, img.height, GL_RGBA)
             uvId+=1
@@ -132,15 +137,13 @@ class Mesh(object):
         self._bot_details=new_details
 
     def draw(self, bot, view_id):
-        glPushMatrix()
-        glLoadIdentity()
-        angleAxis = Quaternion(0.0, 0.0, 0.71, 0.71).get_angle_axis()
+        angleAxis = (bot.getAttitude() * Quaternion(0.5, -0.5, 0.5, 0.5) ).get_angle_axis()
         axis = angleAxis[1].normalized()
 
         fpos = (c_float * 3)()
-        fpos[0] = 0.0
-        fpos[1] = 0.0
-        fpos[2] = -10.0
+        fpos[0] = bot._pos.x
+        fpos[1] = bot._pos.y
+        fpos[2] = bot._pos.z
         object3dLib.setPosition(fpos)
 
         fpos[0] = axis.x
@@ -148,8 +151,7 @@ class Mesh(object):
         fpos[2] = axis.z
 
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(self.mesh)            
-        glPopMatrix()
+        object3dLib.draw(self.mesh)
 
     def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
         att=bot.getAttitude()
@@ -208,58 +210,7 @@ class Mesh(object):
         # object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
         # object3dLib.draw(drawing_mesh)
         # glPopMatrix()
-                
-class ExternMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
-        
-    def draw(self, bot, view_id):
-        #self.test_draw(bot)
-        # Apply rotation based on Attitude, and then rotate by constant so that model is orientated correctly
-        #angleAxis = (bot.getAttitude() * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,0,1)) * Quaternion.new_rotate_axis(math.pi/2.0, Vector3(0,1,0)) ).get_angle_axis()
-        angleAxis = (bot.getAttitude() * Quaternion(0.5, -0.5, 0.5, 0.5) ).get_angle_axis()
-        axis = angleAxis[1].normalized()
-
-        fpos = (c_float * 3)()
-        fpos[0] = bot._pos.x
-        fpos[1] = bot._pos.y
-        fpos[2] = bot._pos.z
-        object3dLib.setPosition(fpos)
-
-        fpos[0] = axis.x
-        fpos[1] = axis.y
-        fpos[2] = axis.z
-
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(self.mesh)
-
-    def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
-        att=bot.getAttitude()
-        axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
-        angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
-        
-        mid = (c_float * 3)()
-        object3dLib.getMid(centre_mesh, mid)
-        midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
-        rotOrig=(att * axisRotator * (midPt))
-        rotNew=(att * angle_quat * axisRotator * (midPt))
-
-        axis = angleAxis[1].normalized()
-        c=bot.getPos()-(rotNew-rotOrig)
-        
-        fpos = (c_float * 3)()
-        fpos[0] = c.x
-        fpos[1] = c.y
-        fpos[2] = c.z
-        object3dLib.setPosition(fpos)
-        
-        fpos[0] = axis.x
-        fpos[1] = axis.y
-        fpos[2] = axis.z
-        
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(drawing_mesh)
-        
+                        
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
@@ -292,14 +243,14 @@ class BankingMesh(Mesh):
         Mesh.__init__(self, mesh, views)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getAttitude()*bot.getVelocity()).x*0.1*HALF_PI)), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -(bot.getAttitude().get_bank())), self.mesh, name_to_mesh['data/models/cockpit/LRDial.csv'].mesh)
 
-class RollingMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
-
-    def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude() * Vector3(0.0, 1.0, 0.0)).normalized().x*HALF_PI), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
+#class RollingMesh(Mesh):
+#    def __init__(self, mesh, views):
+#        Mesh.__init__(self, mesh, views)
+#
+#    def draw(self, bot, view_id):
+#        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude().get_bank())), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
     def __init__(self, mesh, views):
@@ -308,19 +259,24 @@ class AirSpeedMesh(Mesh):
     def draw(self, bot, view_id):
         self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003.csv'].mesh)
 
+class WingAirSpeedMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+
+    def draw(self, bot, view_id):
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, -(bot.getVelocity().magnitude()/200.0) * QUART_PI, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Circle.008.csv'].mesh)
+
 class RPMMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)
 
     def getRPMFraction(self, bot):
-        t=bot.thrust
         # 195 max vel when level at full thrust
-        max_vel=195*(t/bot.MAX_THRUST)
-        if max_vel==0:
+        if bot.thrust==0:
             return 0.0
         #return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
         #print 'rpm. '+str((bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*6)/6)+' vel: '+str((t/bot.MAX_THRUST)*6)+' thrust: '+str(bot.getVelocity().magnitude()/max_vel)
-        return (bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*2)/3
+        return (bot.getVelocity().magnitude()/195.0 + (bot.thrust/bot.MAX_THRUST)*2)/3
 
     def draw(self, bot, view_id):
         self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, name_to_mesh['data/models/cockpit/Circle.004.csv'].mesh)
