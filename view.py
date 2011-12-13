@@ -23,17 +23,17 @@ class Camera(object):
     def activate(self):
         pass
 
-    @property
-    def vantage(self):
-        return (self._xrot, self._zrot, self._zoom)
+    def _constrain(self):
+        if self._zoom<1:
+            self._zoom=1
+        if self._zoom>40:
+            self._zoom=40
 
-    @vantage.setter
-    def vantage(self, (xrot, zrot, zoom)):
-        if zoom<1:
-            zoom=1
-        if zoom>40:
-            zoom=40
-        (self._xrot, self._zrot, self._zoom)=(xrot, zrot, zoom)
+    def update(self, x, z, zoom):
+        self._xrot+=x
+        self._zrot+=z
+        self._zoom+=zoom
+        self._constrain()
 
     def getCameraVectors(self):
         return [self.pos, self.eye, self.zen]
@@ -66,6 +66,7 @@ class FixedCam(Camera):
     def activate(self):
         att = self._plane.getAttitude()
         #print 'att: '+str(att)
+        #print 'zrot: '+str(self._zrot)+' xrot: '+str(self._xrot)
         adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
         cameraAdjust = att * adjAtt * self._offset * self._zoom
         #pos is where you want to look
@@ -79,18 +80,18 @@ class InternalCam(FixedCam):
     TYPE=INTERNAL
 
     def __init__(self, plane, offset=Vector3(-10.0, 0.0, 0.0), zoom=1):
-        FixedCam.__init__(self, plane, offset, zoom)    
+        FixedCam.__init__(self, plane, offset, zoom)
 
-    @property
-    def vantage(self):
-        return (self._xrot, self._zrot, self._zoom)
-
-    @vantage.setter
-    def vantage(self, (xrot, zrot, zoom)):
-        # disable zoom
-        (self._xrot, self._zrot)=(xrot, zrot)
-        self._zoom=zoom
-
+    def update(self, x, z, zoom):
+        if z!=0:
+            if z>0:
+                self._zrot=180
+            else:
+                self._zrot=0
+        else:
+            if x!=0:
+                self._zrot=math.copysign(90, x)
+            
 class View(pyglet.event.EventDispatcher):
     __FOLLOW=0
     __FIXED=1
@@ -153,11 +154,7 @@ class View(pyglet.event.EventDispatcher):
             self.__currentCamera = self.__cams[View.__INTERNAL]
             self.dispatch_event('view_change', self.view_id)
         self.v_type=self.__currentCamera.TYPE
-        (xrot, zrot, zoom)=self.__currentCamera.vantage
-        zrot += events[Controller.CAM_X]
-        xrot += events[Controller.CAM_Z]
-        zoom += events[Controller.CAM_ZOOM]
-        self.__currentCamera.vantage=(xrot, zrot, zoom)
+        self.__currentCamera.update(events[Controller.CAM_X], events[Controller.CAM_Z], events[Controller.CAM_ZOOM])
         self.__controls.clearEvents(interesting_events)
 
     def activate(self):

@@ -46,7 +46,7 @@ extern "C"
   {
     obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
     if(uv_id<p_mesh->num_uv_maps) {
-      printf("getUvPath found uv path uv_id 0x%x num 0x%x\n", uv_id, p_mesh->num_uv_maps);
+      //printf("getUvPath found uv path uv_id 0x%x num 0x%x\n", uv_id, p_mesh->num_uv_maps);
       return p_mesh->pp_tex_paths[uv_id];
     }
     //printf("getUvPath uv_id larger than num maps uv_id 0x%x num 0x%x\n", uv_id, p_mesh->num_uv_maps);
@@ -58,6 +58,7 @@ extern "C"
     obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
     if(uv_id<p_mesh->num_uv_maps) {
       p_mesh->p_tex_ids[uv_id]=tex_id;
+      //printf("setTexId 0x%x (0x%x) to 0x%x\n", uv_id, &p_mesh->p_tex_ids[uv_id], tex_id);
       return 0;
     }
     printf("setTexId failed 0x%x 0x%x\n", uv_id, p_mesh->num_uv_maps);
@@ -184,7 +185,7 @@ void objSetVertexNormal(obj_vector unit_vector_norm,unsigned int flags) {
 	glNormal3f( -unit_vector_norm.x, -unit_vector_norm.y, -unit_vector_norm.z);
 }
 
-uint8 match_mesh[]="data/models/cockpit/Cylinder.001.csv";
+uint8 match_mesh[]="data/models/cockpit/Circle.csv";
 
 void checkRange(obj_3dMesh *p_mesh, void *p_addr, bool within) {
   if(within) {
@@ -215,7 +216,7 @@ void checkAllRanges(void *p_addr) {
 //Pre: call to objSetPlotPos/Angle to set plotting position
 oError objPlot(obj_3dMesh *p_mesh) {
   obj_3dPrimitive *obj=p_mesh->p_prim;
-	float intensity;
+  //float intensity;
 	oError error=ok;
 	obj_3dPrimitive* curr_prim=obj;
 	int i;
@@ -230,26 +231,31 @@ oError objPlot(obj_3dMesh *p_mesh) {
 	{
 		glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
 	}
-
  
 	flags=curr_prim->flags;
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LIGHTING);
 	glDisable(GL_CULL_FACE);
+	
+	uint32 face_idx=0;
 	while(curr_prim->next_ref!=NULL) {
 		curr_prim=curr_prim->next_ref;
+		face_idx++;
 		if(curr_prim->uv_id!=UNTEXTURED) {
 		  //glDisable( GL_DEPTH_TEST);
 		  //glDisable(GL_FOG);
 		  //glDisable( GL_LIGHTING);
 		  glEnable(GL_TEXTURE_2D);
-		  //printf("texturing %s with %u\n", p_mesh->mesh_path, p_mesh->p_tex_ids[curr_prim->uv_id]);
 		  glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
 		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+		} else {
+		  if(!strncmp(p_mesh->mesh_path, match_mesh, PATH_LEN) && (face_idx==10|| face_idx==168 || face_idx==184)) {
+		    printf("failing to texture %s: id %u\n",p_mesh->mesh_path, curr_prim->uv_id);
+		  }			
 		}
 
 		switch (curr_prim->type) {
@@ -269,17 +275,19 @@ oError objPlot(obj_3dMesh *p_mesh) {
 		case tri:
 		  glBegin(  GL_TRIANGLES );
 		  for (i=0;i<3;i++) {
-		    intensity=1.0f;				
+		    //intensity=1.0f;				
 		    glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);				
 		    GLfloat diff[]={curr_prim->r,
 				    curr_prim->g,
 				    curr_prim->b,1.0f};
 		    glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
 		    if(curr_prim->uv_id != UNTEXTURED) {
-		      glColor3f(intensity, intensity, intensity);
+		      //glColor3f(intensity, intensity, intensity);
+		      glColor3f(1.0, 1.0, 1.0);
 		      glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
 		    } else {
-		      glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
+		      //glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
+		      glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
 		    }
 		    glVertex3f(	curr_prim->vert[i]->x, 
 				curr_prim->vert[i]->y, 
@@ -291,8 +299,8 @@ oError objPlot(obj_3dMesh *p_mesh) {
 			glBegin(  GL_QUADS );
 			for (i=0;i<4;i++) {
 				if (flags&OBJ_NO_LIGHTING) {
-					intensity=1.0f;
-					glDisable(GL_LIGHTING);
+				  //intensity=1.0f;
+				  glDisable(GL_LIGHTING);
 				}
 				else {
 					if (!(flags&OBJ_USE_FAST_LIGHT)) {
@@ -306,10 +314,12 @@ oError objPlot(obj_3dMesh *p_mesh) {
 							curr_prim->b,1.0f};
 				glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
 				if(curr_prim->uv_id != UNTEXTURED) {
-				  glColor3f(intensity, intensity, intensity);
+				  //glColor3f(intensity, intensity, intensity);
+				  glColor3f(1.0, 1.0, 1.0);
 				  glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
 				} else {
-				  glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
+				  //glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
+				  glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
 				}
 				glVertex3f(	curr_prim->vert[i]->x, 
 						curr_prim->vert[i]->y, 
@@ -569,12 +579,12 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	  while (fgetc(file)!=',');
 	  fscanf(file,"%i",&map_id);
 	  inprims[face_id-1].uv_id=map_id;
+	  //printf("setting uv_id face %u (0x%x) to %u\n", face_id, &(inprims[face_id-1].uv_id), map_id);
 	  for(uint32 vert_idx=0; vert_idx<3; vert_idx++) {
 	    while (fgetc(file)!=',');
 	    fscanf(file,"%f", &(*(inprims[face_id-1].vert[vert_idx])).u);
 	    while (fgetc(file)!=',');
 	    fscanf(file,"%f", &(*(inprims[face_id-1].vert[vert_idx])).v);
-	    flags|=OBJ_USE_TEXTURE;
 	  }
 	  while (fgetc(file)!=0x0a);
 	}
