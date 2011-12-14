@@ -44,6 +44,14 @@ object3dLib.createTexture.restype=c_uint
 object3dLib.draw.argtypes=[ c_void_p ]
 object3dLib.draw.restype=None
 
+def getRPMFraction(bot):
+    # 195 max vel when level at full thrust
+    if bot.thrust==0:
+        return 0.0
+    #return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
+    #print 'rpm. '+str((bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*6)/6)+' vel: '+str((t/bot.MAX_THRUST)*6)+' thrust: '+str(bot.getVelocity().magnitude()/max_vel)
+    return (bot.getVelocity().magnitude()/195.0 + (bot.thrust/bot.MAX_THRUST)*2)/3
+
 pos_rot_unchanged=False
 def setPosRotUnchanged(flag):
     global pos_rot_unchanged
@@ -258,18 +266,21 @@ class PropMesh(Mesh):
     def __init__(self, mesh, views, key):
         print 'PropMesh.__init__'
         Mesh.__init__(self, mesh, views, key)
-        self.ang=0.0
+        self.__ang=0.0
+        self.__momentum=0.0
+        self.__spindown_time=20.0
         
     def draw(self, bot, view_id):
-        thrust_prop=int(bot.thrust / (bot.MAX_THRUST/100))
-        if thrust_prop!=0:
-            self.ang+=manage.delta*thrust_prop
-            self.ang %= PI2
+        rpm_prop=getRPMFraction(bot)
+        #if rpm_prop!=0.0:
+        self.__momentum=(manage.delta*rpm_prop*6000+self.__momentum*(self.__spindown_time-1)*manage.delta)/(self.__spindown_time*manage.delta)
+        self.__ang+=self.__momentum
+        self.__ang %= PI2
         #self.ang=self.ang+this_ang
         #if self.ang>=PI2:
         #    self.ang-=PI2
         #print 'thrust_prop: '+str(thrust_prop)+' ang: '+str(ang)
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.ang), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.__ang), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
 
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -330,16 +341,8 @@ class RPMMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
-    def getRPMFraction(self, bot):
-        # 195 max vel when level at full thrust
-        if bot.thrust==0:
-            return 0.0
-        #return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
-        #print 'rpm. '+str((bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*6)/6)+' vel: '+str((t/bot.MAX_THRUST)*6)+' thrust: '+str(bot.getVelocity().magnitude()/max_vel)
-        return (bot.getVelocity().magnitude()/195.0 + (bot.thrust/bot.MAX_THRUST)*2)/3
-
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, getRPMFraction(bot) * math.pi), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
     def __init__(self, mesh, views, key):
