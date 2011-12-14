@@ -444,7 +444,7 @@ def simMain():
 					      win)])
 	else:
 			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-						       (Controller.FIRE, KeyAction(key.R)),
+						       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
 						       (Controller.PITCH, KeyAction(key.S, key.W)),
 						       (Controller.ROLL, KeyAction(key.A, key.D)),
 						       (Controller.CAM_FIXED, KeyAction(key._1)),
@@ -551,11 +551,11 @@ def simMain():
 				view.activate()
 				if view.getPlaneId() in planes:
 					my_plane=planes[view.getPlaneId()]
-					view.printToScreen('pos = ' + str(my_plane.getPos()))
-					view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
+					#view.printToScreen('pos = ' + str(my_plane.getPos()))
+					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
 					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
 					#view.printToScreen('thrust = ' + str(my_plane.thrust))
-					view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
+					#view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					#view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
                                 skybox.draw(view)
@@ -567,7 +567,7 @@ def simMain():
 
 				view.eventCheck()
 				glLoadIdentity()
-				view.drawText()
+				#view.drawText()
 				dt=clock.tick()
 
 			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
