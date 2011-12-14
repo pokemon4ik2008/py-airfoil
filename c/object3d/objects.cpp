@@ -19,13 +19,13 @@ float *rotAxis = NULL;
 
 extern "C" 
 {
- 	DLL_EXPORT void *load(char *filename)
+  DLL_EXPORT void *load(char *filename, float scale)
 	{
 		oError err = ok;		
 		unsigned int objectflags=0;
 		obj_3dMesh *obj = NULL;
 		objectflags|=OBJ_NORMAL_POSITIVE;
-		err = objCreate(&obj, filename, 100.0f, objectflags);
+		err = objCreate(&obj, filename, scale, objectflags);
 		
 		if (err != ok)
 		{
@@ -250,12 +250,13 @@ oError objPlot(obj_3dMesh *p_mesh) {
 		  glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
 		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-		} else {
-		  if(!strncmp(p_mesh->mesh_path, match_mesh, PATH_LEN) && (face_idx==10|| face_idx==168 || face_idx==184)) {
-		    printf("failing to texture %s: id %u\n",p_mesh->mesh_path, curr_prim->uv_id);
-		  }			
+		  if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
+		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+		  } else {
+		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+		  }
 		}
 
 		switch (curr_prim->type) {
@@ -548,6 +549,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	while (fgetc(file)!=',');
 	fscanf(file,"%i",&((*pp_mesh)->num_uv_maps));
 	(*pp_mesh)->p_tex_ids=new uint32[(*pp_mesh)->num_uv_maps];
+	(*pp_mesh)->p_tex_flags=new uint32[(*pp_mesh)->num_uv_maps];
 	(*pp_mesh)->pp_tex_paths=new uint8*[(*pp_mesh)->num_uv_maps];
 	//skip 2 lines
 	while (fgetc(file)!=0x0a);
@@ -556,9 +558,13 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	uint32 max_uv_id=0;
 	uint32 pathLen;
 	uint32 uvId;
+	uint32 texFlags;
 	uint8 path[PATH_LEN];
 	for (i=0;i<(*pp_mesh)->num_uv_maps;i++) {
 	  fscanf(file,"%i",&uvId);
+	  while (fgetc(file)!=','); //skip comma
+	  fscanf(file,"%i",&texFlags);
+	  (*pp_mesh)->p_tex_flags[uvId]=texFlags;
 	  while (fgetc(file)!=','); //skip comma
 	  fscanf(file, PATH_MATCH, path);
 	  pathLen=strnlen(path, PATH_LEN-1);

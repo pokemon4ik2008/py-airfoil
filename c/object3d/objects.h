@@ -13,6 +13,9 @@
 #define OBJ_NO_FOG			32
 #define OBJ_USE_FAST_LIGHT	64
 
+#define OBJ_TEX_FLAG_CLAMP 0x0
+#define OBJ_TEX_FLAG_REPEAT 0x1
+
 //all objects within this dist from viewer will be plotted.
 //this ensure's that object when looking directly up or down
 //are plotted ok
@@ -91,6 +94,7 @@ typedef struct {
   obj_vertex mid;
   uint32 num_uv_maps;
   uint32 *p_tex_ids;
+  uint32 *p_tex_flags;
   uint8 **pp_tex_paths;
   uint8 mesh_path[PATH_LEN];
   void *p_vert_start;

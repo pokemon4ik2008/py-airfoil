@@ -275,7 +275,7 @@ Triangle:, Red:, Green:, Blue:
 104, 58, 1, 2
 
 Textures, 0
-UV Map Id:, Texture_Path
+UV Map Id:, Texture Wrapping, Texture_Path
 
 UVMaps, 0
 Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x

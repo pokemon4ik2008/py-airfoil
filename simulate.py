@@ -462,16 +462,18 @@ def simMain():
 		planes[plane.getId()]=plane
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
-	
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/biplane.csv", mesh.Mesh) ],
-			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh),
-						       ("data/models/cockpit/Plane.004.csv", mesh.CompassMesh),
-						       ("data/models/cockpit/Plane.003.csv", mesh.AltMeterMesh), 
-						       ("data/models/cockpit/Plane.005.csv", mesh.ClimbMesh), 
-						       ("data/models/cockpit/Plane.011.csv", mesh.RPMMesh), 
-						       ("data/models/cockpit/Plane.006.csv", mesh.AirSpeedMesh),
-						       ("data/models/cockpit/Circle.007.csv", mesh.WingAirSpeedMesh),
-						       ("data/models/cockpit/Plane.014.csv", mesh.BankingMesh)
+
+	scale=3
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh, scale) ],
+			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh, scale),
+						       ("data/models/cockpit/Prop.csv", mesh.PropMesh, scale),
+						       ("data/models/cockpit/Plane.004.csv", mesh.CompassMesh, scale),
+						       ("data/models/cockpit/Plane.003.csv", mesh.AltMeterMesh, scale), 
+						       ("data/models/cockpit/Plane.005.csv", mesh.ClimbMesh, scale), 
+						       ("data/models/cockpit/Plane.011.csv", mesh.RPMMesh, scale), 
+						       ("data/models/cockpit/Plane.006.csv", mesh.AirSpeedMesh, scale),
+						       ("data/models/cockpit/Circle.007.csv", mesh.WingAirSpeedMesh, scale),
+						       ("data/models/cockpit/Plane.014.csv", mesh.BankingMesh, scale)
 #						       ("data/models/cockpit/Plane.015.csv", mesh.RollingMesh)
 						       ]
 			  }, views)
@@ -482,8 +484,8 @@ def simMain():
 	start_time=time.time()
 	try:
 		while man.proxy.alive():
-			man.now=time.time()
-
+			#man.now=time.time()
+			man.updateTime()
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 			[ b.update() for b in set(Bullet.getInFlight())]
 

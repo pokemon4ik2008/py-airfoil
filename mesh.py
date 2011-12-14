@@ -1,10 +1,10 @@
 import ctypes
 from ctypes import *
-from math import cos, sin
 from euclid import *
 import glob
 import itertools
-from math import degrees
+from math import cos, degrees, sin
+import manage
 from pyglet.gl import *
 import os
 from traceback import print_exc
@@ -22,7 +22,11 @@ if os.name == 'nt':
 else:
     object3dLib = cdll.LoadLibrary("bin/object3d.so")
 
+object3dLib.load.argtypes=[ c_char_p, c_float ]
+object3dLib.load.restype=c_void_p
+
 object3dLib.deleteMesh.argtypes=[ c_void_p ]
+object3dLib.deleteMesh.restype=None
 
 object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
 object3dLib.getUvPath.restype=c_char_p
@@ -63,15 +67,15 @@ def loadMeshes(mesh_paths, views):
         convert=lambda s: s
 
     for mesh_key in mesh_paths:
-        paths[mesh_key]=dict(itertools.chain(*[ [ (path, cls) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls) in mesh_paths[mesh_key] ])).items()
+        paths[mesh_key]=dict(itertools.chain(*[ [ (path, (cls, scale)) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls, scale) in mesh_paths[mesh_key] ])).items()
 
     name_lookups=[]
     for mesh_key in mesh_paths:
-        name_lookups.extend([ (path, cls(object3dLib.load(path), views)) for (path, cls) in paths[mesh_key] ])
+        name_lookups.extend([ (path, cls(object3dLib.load(path, scale), views)) for (path, (cls, scale)) in paths[mesh_key] ])
 
     name_to_mesh=dict(name_lookups)
     for mesh_key in mesh_paths:
-        meshes[mesh_key] = [ name_to_mesh[path] for (path, cls) in paths[mesh_key] ]
+        meshes[mesh_key] = [ name_to_mesh[path] for (path, (cls, scale)) in paths[mesh_key] ]
 
     print 'loadMeshes done'
 
@@ -211,6 +215,22 @@ class Mesh(object):
         # object3dLib.draw(drawing_mesh)
         # glPopMatrix()
                         
+class PropMesh(Mesh):
+    def __init__(self, mesh, views):
+        Mesh.__init__(self, mesh, views)
+        self.ang=0.0
+        
+    def draw(self, bot, view_id):
+        thrust_prop=int(bot.thrust / (bot.MAX_THRUST/100))
+        if thrust_prop!=0:
+            self.ang+=manage.delta*thrust_prop
+            self.ang %= PI2
+        #self.ang=self.ang+this_ang
+        #if self.ang>=PI2:
+        #    self.ang-=PI2
+        #print 'thrust_prop: '+str(thrust_prop)+' ang: '+str(ang)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.ang), self.mesh, name_to_mesh['data/models/cockpit/PropPivot.csv'].mesh)
+
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views):
         Mesh.__init__(self, mesh, views)

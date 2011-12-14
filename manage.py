@@ -9,5 +9,13 @@ sound_effects=True
 global opt
 
 from time import time
-global now
+global now, delta
+
+def updateTime():
+    global now, delta
+    n=time()
+    delta=now-n
+    now=n
+    
 now=time()
+delta=0.0
