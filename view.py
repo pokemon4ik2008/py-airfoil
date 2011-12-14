@@ -27,14 +27,14 @@ class Camera(object):
         pass
 
     def _constrain(self):
-        if self._zoom<0.0001:
-            self._zoom=0.0001
+        if self._zoom<5:
+            self._zoom=5
         if self._zoom>40:
             self._zoom=40
 
-    def update(self, x, z, zoom):
-        self._xrot+=x
-        self._zrot+=z
+    def update(self, x, z, look_x, look_y, zoom):
+        self._xrot+=x+look_y
+        self._zrot+=z+look_x
         self._zoom+=zoom
         self._constrain()
 
@@ -85,7 +85,13 @@ class InternalCam(FixedCam):
     def __init__(self, plane, offset=Vector3(-10.0, 0.0, 0.0), zoom=0.01):
         FixedCam.__init__(self, plane, offset, zoom)
 
-    def update(self, x, z, zoom):
+    def _constrain(self):
+        if self._zoom<0.0001:
+            self._zoom=0.0001
+        if self._zoom>40:
+            self._zoom=40
+
+    def update(self, x, z, look_x, look_y, zoom):
         if z!=0:
             if z>0:
                 self._zrot=180
@@ -94,6 +100,10 @@ class InternalCam(FixedCam):
         else:
             if x!=0:
                 self._zrot=math.copysign(90, x)
+        self._zrot+=look_x
+        self._xrot+=look_y
+        if self._xrot<-10:
+            self._xrot=-10
             
 class View(pyglet.event.EventDispatcher):
     __FOLLOW=0
@@ -144,7 +154,10 @@ class View(pyglet.event.EventDispatcher):
                               Controller.CAM_INTERNAL, 
                               Controller.CAM_X,
                               Controller.CAM_Z,
-                              Controller.CAM_ZOOM]
+                              Controller.CAM_ZOOM,
+                              Controller.CAM_MOUSE_LOOK_X,
+                              Controller.CAM_MOUSE_LOOK_Y
+                              ]
         events = self.__controls.eventCheck(interesting_events)
 
         if events[Controller.CAM_FOLLOW]!=0:
@@ -157,7 +170,11 @@ class View(pyglet.event.EventDispatcher):
             self.__currentCamera = self.__cams[View.__INTERNAL]
             self.dispatch_event('view_change', self.view_id)
         self.v_type=self.__currentCamera.TYPE
-        self.__currentCamera.update(events[Controller.CAM_X], events[Controller.CAM_Z], events[Controller.CAM_ZOOM])
+        self.__currentCamera.update(events[Controller.CAM_X],
+                                    events[Controller.CAM_Z],
+                                    events[Controller.CAM_MOUSE_LOOK_X],
+                                    events[Controller.CAM_MOUSE_LOOK_Y],
+                                    events[Controller.CAM_ZOOM])
         self.__controls.clearEvents(interesting_events)
 
     def activate(self):
