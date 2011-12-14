@@ -464,18 +464,33 @@ def simMain():
 		views.append(view)
 
 	scale=3.0
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh, scale) ],
-			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh, scale),
-						       ("data/models/cockpit/Prop.csv", mesh.PropMesh, scale),
-						       ("data/models/cockpit/Plane.004.csv", mesh.CompassMesh, scale),
-						       ("data/models/cockpit/Plane.003.csv", mesh.AltMeterMesh, scale), 
-						       ("data/models/cockpit/Plane.005.csv", mesh.ClimbMesh, scale), 
-						       ("data/models/cockpit/Plane.011.csv", mesh.RPMMesh, scale), 
-						       ("data/models/cockpit/Plane.006.csv", mesh.AirSpeedMesh, scale),
-						       ("data/models/cockpit/Circle.007.csv", mesh.WingAirSpeedMesh, scale),
-						       ("data/models/cockpit/Plane.014.csv", mesh.BankingMesh, scale)
-#						       ("data/models/cockpit/Plane.015.csv", mesh.RollingMesh)
-						       ]
+
+	def genMeshArgs(moving_maps, onlys, scale):
+		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale))]
+		all.extend(moving_maps.items())
+
+		movingAndOnly=moving_maps.keys()[:]
+		movingAndOnly.append(onlys)
+
+		return (all, movingAndOnly)
+	
+	(all_internal, internal_only)=genMeshArgs({
+		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale),
+		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale), 
+		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale), 
+		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale), 
+		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale),
+		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale),
+		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale)
+		}, "data/models/cockpit/I_*.csv", scale)
+
+	(all_external, external_only)=genMeshArgs({ "data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale) },
+						  "data/models/cockpit/E_*.csv", scale)
+	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
+	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
+	#do not maintain ordering
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, internal_only),
+			  (MyAirfoil.TYP, INTERNAL): (all_internal, external_only)
 			  }, views)
 	mouse_cap=False
 	bots=[]
@@ -601,7 +616,7 @@ def main_next(dt):
 if __name__ == '__main__':
 	main_iter=simMain()
 	main_iter.next()
-	pyglet.clock.schedule_interval(main_next, 1/60.0)
+	pyglet.clock.schedule_interval(main_next, 1/40.0)
 	pyglet.app.run()
 	while main_iter.next():
 		pass

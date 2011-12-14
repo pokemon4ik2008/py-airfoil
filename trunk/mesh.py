@@ -7,6 +7,7 @@ from math import cos, degrees, sin
 import manage
 from pyglet.gl import *
 import os
+import sys
 from traceback import print_exc
 
 import manage
@@ -43,21 +44,45 @@ object3dLib.createTexture.restype=c_uint
 object3dLib.draw.argtypes=[ c_void_p ]
 object3dLib.draw.restype=None
 
+pos_rot_unchanged=False
+def setPosRotUnchanged(flag):
+    global pos_rot_unchanged
+    pos_rot_unchanged=flag
+    return True
+    
 last_cams={}
 def draw(bot, view):
     v_type=view.getPlaneView(bot.getId())
     if (bot.TYP, v_type) in meshes:
-        for m in meshes[(bot.TYPE, v_type)]:
-            glPushMatrix()
-            m.draw(bot, view.view_id)
-            glPopMatrix()
+        angleAxis = (bot.getAttitude() * Quaternion(0.5, -0.5, 0.5, 0.5) ).get_angle_axis()
+        axis = angleAxis[1].normalized()
+
+        fpos = (c_float * 3)()
+        fpos[0] = bot._pos.x
+        fpos[1] = bot._pos.y
+        fpos[2] = bot._pos.z
+        object3dLib.setPosition(fpos)
+
+        fpos[0] = axis.x
+        fpos[1] = axis.y
+        fpos[2] = axis.z
+
+        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        try:
+            assert setPosRotUnchanged(True)
+            for m in meshes[(bot.TYPE, v_type)]:
+                glPushMatrix()
+                m.draw(bot, view.view_id)
+                glPopMatrix()
+        except AssertionError:
+            print_exc()
+            sys.exit(-1)
     else:
         glPushMatrix()
         bot.draw()
         glPopMatrix()
 
 def loadMeshes(mesh_paths, views):
-    print 'loading meshes'
     lookup = {}
     global meshes
     meshes = {}
@@ -69,19 +94,29 @@ def loadMeshes(mesh_paths, views):
     else:
         convert=lambda s: s
 
+    def genGlobbedList(glob_path, cls, scale, blacklisted):
+        globs=glob.glob(convert(glob_path))
+        return [ (path, (cls, scale)) for path in globs if path not in blacklisted]
+
     for mesh_key in mesh_paths:
-        paths[mesh_key]=dict(itertools.chain(*[ [ (path, (cls, scale)) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls, scale) in mesh_paths[mesh_key] ])).items()
+        all_possible_globs=mesh_paths[mesh_key][0]
+        blacklist=list(itertools.chain(*[ glob.glob(convert(black_glob)) for black_glob in mesh_paths[mesh_key][1]]))
+        paths[mesh_key]=dict(itertools.chain(*[ genGlobbedList(glob_path, cls, scale, blacklist) for (glob_path, (cls, scale)) in all_possible_globs ])).items()
 
-    #name_lookups=[]
-    #for mesh_key in mesh_paths:
-    #    name_lookups.extend([ (path, cls(object3dLib.load(path, scale), views, mesh_key)) for (path, (cls, scale)) in paths[mesh_key] ])
-    #name_to_mesh=dict(name_lookups)
-
-    
     for mesh_key in mesh_paths:
         meshes[mesh_key]=[ cls(object3dLib.load(path, scale), views, mesh_key) for (path, (cls, scale)) in paths[mesh_key] ]
 
-    print 'loadMeshes done'
+    #draw function assumes that Mesh instances are first in the meshes values lists
+    #so reorder
+    for mesh_key in meshes:
+        unordered_meshes=meshes[mesh_key]
+        meshes[mesh_key]=[]
+        for m in unordered_meshes:
+            if type(m) is Mesh:
+                meshes[mesh_key].append(m)
+        for m in unordered_meshes:
+            if type(m) is not Mesh:
+                meshes[mesh_key].append(m)
 
 all_meshes=[]
 def deleteMeshes():
@@ -99,7 +134,8 @@ class Mesh(object):
         else:
             self._sibs={}
             name_to_mesh[mesh_key]=self._sibs
-        self._sibs[object3dLib.getMeshPath(self.mesh)]=self
+        self._mesh_path=object3dLib.getMeshPath(self.mesh)
+        self._sibs[self._mesh_path]=self
             
         # self.textures exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
         self.textures=[]
@@ -109,6 +145,9 @@ class Mesh(object):
             v.push_handlers(self)
         self._bot_details={}
         self.rot=0.0
+
+    def __str__(self):
+        return object.__str__(self)+': '+self._mesh_path
 
     def test_draw(self, bot):
         glPushMatrix()
@@ -138,7 +177,7 @@ class Mesh(object):
             img=image.load(path)
             tex=img.get_texture()
             self.textures.append(tex)
-            print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)
+            #print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)
             object3dLib.setTexId(self.mesh, uvId, tex.id)
             #object3dLib.createTexture(self.mesh,
             #                          uvId, img.get_data('RGBA', img.width*len('RGBA')), img.width, img.height, GL_RGBA)
@@ -153,23 +192,11 @@ class Mesh(object):
         self._bot_details=new_details
 
     def draw(self, bot, view_id):
-        angleAxis = (bot.getAttitude() * Quaternion(0.5, -0.5, 0.5, 0.5) ).get_angle_axis()
-        axis = angleAxis[1].normalized()
-
-        fpos = (c_float * 3)()
-        fpos[0] = bot._pos.x
-        fpos[1] = bot._pos.y
-        fpos[2] = bot._pos.z
-        object3dLib.setPosition(fpos)
-
-        fpos[0] = axis.x
-        fpos[1] = axis.y
-        fpos[2] = axis.z
-
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        assert pos_rot_unchanged
         object3dLib.draw(self.mesh)
 
     def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
+        assert setPosRotUnchanged(False)
         att=bot.getAttitude()
         axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
         angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
@@ -229,6 +256,7 @@ class Mesh(object):
                         
 class PropMesh(Mesh):
     def __init__(self, mesh, views, key):
+        print 'PropMesh.__init__'
         Mesh.__init__(self, mesh, views, key)
         self.ang=0.0
         
@@ -241,7 +269,7 @@ class PropMesh(Mesh):
         #if self.ang>=PI2:
         #    self.ang-=PI2
         #print 'thrust_prop: '+str(thrust_prop)+' ang: '+str(ang)
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.ang), self.mesh, self._sibs['data/models/cockpit/PropPivot.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.ang), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
 
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views, key):
