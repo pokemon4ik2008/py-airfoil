@@ -31,6 +31,9 @@ object3dLib.deleteMesh.restype=None
 object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
 object3dLib.getUvPath.restype=c_char_p
 
+object3dLib.getMeshPath.argtypes=[ c_void_p ]
+object3dLib.getMeshPath.restype=c_char_p
+
 object3dLib.setTexId.argtypes=[ c_void_p, c_uint, c_uint ]
 object3dLib.setTexId.restype=c_uint
 
@@ -69,13 +72,14 @@ def loadMeshes(mesh_paths, views):
     for mesh_key in mesh_paths:
         paths[mesh_key]=dict(itertools.chain(*[ [ (path, (cls, scale)) for path in glob.glob(convert(glob_path)) ] for (glob_path, cls, scale) in mesh_paths[mesh_key] ])).items()
 
-    name_lookups=[]
-    for mesh_key in mesh_paths:
-        name_lookups.extend([ (path, cls(object3dLib.load(path, scale), views)) for (path, (cls, scale)) in paths[mesh_key] ])
+    #name_lookups=[]
+    #for mesh_key in mesh_paths:
+    #    name_lookups.extend([ (path, cls(object3dLib.load(path, scale), views, mesh_key)) for (path, (cls, scale)) in paths[mesh_key] ])
+    #name_to_mesh=dict(name_lookups)
 
-    name_to_mesh=dict(name_lookups)
+    
     for mesh_key in mesh_paths:
-        meshes[mesh_key] = [ name_to_mesh[path] for (path, (cls, scale)) in paths[mesh_key] ]
+        meshes[mesh_key]=[ cls(object3dLib.load(path, scale), views, mesh_key) for (path, (cls, scale)) in paths[mesh_key] ]
 
     print 'loadMeshes done'
 
@@ -85,10 +89,18 @@ def deleteMeshes():
         object3dLib.deleteMesh(mesh)
 
 class Mesh(object):
-    def __init__(self, mesh, views):
+    def __init__(self, mesh, views, mesh_key):
         self.mesh=mesh
+        self.key=mesh_key
         all_meshes.append(mesh)
-
+        global name_to_mesh
+        if mesh_key in name_to_mesh:
+            self._sibs=name_to_mesh[mesh_key]
+        else:
+            self._sibs={}
+            name_to_mesh[mesh_key]=self._sibs
+        self._sibs[object3dLib.getMeshPath(self.mesh)]=self
+            
         # self.textures exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
         self.textures=[]
 
@@ -164,7 +176,7 @@ class Mesh(object):
         
         mid = (c_float * 3)()
         object3dLib.getMid(centre_mesh, mid)
-        midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
+        midPt=Vector3(mid[0], mid[1], mid[2])
         rotOrig=(att * axisRotator * (midPt))
         rotNew=(att * angle_quat * axisRotator * (midPt))
 
@@ -216,8 +228,8 @@ class Mesh(object):
         # glPopMatrix()
                         
 class PropMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
         self.ang=0.0
         
     def draw(self, bot, view_id):
@@ -229,18 +241,18 @@ class PropMesh(Mesh):
         #if self.ang>=PI2:
         #    self.ang-=PI2
         #print 'thrust_prop: '+str(thrust_prop)+' ang: '+str(ang)
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.ang), self.mesh, name_to_mesh['data/models/cockpit/PropPivot.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.ang), self.mesh, self._sibs['data/models/cockpit/PropPivot.csv'].mesh)
 
 class AltMeterMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/AltDial.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, self._sibs['data/models/cockpit/AltDial.csv'].mesh)
 
 class ClimbMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
         ident=bot.getId()
@@ -254,41 +266,41 @@ class ClimbMesh(Mesh):
 
         smoothed_rate+=(bot.getVelocity().y-smoothed_rate)*interval
 
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((smoothed_rate % 300)/300)*(PI2)), self.mesh, name_to_mesh['data/models/cockpit/Circle.002.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((smoothed_rate % 300)/300)*(PI2)), self.mesh, self._sibs['data/models/cockpit/Circle.002.csv'].mesh)
 
         self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
 
 class BankingMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -(bot.getAttitude().get_bank())), self.mesh, name_to_mesh['data/models/cockpit/LRDial.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -(bot.getAttitude().get_bank())), self.mesh, self._sibs['data/models/cockpit/LRDial.csv'].mesh)
 
 #class RollingMesh(Mesh):
 #    def __init__(self, mesh, views):
 #        Mesh.__init__(self, mesh, views)
 #
 #    def draw(self, bot, view_id):
-#        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude().get_bank())), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.csv'].mesh)
+#        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude().get_bank())), self.mesh, self._sibs['data/models/cockpit/Cylinder.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, name_to_mesh['data/models/cockpit/Circle.003.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, self._sibs['data/models/cockpit/Circle.003.csv'].mesh)
 
 class WingAirSpeedMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, -(bot.getVelocity().magnitude()/200.0) * QUART_PI, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Circle.008.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, -(bot.getVelocity().magnitude()/200.0) * QUART_PI, 0.0), self.mesh, self._sibs['data/models/cockpit/Circle.008.csv'].mesh)
 
 class RPMMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def getRPMFraction(self, bot):
         # 195 max vel when level at full thrust
@@ -299,11 +311,11 @@ class RPMMesh(Mesh):
         return (bot.getVelocity().magnitude()/195.0 + (bot.thrust/bot.MAX_THRUST)*2)/3
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, name_to_mesh['data/models/cockpit/Circle.004.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, self.getRPMFraction(bot) * math.pi), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
-    def __init__(self, mesh, views):
-        Mesh.__init__(self, mesh, views)
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
         heading=bot.getHeading()
@@ -345,5 +357,5 @@ class CompassMesh(Mesh):
         last_heading+=speed
         last_heading = last_heading % PI2
         last_update=manage.now
-        self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, name_to_mesh['data/models/cockpit/Cylinder.002.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)

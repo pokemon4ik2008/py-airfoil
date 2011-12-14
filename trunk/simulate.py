@@ -463,7 +463,7 @@ def simMain():
 		view = View(controller, win, plane, len(player_keys), man.opt)
 		views.append(view)
 
-	scale=3
+	scale=3.0
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh, scale) ],
 			  (MyAirfoil.TYP, INTERNAL): [ ("data/models/cockpit/*.csv", mesh.Mesh, scale),
 						       ("data/models/cockpit/Prop.csv", mesh.PropMesh, scale),
