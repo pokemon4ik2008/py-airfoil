@@ -247,8 +247,11 @@ Triangle:, Red:, Green:, Blue:
 91, 27, 34, 59
 92, 27, 34, 59
 
-Textures, 0
+Textures, 1
 UV Map Id:, Texture Wrapping, Texture_Path
+0, 0, data/textures/cockpit/reminder.png
 
-UVMaps, 0
+UVMaps, 2
 Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x
+53, 0, -1.36040449, -3.15193844, -1.37667298, 2.15131521, 1.60705781, 2.16047001
+54, 0, -1.36040449, -3.15193844, 1.60705781, 2.16047001, 1.62332654, -3.14278460
