@@ -6,6 +6,9 @@ class ViewType:
     def __init__(self, name):
         self.__name=name
 
+    def __repr__(self):
+        return self.__name
+
 EXTERNAL=ViewType('external view')
 INTERNAL=ViewType('internal view')
 

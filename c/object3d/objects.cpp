@@ -222,7 +222,6 @@ void checkAllRanges(void *p_addr) {
 //Pre: call to objSetPlotPos/Angle to set plotting position
 oError objPlot(obj_3dMesh *p_mesh) {
   obj_3dPrimitive *obj=p_mesh->p_prim;
-  //float intensity;
 	oError error=ok;
 	obj_3dPrimitive* curr_prim=obj;
 	int i;
@@ -354,7 +353,7 @@ oError objPlot(obj_3dMesh *p_mesh) {
 oError objCreate(obj_3dMesh **pp_mesh, 
 					char *fname,float obj_scaler
 		 , unsigned int flags ) {
-  printf("objCreate for %s\n", fname);
+  //printf("objCreate for %s\n", fname);
   *pp_mesh=new obj_3dMesh;
   p_meshes[num_meshes++]=*pp_mesh;
 

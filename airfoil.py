@@ -221,10 +221,10 @@ class Obj(object):
     def _hitGround(self):
         self.__wasOnGround = True      
         # Point the craft along the ground plane
-        print 'Airfoil. hitGround: '+str(self._attitude)
+        #print 'Airfoil. hitGround: '+str(self._attitude)
         #self._attitude=Quaternion( w=-0.71, x=0.02, y=0.71, z=0.02)
         self._attitude = Quaternion.new_rotate_euler(self.getWindHeading(), 0.0, 0.0)
-        print 'Airfoil. hitGround: '+str(self._attitude)
+        #print 'Airfoil. hitGround: '+str(self._attitude)
 
     def __collisionDetect(self):
         # Check collision with ground
