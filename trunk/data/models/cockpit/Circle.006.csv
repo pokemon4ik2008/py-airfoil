@@ -32,8 +32,8 @@ Triangle:, Red:, Green:, Blue:
 6, 100, 96, 132
 
 Textures, 1
-UV Map Id:, Texture_Path
-0, data/textures/airspeed.png
+UV Map Id:, Texture Wrapping, Texture_Path
+0, 1, data/textures/airspeed.png
 
 UVMaps, 6
 Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x

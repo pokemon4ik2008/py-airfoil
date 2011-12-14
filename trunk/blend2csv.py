@@ -7,6 +7,7 @@ import re
 import sys
 from traceback import print_exc
 
+tex_repeat={"EXTEND": 0, "CLIP": 1, "REPEAT": 1}
 prec="%.8f"
 
 #texture path:
@@ -146,7 +147,7 @@ for obj_i in range(0, len(obs)):
     map2Idx={}
     mapIdx=0
     out.write('\nTextures, '+ str(texture_count)+'\n')
-    out.write('UV Map Id:, Texture_Path\n')
+    out.write('UV Map Id:, Texture Wrapping, Texture_Path\n')
     tex_slots=[]
     for matIdx in range(0, len(o.material_slots)):
         t=o.material_slots[matIdx]
@@ -157,7 +158,8 @@ for obj_i in range(0, len(obs)):
             match=re.search('(data/textures/.*$)', path)
             if match is not None:
                 map2Idx[(matIdx, s.uv_layer)]=mapIdx
-                out.write(str(mapIdx)+ ', '+ match.group(0) +'\n')
+                out.write(str(mapIdx)+ ', '+str(tex_repeat[s.texture.extension])+', '+ match.group(0) +'\n')
+                #out.write(str(mapIdx)+ ', '+s.texture.extension+', '+ match.group(0) +'\n')
                 tex_slots.append(mapIdx)
                 mapIdx+=1
     m=o.data
