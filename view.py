@@ -24,8 +24,8 @@ class Camera(object):
         pass
 
     def _constrain(self):
-        if self._zoom<1:
-            self._zoom=1
+        if self._zoom<0.0001:
+            self._zoom=0.0001
         if self._zoom>40:
             self._zoom=40
 
@@ -79,7 +79,7 @@ class FixedCam(Camera):
 class InternalCam(FixedCam):
     TYPE=INTERNAL
 
-    def __init__(self, plane, offset=Vector3(-10.0, 0.0, 0.0), zoom=1):
+    def __init__(self, plane, offset=Vector3(-10.0, 0.0, 0.0), zoom=0.01):
         FixedCam.__init__(self, plane, offset, zoom)
 
     def update(self, x, z, zoom):

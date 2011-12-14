@@ -42,6 +42,12 @@ extern "C"
 	  mid[2]=static_cast<obj_3dMesh *>(p_mesh)->mid.z;
 	}
 
+  DLL_EXPORT uint8* getMeshPath(void *p_meshToPlot)
+  {
+    obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
+    return p_mesh->mesh_path;
+  }
+
   DLL_EXPORT uint8* getUvPath(void *p_meshToPlot, uint32 uv_id)
   {
     obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
@@ -254,8 +260,8 @@ oError objPlot(obj_3dMesh *p_mesh) {
 		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
 		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
 		  } else {
-		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
 		  }
 		}
 
@@ -400,24 +406,24 @@ oError objCreate(obj_3dMesh **pp_mesh,
 		while (fgetc(file)!=','); //skip first comma
 		fscanf(file,"%f",&(inverts[i].x));
 		inverts[i].x-=origin_offset.x;
+		inverts[i].x*=obj_scaler;
 		if(inverts_max) {
 		  mid.x+=inverts[i].x/inverts_max;
 		}
-		inverts[i].x*=obj_scaler;
 		while (fgetc(file)!=','); //skip second comma
 		fscanf(file,"%f",&(inverts[i].y));
 		inverts[i].y-=origin_offset.y;
+		inverts[i].y*=obj_scaler;
 		if(inverts_max) {
 		  mid.y+=inverts[i].y/inverts_max;
 		}
-		inverts[i].y*=obj_scaler;
 		while (fgetc(file)!=','); //skip third comma
 		fscanf(file,"%f",&(inverts[i].z));
 		inverts[i].z-=origin_offset.z;
+		inverts[i].z*=obj_scaler;
 		if(inverts_max) {
 		  mid.z+=inverts[i].z/inverts_max;
 		}
-		inverts[i].z*=obj_scaler;
 		while (fgetc(file)!=0x0a);//skip to next line
 		inverts[i].shared=0;
 
