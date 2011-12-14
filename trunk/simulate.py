@@ -418,19 +418,20 @@ def simMain():
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
 			      (Controller.TOG_SOUND_EFFECTS, KeyAction(key.N, onPress=True))], win)
 
-	player_keys = [Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-				   (Controller.FIRE, KeyAction(key.R)),
-				   (Controller.PITCH, KeyAction(key.S, key.W)),
-				   (Controller.ROLL, KeyAction(key.A, key.D)),
-				   (Controller.CAM_FIXED, KeyAction(key._1)),
-				   (Controller.CAM_FOLLOW, KeyAction(key._2)),
-				   (Controller.CAM_INTERNAL, KeyAction(key._3)),
-				   (Controller.CAM_Z, KeyAction(key.C, key.V)),
-				   (Controller.CAM_X, KeyAction(key.Z, key.X)),
-				   (Controller.CAM_ZOOM, KeyAction(key.G, key.H))], 
-		       win)]
+	player_keys = []
 	if man.opt.two_player == True:
-		player_keys.append(Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
+		player_keys.extend([Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+					   (Controller.FIRE, KeyAction(key.R)),
+					   (Controller.PITCH, KeyAction(key.S, key.W)),
+					   (Controller.ROLL, KeyAction(key.A, key.D)),
+					   (Controller.CAM_FIXED, KeyAction(key._1)),
+					   (Controller.CAM_FOLLOW, KeyAction(key._2)),
+					   (Controller.CAM_INTERNAL, KeyAction(key._3)),
+					   (Controller.CAM_Z, KeyAction(key.C, key.V)),
+					   (Controller.CAM_X, KeyAction(key.Z, key.X)),
+					   (Controller.CAM_ZOOM, KeyAction(key.G, key.H))], 
+			       win),
+				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
 					       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
 					       (Controller.CAM_FIXED, KeyAction(key._8)),
 					       (Controller.CAM_FOLLOW, KeyAction(key._9)), 
@@ -440,7 +441,21 @@ def simMain():
 					       (Controller.CAM_X, KeyAction(key.O, key.P)), 
 					       (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
 					       (Controller.CAM_ZOOM, KeyAction(key.J, key.K))], 
-					      win))
+					      win)])
+	else:
+			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+						       (Controller.FIRE, KeyAction(key.R)),
+						       (Controller.PITCH, KeyAction(key.S, key.W)),
+						       (Controller.ROLL, KeyAction(key.A, key.D)),
+						       (Controller.CAM_FIXED, KeyAction(key._1)),
+						       (Controller.CAM_FOLLOW, KeyAction(key._2)),
+						       (Controller.CAM_INTERNAL, KeyAction(key._3)),
+						       (Controller.CAM_Z, KeyAction(key.C, key.V)),
+						       (Controller.CAM_X, KeyAction(key.Z, key.X)),
+						       (Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
+						       (Controller.CAM_MOUSE_LOOK_X, MouseAction(-0.00003, MouseAction.X)),
+						       (Controller.CAM_MOUSE_LOOK_Y, MouseAction(-0.00002, MouseAction.Y))],
+		       win))
 
 	planes = {}
 	plane_inits=[(Point3(-0.3,0,495), 
