@@ -52,7 +52,7 @@ class Obj(object):
         self._velocity = vel
         self.__elevRot=Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
         self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 60 # the speed at which our flaps etc. start having maximum effect
-        self.__wasOnGround = False
+        self.__hasHitGround = False
         self._centreOfGravity = Vector3(0.2, 0.0, 0.0)
         self._is_real=False
         self._scales = [0.0, 0.0, 0.0]
@@ -72,10 +72,8 @@ class Obj(object):
         self._pos=pos
         return self
 
-    def setAttitude(self, att):
-        #print 'setAttitude start: '+str(self._attitude)
+    def setAttitude(self, att):        
         self._attitude=att
-        #print 'setAttitude: '+str(self._attitude)
         return self
 
     def setVelocity(self, vel):
@@ -103,7 +101,7 @@ class Obj(object):
         # internal weight imbalance in the aircraft. Example, the engine at the front of the plane
         # might cause the front of the plane to tilt down. A rotation occurs because the lifting
         # force provided by the wings does not necessarily occur at the centre of gravity.
-        if not self.__wasOnGround:
+        if not self.__hasHitGround:
             # Rotate centre of gravity vector according to attitude
             cog = self._attitude * self._centreOfGravity
             # Find the axis of rotation
@@ -116,7 +114,7 @@ class Obj(object):
             rotRatio = math.hypot(cogNormalised.x, cogNormalised.z)
             angularChange = rotRatio * math.pi * 33.0 / 500.0 * timeDiff
 
-            internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis)
+            internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis.normalized())
             self._attitude = internalRotation * self._attitude 
 
     def _getSpeedRatio(self):
@@ -134,7 +132,7 @@ class Obj(object):
         dot = self._velocity.normalized().dot(elevNorm)
         angularChange = dot * (math.pi/3.0) * self._getSpeedRatio() * timeDiff
 
-        self._attitude = self._attitude * Quaternion.new_rotate_euler( 0.0, angularChange, 0.0)
+        self._attitude = self._attitude * Quaternion.new_rotate_axis( angularChange, Z_UNIT)
         #print 'updatePitch: '+str(self._attitude)
         
     def _updateRoll(self, timeDiff):
@@ -176,7 +174,7 @@ class Obj(object):
 
                 angularChange = math.pi * scaledDot * 0.33 * timeDiff
                 rotAxis = norm.cross(vel)
-                componentRotation = Quaternion.new_rotate_axis(-angularChange, rotAxis)
+                componentRotation = Quaternion.new_rotate_axis(-angularChange, rotAxis.normalized())
                 self._attitude = componentRotation * self._attitude
 
             drags.append(drag)
@@ -190,7 +188,6 @@ class Obj(object):
         #Weight, acts T to ground plane
         dv = self.getWeightForce() * timeDiff / self._mass
         gravityVector = Vector3(0.0, -1.0, 0.0) * dv
-        #print 'grav: '+str(gravityVector)
         self._velocity += gravityVector
 
     def _getLiftArgs(self, zenithVector, noseVector):
@@ -218,23 +215,23 @@ class Obj(object):
         self.__updateInternalMoment(timeDiff)
         self._updateVelFromEnv(timeDiff, zenithVector, noseVector)
 
+        # Finally correct any cumulative errors in attitude
+        self._attitude.normalize()
+
     def _hitGround(self):
-        self.__wasOnGround = True      
+        self.__hasHitGround = True      
         # Point the craft along the ground plane
-        #print 'Airfoil. hitGround: '+str(self._attitude)
-        #self._attitude=Quaternion( w=-0.71, x=0.02, y=0.71, z=0.02)
-        self._attitude = Quaternion.new_rotate_euler(self.getWindHeading(), 0.0, 0.0)
-        #print 'Airfoil. hitGround: '+str(self._attitude)
+        self._attitude = Quaternion.new_rotate_axis(self.getWindHeading(), Y_UNIT)
 
     def __collisionDetect(self):
         # Check collision with ground
         if self._pos.y <= 0.0:
             self._pos.y = 0.0
             self._velocity.y = 0.0
-            if not self.__wasOnGround:
+            if not self.__hasHitGround:
                 self._hitGround()
         else:
-            self.__wasOnGround = False
+            self.__hasHitGround = False
 
         if (self._cterrain != None):
             colArgs = (c_float * 4)()
@@ -360,7 +357,7 @@ class Airfoil(Obj):
         
             # Adjust the crafts roll
             angularChange = self.__rollAngularVelocity * timeDiff
-            self._attitude = self._attitude * Quaternion.new_rotate_euler( 0.0, 0.0, angularChange)
+            self._attitude = self._attitude * Quaternion.new_rotate_axis( angularChange, X_UNIT)
 
     def getElevatorRatio(self):
         return self.__elevatorRatio

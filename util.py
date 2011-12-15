@@ -1,6 +1,11 @@
+from euclid import Vector3
 import math
 import socket
  
+X_UNIT=Vector3(1.0, 0.0, 0.0)
+Y_UNIT=Vector3(0.0, 1.0, 0.0)
+Z_UNIT=Vector3(0.0, 0.0, 1.0)
+
 def getAngleForXY(x, y):
     angle = 0.0
     if x == 0:

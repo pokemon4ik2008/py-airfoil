@@ -10,8 +10,8 @@ import os
 import random
 import sys
 from traceback import print_exc
+from util import X_UNIT, Y_UNIT, Z_UNIT
 
-import manage
 from pyglet import image
 from pyglet.gl import *
 
@@ -273,22 +273,17 @@ class PropMesh(Mesh):
         
     def draw(self, bot, view_id):
         rpm_prop=getRPMFraction(bot)
-        #if rpm_prop!=0.0:
         self.__momentum=(manage.delta*rpm_prop*6000+self.__momentum*(self.__spindown_time-1)*manage.delta)/(self.__spindown_time*manage.delta)
         self.__ang+=self.__momentum
         self.__ang %= PI2
-        #self.ang=self.ang+this_ang
-        #if self.ang>=PI2:
-        #    self.ang-=PI2
-        #print 'thrust_prop: '+str(thrust_prop)+' ang: '+str(ang)
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -self.__ang), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
 
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((bot.getPos().y % 6154.0)/6154)*(PI2)), self.mesh, self._sibs['data/models/cockpit/AltDial.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(((bot.getPos().y % 6154.0)/6154)*(PI2), X_UNIT), self.mesh, self._sibs['data/models/cockpit/AltDial.csv'].mesh)
 
 class ClimbMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -306,7 +301,7 @@ class ClimbMesh(Mesh):
 
         smoothed_rate+=(bot.getVelocity().y-smoothed_rate)*interval
 
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, ((smoothed_rate % 300)/300)*(PI2)), self.mesh, self._sibs['data/models/cockpit/Circle.002.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(((smoothed_rate % 300)/300)*(PI2), X_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.002.csv'].mesh)
 
         self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
 
@@ -315,28 +310,21 @@ class BankingMesh(Mesh):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, -(bot.getAttitude().get_bank())), self.mesh, self._sibs['data/models/cockpit/LRDial.csv'].mesh)
-
-#class RollingMesh(Mesh):
-#    def __init__(self, mesh, views):
-#        Mesh.__init__(self, mesh, views)
-#
-#    def draw(self, bot, view_id):
-#        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getAttitude().get_bank())), self.mesh, self._sibs['data/models/cockpit/Cylinder.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getAttitude().get_bank()), X_UNIT), self.mesh, self._sibs['data/models/cockpit/LRDial.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (bot.getVelocity().magnitude()/200.0) * PI2), self.mesh, self._sibs['data/models/cockpit/Circle.003.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis((bot.getVelocity().magnitude()/200.0) * PI2, X_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.003.csv'].mesh)
 
 class WingAirSpeedMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, -(bot.getVelocity().magnitude()/200.0) * QUART_PI, 0.0), self.mesh, self._sibs['data/models/cockpit/Circle.008.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getVelocity().magnitude()/200.0) * QUART_PI, Z_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.008.csv'].mesh)
 
 class RPMMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -348,7 +336,7 @@ class RPMMesh(Mesh):
             rnd=0
         else:
             rnd=random.uniform(-0.002, 0.002)
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (rpm_frac+rnd) * math.pi), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis((rpm_frac+rnd) * math.pi, X_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -394,5 +382,6 @@ class CompassMesh(Mesh):
         last_heading+=speed
         last_heading = last_heading % PI2
         last_update=manage.now
-        self.drawRotated(bot, Quaternion.new_rotate_euler(-last_heading, 0.0, 0.0), self.mesh, self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
+        ang=-last_heading/2
+        self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh, self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)

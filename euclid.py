@@ -1389,7 +1389,8 @@ class Quaternion:
 
     def new_rotate_axis(cls, angle, axis):
         assert(isinstance(axis, Vector3))
-        axis = axis.normalized()
+        assert(abs(axis.normalized().magnitude_squared()-1)<0.001 or axis.normalized().magnitude_squared()==0)
+        #axis = axis.normalized()
         s = math.sin(angle / 2)
         Q = cls()
         Q.w = math.cos(angle / 2)
