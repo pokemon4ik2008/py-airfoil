@@ -42,6 +42,7 @@ import traceback
 from view import EXTERNAL, INTERNAL, View
 from sound import *
 from skybox import *
+from util import X_UNIT, Y_UNIT, Z_UNIT
 
 global listNum
 global opt
@@ -89,7 +90,7 @@ class Bullet(Obj, ControlledSer):
     def getInFlight(cls):
         return cls.__IN_FLIGHT
 
-    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Vector3(0,0,0), vel = Vector3(0,0,0), proxy=None, parent=None):
+    def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Quaternion(0.5,-0.5,0.5, 0.5), vel = Vector3(0,0,0), proxy=None, parent=None):
         Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
         self._mass = 1.0 # 100g -- a guess
         self._scales = [0.032, 0.032, 0.005]
@@ -188,7 +189,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 
     def __init__(self, controls=None, proxy=None, 
                  pos = Vector3(0,0,0), 
-                 attitude = Quaternion(w=0.0, x=0.0, y=0.0, z=0.0), 
+                 attitude = Quaternion(0.5, -0.5, 0.5, 0.5), 
                  velocity = Vector3(0,0,0), 
                  thrust = 0, ident=None):
 	    global cterrain
@@ -458,13 +459,12 @@ def simMain():
 		       win))
 
 	planes = {}
-	plane_inits=[(Point3(-0.3,0,495), 
-		      #Quaternion( w=-0.71, x=0.02, y=0.71, z=0.02), 
-		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
+	plane_inits=[(Point3(-0.3,0.0,495), 
+		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
 		      Vector3(0,0,0),
 		      0),
-		     (Point3(-100,0,0), 
-		      Quaternion.new_rotate_euler( 0.0 /180.0*math.pi, 0.0 /180.0 * math.pi, 0.0 /180.0*math.pi), 
+		     (Point3(-100,0.0,0), 
+		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
 		      Vector3(0,0,0),
 		      0)]
 

@@ -1,6 +1,7 @@
+from control import Controller
 from euclid import *
 from pyglet.gl import *
-from control import Controller
+from util import X_UNIT, Y_UNIT, Z_UNIT
 
 class ViewType:
     def __init__(self, name):
@@ -55,7 +56,7 @@ class FollowCam(Camera):
 
     def activate(self):
         att = self._plane.getAttitude()
-        adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
+        adjAtt = Quaternion.new_rotate_axis(self._zrot/180.0*math.pi, Y_UNIT)*Quaternion.new_rotate_axis( self._xrot/180.0*math.pi, Z_UNIT)
         cameraAdjust = adjAtt * self._offset * self._zoom
         pos = self._plane.getPos()
         eye = pos + cameraAdjust
@@ -68,9 +69,7 @@ class FixedCam(Camera):
 
     def activate(self):
         att = self._plane.getAttitude()
-        #print 'att: '+str(att)
-        #print 'zrot: '+str(self._zrot)+' xrot: '+str(self._xrot)
-        adjAtt = Quaternion.new_rotate_euler( self._zrot/180.0*math.pi, self._xrot/180.0*math.pi, 0.0)
+        adjAtt = Quaternion.new_rotate_axis(self._zrot/180.0*math.pi, Y_UNIT)*Quaternion.new_rotate_axis( self._xrot/180.0*math.pi, Z_UNIT)
         cameraAdjust = att * adjAtt * self._offset * self._zoom
         #pos is where you want to look
         pos = self._plane.getPos()
