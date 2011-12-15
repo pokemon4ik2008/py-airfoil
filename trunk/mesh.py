@@ -7,6 +7,7 @@ from math import cos, degrees, sin
 import manage
 from pyglet.gl import *
 import os
+import random
 import sys
 from traceback import print_exc
 
@@ -342,7 +343,12 @@ class RPMMesh(Mesh):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, getRPMFraction(bot) * math.pi), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
+        rpm_frac=getRPMFraction(bot)
+        if rpm_frac==0:
+            rnd=0
+        else:
+            rnd=random.uniform(-0.002, 0.002)
+        self.drawRotated(bot, Quaternion.new_rotate_euler(0.0, 0.0, (rpm_frac+rnd) * math.pi), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
     def __init__(self, mesh, views, key):
