@@ -367,7 +367,7 @@ def simMain():
 	#win_planes=[]
 	win_width=800
 	win_height=600
-	config_template=pyglet.gl.Config(stencil_size=1, double_buffer=True, depth_size=24)
+	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
 	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
 	win.set_vsync(False)
 	win.dispatch_events()
@@ -383,7 +383,7 @@ def simMain():
 	win.on_resize=resize       
 	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
 	glClearDepth(1.0)
-	glClearStencil(0)
+	#glClearStencil(0)
 	glEnable(GL_COLOR_MATERIAL)
 	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
 	glEnable(GL_LIGHT0)
@@ -459,7 +459,7 @@ def simMain():
 		       win))
 
 	planes = {}
-	plane_inits=[(Point3(-0.3,0.0,495), 
+	plane_inits=[(Point3(0.0,0.0,0.0), 
 		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
 		      Vector3(0,0,0),
 		      0),
@@ -514,7 +514,6 @@ def simMain():
 	start_time=time.time()
 	try:
 		while man.proxy.alive():
-			#man.now=time.time()
 			man.updateTime()
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 			[ b.update() for b in set(Bullet.getInFlight())]
@@ -544,14 +543,14 @@ def simMain():
 				SoundSlot.sound_toggle()
 			win_ctrls.clearEvents()
 
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)      
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 			
 			for view in views:
 				glLoadIdentity()
 				view.activate()
 				if view.getPlaneId() in planes:
 					my_plane=planes[view.getPlaneId()]
-					#view.printToScreen('pos = ' + str(my_plane.getPos()))
+					view.printToScreen('pos = ' + str(my_plane.getPos()))
 					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
 					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
 					#view.printToScreen('thrust = ' + str(my_plane.thrust))
@@ -567,7 +566,7 @@ def simMain():
 
 				view.eventCheck()
 				glLoadIdentity()
-				#view.drawText()
+				view.drawText()
 				dt=clock.tick()
 
 			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
@@ -631,7 +630,7 @@ def main_next(dt):
 if __name__ == '__main__':
 	main_iter=simMain()
 	main_iter.next()
-	pyglet.clock.schedule_interval(main_next, 1/40.0)
+	pyglet.clock.schedule_interval(main_next, 1/60.0)
 	pyglet.app.run()
 	while main_iter.next():
 		pass

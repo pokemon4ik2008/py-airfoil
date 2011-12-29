@@ -18,7 +18,7 @@ else:
 if os.name == 'nt':
 	cmd = '"\"%VS80COMNTOOLS%..\IDE\devenv.exe\"" c\object3d\object3d.vcproj /build debug /Out buildlog2.txt'
 elif os.name == 'posix':
-	cmd = 'g++ c/object3d/objects.cpp -lGL -o bin/object3d.so -O2 -shared -fPIC'
+	cmd = 'g++ c/object3d/objects.cpp -lGLEW -lGLU -lGL -o bin/object3d.so -O2 -shared -fPIC'
 
 print "Running build command : \n" + cmd
 retVal = os.system(cmd)

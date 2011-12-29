@@ -16,6 +16,25 @@
 #define OBJ_TEX_FLAG_CLAMP 0x0
 #define OBJ_TEX_FLAG_REPEAT 0x1
 
+#define MIN_FLAG 0x10
+#define MAX_FLAG 0x20
+#define DIM_MASK 0x3
+//Don't change values of DIM_. macros as
+//objPlotToTex relies on existing values
+#define DIM_X 0x0
+#define DIM_Y 0x1
+#define DIM_Z 0x2
+#define MAX_ORDER MIN_FLAG|MAX_FLAG|DIM_MASK
+
+#define MIN_X MIN_FLAG|DIM_X
+#define MAX_X MAX_FLAG|DIM_X
+#define MIN_Y MIN_FLAG|DIM_Y
+#define MAX_Y MAX_FLAG|DIM_Y
+#define MIN_Z MIN_FLAG|DIM_Z
+#define MAX_Z MAX_FLAG|DIM_Z
+
+#define DIM(a) (sizeof(a)/sizeof(a[0]))
+
 //all objects within this dist from viewer will be plotted.
 //this ensure's that object when looking directly up or down
 //are plotted ok
@@ -29,10 +48,9 @@
 #include <stdlib.h>
 #include <iostream>
 #include <math.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
+#include <GL/glew.h>
 
-typedef enum {ok, noMemory,invalidPrimitive,emptyObject,nofile} oError;
+typedef enum {ok, noMemory,invalidPrimitive,emptyObject,nofile, unsupported, failedAssert} oError;
 typedef unsigned char ubyte;
 typedef enum {line,tri,quad,empty} primitiveType;
 #define PI	(22.0f/7.0f)
@@ -52,9 +70,14 @@ typedef enum {line,tri,quad,empty} primitiveType;
 #define PATH_MATCH "%256s"
 typedef char uint8;
 typedef unsigned int uint32;
-
+typedef float float32;
+typedef double float64;
 //uint8** uvMap2Texture;
 //uint32* uvMap2Id;
+
+uint32 top_order_x[MAX_ORDER]={0};
+uint32 top_order_y[MAX_ORDER]={0};
+uint32 top_order_z[MAX_ORDER]={0};
 
 #define UNTEXTURED 0xffffffff
 //#define TEXTURED_FLAG 0xf
@@ -69,8 +92,8 @@ typedef struct {
 } obj_vector;
 
 typedef struct {
-  float				x,y,z;
-  float				u,v;
+  float32				x,y,z;
+  float32				u,v;
   obj_vector			norm;		//vertex normal
   ubyte				shared;		//holds number of primitives sharing this vertex
   ubyte reserved[3];
@@ -92,8 +115,12 @@ typedef struct OBJ_3DPRIMITIVE
 typedef struct {
   obj_3dPrimitive *p_prim;
   obj_vertex mid;
+  obj_vertex min;
+  obj_vertex max;
   uint32 num_uv_maps;
   uint32 *p_tex_ids;
+  uint32 *p_tex_widths;
+  uint32 *p_tex_heights;
   uint32 *p_tex_flags;
   uint8 **pp_tex_paths;
   uint8 mesh_path[PATH_LEN];
@@ -142,6 +169,11 @@ void	objSetVertexNormal	(obj_vector unit_vector_norm,unsigned int flags);
 oError	objCreate			(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags);
 
 void	objDelete			(obj_3dMesh **pp_mesh);
-oError	objPlot				(obj_3dMesh *p_mesh);
+oError	objPlot				(obj_3dMesh *p_mesh, float32 alpha);
+oError	objPlotToTex			(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize, uint32 ySize, uint32 bgTex, uint32 boundPlane, uint32 top);
+
+inline float32 max(float32 x, float32 y) {
+  return x>y?x:y;
+}
 
 #endif

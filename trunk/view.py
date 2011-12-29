@@ -185,6 +185,7 @@ class View(pyglet.event.EventDispatcher):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluPerspective(70, 1.0*self.__width/height, 0.1, self.__opt.width * 1.2)
+        #glOrtho(-self.__width/2,self.__width/2,-height/2,height/2,-1280.0,1280.0);
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         self.__currentCamera.activate()

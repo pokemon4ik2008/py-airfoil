@@ -10,7 +10,7 @@ import os
 import random
 import sys
 from traceback import print_exc
-from util import X_UNIT, Y_UNIT, Z_UNIT
+from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT
 
 from pyglet import image
 from pyglet.gl import *
@@ -36,14 +36,38 @@ object3dLib.getUvPath.restype=c_char_p
 object3dLib.getMeshPath.argtypes=[ c_void_p ]
 object3dLib.getMeshPath.restype=c_char_p
 
-object3dLib.setTexId.argtypes=[ c_void_p, c_uint, c_uint ]
-object3dLib.setTexId.restype=c_uint
+object3dLib.setupTex.argtypes=[ c_void_p, c_uint, c_uint ]
+object3dLib.setupTex.restype=c_uint
 
 object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
 object3dLib.createTexture.restype=c_uint
 
-object3dLib.draw.argtypes=[ c_void_p ]
+object3dLib.createFBO.argtypes=[ c_uint, c_uint, c_uint ]
+object3dLib.createFBO.restype=c_uint
+
+object3dLib.drawToTex.argtypes=[ c_void_p, c_float, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint ]
+object3dLib.drawToTex.restype=None
+
+object3dLib.draw.argtypes=[ c_void_p, c_float ]
 object3dLib.draw.restype=None
+
+YZ_SWAP_ROT=Quaternion.new_rotate_axis(HALF_PI, Vector3(1.0, 0.0, 0.0))
+SETUP_ROT=Quaternion(0.5, -0.5, 0.5, 0.5)
+
+MIN_FLAG=0x10
+MAX_FLAG=0x20
+DIM_X=0x0
+DIM_Y=0x1
+DIM_Z=0x2
+
+#MAX_Y=MIN_FLAG|DIM_Z
+#MIN_Z=MIN_FLAG|DIM_Y
+MIN_X=MIN_FLAG|DIM_X
+MAX_X=MAX_FLAG|DIM_X
+MIN_Y=MIN_FLAG|DIM_Y
+MAX_Y=MAX_FLAG|DIM_Y
+MIN_Z=MIN_FLAG|DIM_Z
+MAX_Z=MAX_FLAG|DIM_Z
 
 def getRPMFraction(bot):
     # 195 max vel when level at full thrust
@@ -63,7 +87,7 @@ last_cams={}
 def draw(bot, view):
     v_type=view.getPlaneView(bot.getId())
     if (bot.TYP, v_type) in meshes:
-        angleAxis = (bot.getAttitude() * Quaternion(0.5, -0.5, 0.5, 0.5) ).get_angle_axis()
+        angleAxis = (bot.getAttitude() * SETUP_ROT ).get_angle_axis()
         axis = angleAxis[1].normalized()
 
         fpos = (c_float * 3)()
@@ -123,9 +147,11 @@ def loadMeshes(mesh_paths, views):
         for m in unordered_meshes:
             if type(m) is Mesh:
                 meshes[mesh_key].append(m)
+                m.finishInit()
         for m in unordered_meshes:
             if type(m) is not Mesh:
                 meshes[mesh_key].append(m)
+                m.finishInit()
 
 all_meshes=[]
 def deleteMeshes():
@@ -146,14 +172,17 @@ class Mesh(object):
         self._mesh_path=object3dLib.getMeshPath(self.mesh)
         self._sibs[self._mesh_path]=self
             
-        # self.textures exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
-        self.textures=[]
-
+        # self.texImages exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
+        self.texImages=[]
+        self.uvId=[]
         self.upload_textures()
         for v in views:
             v.push_handlers(self)
         self._bot_details={}
         self.rot=0.0
+
+    def finishInit(self):
+        pass
 
     def __str__(self):
         return object.__str__(self)+': '+self._mesh_path
@@ -178,20 +207,22 @@ class Mesh(object):
         glEnable( GL_DEPTH_TEST)
         glPopMatrix()
         
-    def upload_textures(self):
+    def upload_textures(self, gen_fbo=False):
         uvId=0
         c_path=object3dLib.getUvPath(self.mesh, uvId)
         while c_path!=None:
             path=c_path
             img=image.load(path)
             tex=img.get_texture()
-            self.textures.append(tex)
-            #print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)
-            object3dLib.setTexId(self.mesh, uvId, tex.id)
+            self.texImages.append((path,img))
+            self.uvId.append(uvId)
+            object3dLib.setupTex(self.mesh, uvId, tex.id)
             #object3dLib.createTexture(self.mesh,
             #                          uvId, img.get_data('RGBA', img.width*len('RGBA')), img.width, img.height, GL_RGBA)
             uvId+=1
             c_path=object3dLib.getUvPath(self.mesh, uvId)
+            if c_path is not None:
+                print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)+" path: "+c_path
 
     def view_change(self, view):
         new_details={}
@@ -200,29 +231,20 @@ class Mesh(object):
                 new_details[(view_id, bot_id)]=self._bot_details[(view_id, bot_id)]
         self._bot_details=new_details
 
-    def draw(self, bot, view_id):
-        assert pos_rot_unchanged
-        object3dLib.draw(self.mesh)
-
-    def drawRotated(self, bot, angle_quat, drawing_mesh, centre_mesh):
+    def setupRotation(self, pos, angle_quat, centre_mesh, midPt, rotOrig=None):
         assert setPosRotUnchanged(False)
-        att=bot.getAttitude()
-        axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
-        angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
-        
-        mid = (c_float * 3)()
-        object3dLib.getMid(centre_mesh, mid)
-        midPt=Vector3(mid[0], mid[1], mid[2])
-        rotOrig=(att * axisRotator * (midPt))
-        rotNew=(att * angle_quat * axisRotator * (midPt))
+        if rotOrig is None:
+            rotOrig = midPt
+        angleAxis= angle_quat.get_angle_axis()
 
-        axis = angleAxis[1].normalized()
-        c=bot.getPos()-(rotNew-rotOrig)
-        
+        rotNew=angle_quat * (midPt)
+        axis = angle_quat.get_angle_axis()[1].normalized()
+        offset=pos-(rotNew-rotOrig)
+
         fpos = (c_float * 3)()
-        fpos[0] = c.x
-        fpos[1] = c.y
-        fpos[2] = c.z
+        fpos[0] = offset.x
+        fpos[1] = offset.y
+        fpos[2] = offset.z
         object3dLib.setPosition(fpos)
         
         fpos[0] = axis.x
@@ -230,7 +252,68 @@ class Mesh(object):
         fpos[2] = axis.z
         
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(drawing_mesh)
+
+    def drawRotatedToTexAlpha(self, bot, angle_quat, centre_mesh, fbo, width, height, bg, alpha, boundPlane, top):
+        rot=angle_quat
+        mid = (c_float * 3)()
+        object3dLib.getMid(centre_mesh, mid)
+        midPt=Vector3(mid[0], mid[1], mid[2])
+        self.setupRotation(NULL_VEC, rot, centre_mesh, midPt)
+        object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bg, boundPlane, top)
+
+    def drawToTexAlpha(self, fbo, width, height, bgTex, alpha, boundPlane, top):
+        fpos = (c_float * 3)()
+        fpos[0] = 0.0
+        fpos[1] = 0.0
+        fpos[2] = 0.0
+        object3dLib.setPosition(fpos)
+        setup_angle_axis=NULL_ROT.get_angle_axis()
+        setup_axis=setup_angle_axis[1].normalized()
+        fpos[0] = setup_axis.x
+        fpos[1] = setup_axis.y
+        fpos[2] = setup_axis.z
+        object3dLib.setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
+        object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
+
+    def draw(self, bot, view_id):
+        object3dLib.draw(self.mesh, 1.0)
+
+    def drawRotated(self, bot, angle_quat, centre_mesh):
+        rot=bot.getAttitude()*angle_quat*SETUP_ROT
+
+        mid = (c_float * 3)()
+        object3dLib.getMid(centre_mesh, mid)
+        midPt=Vector3(mid[0], mid[1], mid[2])
+        rotOrig=(bot.getAttitude() * SETUP_ROT * (midPt))
+
+        self.setupRotation(bot.getPos(), rot, centre_mesh, midPt, rotOrig)
+        # assert setPosRotUnchanged(False)
+        
+        # att=bot.getAttitude()
+        # axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
+        # angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
+        
+        # mid = (c_float * 3)()
+        # object3dLib.getMid(centre_mesh, mid)
+        # midPt=Vector3(mid[0], mid[1], mid[2])
+        # rotOrig=(att * axisRotator * (midPt))
+        # rotNew=(att * angle_quat * axisRotator * (midPt))
+
+        # axis = angleAxis[1].normalized()
+        # c=bot.getPos()-(rotNew-rotOrig)
+        
+        # fpos = (c_float * 3)()
+        # fpos[0] = c.x
+        # fpos[1] = c.y
+        # fpos[2] = c.z
+        # object3dLib.setPosition(fpos)
+        
+        # fpos[0] = axis.x
+        # fpos[1] = axis.y
+        # fpos[2] = axis.z
+        
+        # object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        object3dLib.draw(self.mesh, 1.0)
 
         # glPushMatrix()
         # glLoadIdentity()
@@ -270,20 +353,37 @@ class PropMesh(Mesh):
         self.__ang=0.0
         self.__momentum=0.0
         self.__spindown_time=20.0
+        self.__fbo=None
+        #img=image.load('data/textures/prop.png')
+        #self.__tex=img.get_texture()
+
+    def finishInit(self):
+        (path, img)=self._sibs['data/models/cockpit/E_PropBlend.csv'].texImages[0]
+        #(path, img)=self.texImages[0]
+        #self.__tex_copy=image.load(path)
+        self.__prop=self.texImages[0][1].get_texture()
+        self.__fbo=object3dLib.createFBO(img.get_texture().id, self.__prop.width, self.__prop.height)
+        #print 'loaded tex copy of: '+path+' to '+str(self.__tex_copy.id)
+        #self.textures.append(tex)
         
     def draw(self, bot, view_id):
         rpm_prop=getRPMFraction(bot)
         self.__momentum=(manage.delta*rpm_prop*6000+self.__momentum*(self.__spindown_time-1)*manage.delta)/(self.__spindown_time*manage.delta)
         self.__ang+=self.__momentum
         self.__ang %= PI2
-        self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
+        #self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
+        self.drawRotatedToTexAlpha(bot, Quaternion.new_rotate_axis(-self.__ang, Y_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__fbo, self.__prop.width, self.__prop.height, self.__prop.id, 0.99, MIN_Z, MAX_Y)
+        #self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
+        assert(self.__fbo is not None)
+        #self.drawToTexAlpha(self.__fbo, 1.0, MIN_Z, MAX_Y)
+        #self.test_draw(bot)
 
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_axis(((bot.getPos().y % 6154.0)/6154)*(PI2), X_UNIT), self.mesh, self._sibs['data/models/cockpit/AltDial.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(((bot.getPos().y % 6154.0)/6154)*(PI2), X_UNIT), self._sibs['data/models/cockpit/AltDial.csv'].mesh)
 
 class ClimbMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -301,7 +401,7 @@ class ClimbMesh(Mesh):
 
         smoothed_rate+=(bot.getVelocity().y-smoothed_rate)*interval
 
-        self.drawRotated(bot, Quaternion.new_rotate_axis(((smoothed_rate % 300)/300)*(PI2), X_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.002.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(((smoothed_rate % 300)/300)*(PI2), X_UNIT), self._sibs['data/models/cockpit/Circle.002.csv'].mesh)
 
         self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
 
@@ -310,21 +410,21 @@ class BankingMesh(Mesh):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getAttitude().get_bank()), X_UNIT), self.mesh, self._sibs['data/models/cockpit/LRDial.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getAttitude().get_bank()), X_UNIT), self._sibs['data/models/cockpit/LRDial.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_axis((bot.getVelocity().magnitude()/200.0) * PI2, X_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.003.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis((bot.getVelocity().magnitude()/200.0) * PI2, X_UNIT), self._sibs['data/models/cockpit/Circle.003.csv'].mesh)
 
 class WingAirSpeedMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
     def draw(self, bot, view_id):
-        self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getVelocity().magnitude()/200.0) * QUART_PI, Z_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.008.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getVelocity().magnitude()/200.0) * QUART_PI, Z_UNIT), self._sibs['data/models/cockpit/Circle.008.csv'].mesh)
 
 class RPMMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -336,7 +436,7 @@ class RPMMesh(Mesh):
             rnd=0
         else:
             rnd=random.uniform(-0.002, 0.002)
-        self.drawRotated(bot, Quaternion.new_rotate_axis((rpm_frac+rnd) * math.pi, X_UNIT), self.mesh, self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
+        self.drawRotated(bot, Quaternion.new_rotate_axis((rpm_frac+rnd) * math.pi, X_UNIT), self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
     def __init__(self, mesh, views, key):
@@ -383,5 +483,5 @@ class CompassMesh(Mesh):
         last_heading = last_heading % PI2
         last_update=manage.now
         ang=-last_heading/2
-        self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh, self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
+        self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)
