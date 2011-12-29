@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <GL/glew.h>
 #include <string.h>
 #include "objects.h"
 
@@ -59,7 +60,7 @@ extern "C"
     return NULL;
   }
 
-  DLL_EXPORT uint32 setTexId(void *p_meshToPlot, uint32 uv_id, uint32 tex_id)
+  DLL_EXPORT uint32 setupTex(void *p_meshToPlot, uint32 uv_id, uint32 tex_id)
   {
     obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
     if(uv_id<p_mesh->num_uv_maps) {
@@ -79,7 +80,60 @@ extern "C"
     glBindTexture(GL_TEXTURE_2D, texture); // Set our Tex handle as current
     glTexImage2D(GL_TEXTURE_2D, 0, format==GL_RGB ? 3 : 4, width, height, 0, format, GL_UNSIGNED_BYTE, p_data);
     printf("createTexture %u\n", uv_id, texture);
-    return setTexId(p_meshToPlot, uv_id, texture);
+    return setupTex(p_meshToPlot, uv_id, texture);
+  }
+
+  DLL_EXPORT uint32 createFBO(uint32 texId, uint32 width, uint32 height) {
+    printf("createFBO %i %i\n", width, height);
+    uint32 rboId;
+    uint32 fboId=0xffffffff;
+    if(glewInit()==GLEW_OK && GLEW_ARB_framebuffer_object) {
+      // create a renderbuffer object to store depth info
+      glGenRenderbuffersEXT(1, &rboId);
+      glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, rboId);
+      glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT,
+			       width, height);
+      glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
+
+      // create a framebuffer object
+      glGenFramebuffersEXT(1, &fboId);
+      glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+
+      // attach the texture to FBO color attachment point
+      glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+				GL_TEXTURE_2D, texId, 0);
+
+      // attach the renderbuffer to depth attachment point
+      glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,
+				   GL_RENDERBUFFER_EXT, rboId);
+
+      // check FBO status
+      GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+      if(status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+	printf("objPlotToTex failed at framebuffer check\n");
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+	return 0xffffffff;
+      }
+    } else {
+      printf("objPlotToTex failed at vbo check\n");
+      return fboId;
+    }
+    glClearColor(1.0, 1.0, 1.0, 0.0);
+    glClearDepth(1.0);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+
+    uint32 dim_order_x[4]={MIN_Y, MAX_Z, MAX_Y, MIN_Z};
+    uint32 dim_order_y[4]={MAX_Z, MAX_X, MIN_Z, MIN_X};
+    uint32 dim_order_z[4]={MAX_Y, MAX_X, MIN_Y, MIN_X};
+
+    for(uint32 i=0; i<DIM(dim_order_x); i++) {
+      top_order_x[dim_order_x[i]]=i;
+      top_order_y[dim_order_y[i]]=i;
+      top_order_z[dim_order_z[i]]=i;
+    }
+
+    return fboId;
   }
 
 	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
@@ -100,10 +154,26 @@ extern "C"
 		objlight.z = lightPos[2];
 	}
 
-	DLL_EXPORT void draw(void *meshToPlot)
+  DLL_EXPORT void drawToTex(void *meshToPlot, float32 alpha, uint32 fbo, uint32 width, uint32 height, uint32 bgTex, uint32 boundPlane, uint32 top)
 	{
 		oError err = ok;
-		err = objPlot(static_cast<obj_3dMesh *>(meshToPlot));
+		err = objPlotToTex(static_cast<obj_3dMesh *>(meshToPlot), alpha, fbo, width, height, bgTex, boundPlane, top);
+		if (err != ok)
+		{
+			printf("ERROR: when drawing object\n");
+		}
+	}
+
+  DLL_EXPORT void draw(void *meshToPlot, float32 alpha)
+	{
+		oError err = ok;
+		glTranslatef(pos.x ,pos.y ,pos.z );
+		glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
+		if (rotAxis) {
+		  glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
+		}
+  
+		err = objPlot(static_cast<obj_3dMesh *>(meshToPlot), alpha);
 		if (err != ok)
 		{
 			printf("ERROR: when drawing object\n");
@@ -191,7 +261,7 @@ void objSetVertexNormal(obj_vector unit_vector_norm,unsigned int flags) {
 	glNormal3f( -unit_vector_norm.x, -unit_vector_norm.y, -unit_vector_norm.z);
 }
 
-uint8 match_mesh[]="data/models/cockpit/Circle.csv";
+uint8 match_mesh[]="data/models/cockpit/E_Prop.csv";
 
 void checkRange(obj_3dMesh *p_mesh, void *p_addr, bool within) {
   if(within) {
@@ -219,134 +289,340 @@ void checkAllRanges(void *p_addr) {
   }
 }
 
+GLuint rboId=0xffffffff;
+GLuint fboId=0xffffffff;
+uint32 fboUsed=false;
+oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize, uint32 ySize, uint32 bgTex, uint32 boundPlane, uint32 top) {
+  obj_vertex eye, lookAt, zen;
+  obj_vertex *p_bound, *p_opp, *p_top;
+  /*
+  obj_vertex *p_bg[4];
+  uint32 min_faces[3][4]={{0,3,4,7},{0,1,2,3},{2,3,6,7}};
+  uint32 max_faces[3][4]={{1,2,5,6},{4,5,6,7},{0,1,4,5}};
+  uint32 *p_order;
+  uint32 *p_bg_verts;
+  obj_vertex box[8];
+  for(uint32 i=0; i<DIM(box); i++) {
+    switch(i) {
+    case 0:
+    case 3:
+    case 4:
+    case 7:
+      box[i].x=p_mesh->min.x;
+      break;
+    default:
+      box[i].x=p_mesh->max.x;
+    }
+    switch(i) {
+    case 2:
+    case 3:
+    case 6:
+    case 7:
+      box[i].y=p_mesh->min.y;
+      break;
+    default:
+      box[i].y=p_mesh->max.y;
+    }
+    switch(i) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+      box[i].z=p_mesh->min.z;
+      break;
+    default:
+      box[i].z=p_mesh->max.z;
+    }
+  }
+  */
+
+  if(boundPlane & MIN_FLAG) {
+    p_bound=&p_mesh->min;
+    p_opp=&p_mesh->max;
+  } else {
+    p_bound=&p_mesh->max;
+    p_opp=&p_mesh->min;
+  }
+  if(top & MIN_FLAG) {
+    p_top=&p_mesh->min;
+  } else {
+    p_top=&p_mesh->max;
+  }
+  const uint32 x_dim=1;
+  const uint32 y_dim=2;
+  const uint32 z_dim=4;
+  //uint32 otherDim=x_dim|y_dim|z_dim;
+
+  float32 width=p_mesh->max.x-p_mesh->min.x;
+  float32 depth=p_mesh->max.z-p_mesh->min.z;
+  float32 height=p_mesh->max.y-p_mesh->min.y;
+  float32 bound=0;
+  float32 clip=0;
+  uint32 dim=(boundPlane & DIM_MASK);
+  /*
+  p_bg_verts=(boundPlane & MIN_FLAG) ? max_faces[dim]: min_faces[dim];
+  for(uint32 i=0; i<4; i++) {
+    p_bg[i]=&box[p_bg_verts[i]];
+  }
+  */
+  switch(dim) {
+  case DIM_Z:
+    eye.x=(p_mesh->min.x+p_mesh->max.x)/2;
+    eye.y=p_bound->y;
+    eye.z=(p_mesh->min.z+p_mesh->max.z)/2;
+    bound=max(height, depth)/2.0;
+    /*
+    for(uint32 i=0; i<4; i++) {
+      if(p_bg[i]->x<p_mesh->mid.x) {
+	p_bg[i]->x=p_mesh->mid.x-bound;
+      } else {
+	p_bg[i]->x=p_mesh->mid.x+bound;
+      }
+      if(p_bg[i]->z<p_mesh->mid.z) {
+	p_bg[i]->z=p_mesh->mid.z-bound;
+      } else {
+	p_bg[i]->z=p_mesh->mid.z+bound;
+      }
+    }
+    */
+    clip=depth/2.0;
+    //otherDim&=~z_dim;
+    //p_order=top_order_z;
+    break;
+  case DIM_Y:
+    eye.x=(p_mesh->min.x+p_mesh->max.x)/2;
+    eye.y=(p_mesh->min.y+p_mesh->max.y)/2;
+    eye.z=p_bound->z;
+    bound=max(height, depth)/2.0;
+    /*
+    for(uint32 i=0; i<4; i++) {
+      if(p_bg[i]->x<p_mesh->mid.x) {
+	p_bg[i]->x=p_mesh->mid.x-bound;
+      } else {
+	p_bg[i]->x=p_mesh->mid.x+bound;
+      }
+      if(p_bg[i]->y<p_mesh->mid.y) {
+	p_bg[i]->y=p_mesh->mid.y-bound;
+      } else {
+	p_bg[i]->y=p_mesh->mid.y+bound;
+      }
+    }
+    */
+    clip=height/2.0;
+    //otherDim&=~y_dim;
+    //p_order=top_order_y;
+    break;
+  case DIM_X:
+    eye.x=p_bound->x;
+    eye.y=(p_mesh->min.y+p_mesh->max.y)/2;
+    eye.z=(p_mesh->min.z+p_mesh->max.z)/2;
+    bound=max(height, width)/2.0;
+    /*
+    for(uint32 i=0; i<4; i++) {
+      if(p_bg[i]->z<p_mesh->mid.z) {
+	p_bg[i]->z=p_mesh->mid.z-bound;
+      } else {
+	p_bg[i]->z=p_mesh->mid.z+bound;
+      }
+      if(p_bg[i]->y<p_mesh->mid.y) {
+	p_bg[i]->y=p_mesh->mid.y-bound;
+      } else {
+	p_bg[i]->y=p_mesh->mid.y+bound;
+      }
+    }
+    */
+    clip=width/2;
+    //otherDim&=~x_dim;
+    //p_order=top_order_x;
+    break;
+  default:
+    printf("invalid dim 0x%x\n", dim);
+    assert(false);
+  }
+  lookAt.x=(p_mesh->min.x+p_mesh->max.x)/2;
+  lookAt.y=(p_mesh->min.y+p_mesh->max.y)/2;
+  lookAt.z=(p_mesh->min.z+p_mesh->max.z)/2;
+  uint32 topDim=(top & DIM_MASK);
+  switch(topDim) {
+  case DIM_Z:
+    zen.x=eye.x;
+    zen.y=p_top->y;
+    zen.z=eye.z;
+    //otherDim&=~z_dim;
+    break;
+  case DIM_Y:
+    zen.x=eye.x;
+    zen.y=eye.y;
+    zen.z=p_top->z;
+    //otherDim&=~y_dim;
+    break;
+  case DIM_X:
+    zen.x=p_top->x;
+    zen.y=eye.y;
+    zen.z=eye.z;
+    //otherDim&=~x_dim;
+    break;
+  default:
+    printf("invalid topDim 0x%x\n", topDim);
+  }
+
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
+
+  glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+  glMatrixMode (GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity ();
+  glOrtho(-bound, bound, -bound, bound, -clip, clip);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  
+  //GLint viewport[4];
+  //glGetIntegerv(GL_VIEWPORT, viewport);
+  //printf("viewport: x %u y %u width %u height %u\n", viewport[0], viewport[1], viewport[2], viewport[3]);
+  glViewport(0, 0, xSize, ySize);
+  gluLookAt(eye.x, eye.y, eye.z, lookAt.x, lookAt.y, lookAt.z, zen.x, zen.y, zen.z);
+  //printf("pos x %f y %f z %f\n", pos.x, pos.y, pos.z);
+  if(alpha!=1.0) {
+    glEnable(GL_BLEND); 
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
+
+  /*
+  glDisable( GL_DEPTH_TEST);
+  glDisable(GL_CULL_FACE);
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, bgTex);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  GLfloat col[]={1.0f,
+		 1.0f,
+		 1.0f,1.0f};
+  glMaterialfv(GL_FRONT, GL_DIFFUSE, col); 
+  glColor4f(1.0, 1.0, 1.0, 1.0);
+
+  glDisable(GL_LIGHTING);
+  //if(alpha!=1.0) {
+  //  glEnable(GL_BLEND); 
+  //  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  //} else {
+    glDisable(GL_BLEND);
+    //}
+  uint32 dimBg=DIM(p_bg);
+  glBegin( GL_TRIANGLES );
+  uint32 idx;
+  uint32 i;
+
+  uint32 verts[]={0,1,2,1,2,3};
+  for(uint32 el=0; el<6; el++) {
+    i=verts[el];
+    glTexCoord2f(i>>1, (i==1 || i==2)?1.0:0.0);
+    idx=(i+p_order[top])%dimBg;
+    printf("i: %u x %f y %f z %f\n", i, p_bg[idx]->x, p_bg[idx]->y, p_bg[idx]->z);
+    glVertex3f(p_bg[idx]->x, p_bg[idx]->y, p_bg[idx]->z);	
+  }
+  glEnd();
+  */  
+  
+  glTranslatef(pos.x ,pos.y ,pos.z );
+  if(rotAxis) {
+    glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);
+  }
+  oError error=objPlot(p_mesh, alpha);
+  if(alpha!=1.0) {
+    glDisable(GL_BLEND);
+  }
+  
+  glBindTexture(GL_TEXTURE_2D,bgTex);
+  glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0,0, xSize, ySize, 0);
+  glDisable(GL_TEXTURE_2D);
+
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
+  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+  return ok;
+}
+
 //Pre: call to objSetPlotPos/Angle to set plotting position
-oError objPlot(obj_3dMesh *p_mesh) {
+oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
   obj_3dPrimitive *obj=p_mesh->p_prim;
-	oError error=ok;
-	obj_3dPrimitive* curr_prim=obj;
-	int i;
+  oError error=ok;
+  obj_3dPrimitive* curr_prim=obj;
+  int i;
 	
-	unsigned int flags;
+  unsigned int flags;
+  /*
+  glTranslatef(pos.x ,pos.y ,pos.z );
+  glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
+  if (rotAxis) {
+      glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
+  }
+  */
+  flags=curr_prim->flags;
 
-	glTranslatef(pos.x ,pos.y ,pos.z );
-
-	//old stuff
-	glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
-	if (rotAxis)
-	{
-		glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
-	}
- 
-	flags=curr_prim->flags;
-
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_LIGHTING);
-	glDisable(GL_CULL_FACE);
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_LIGHTING);
+  //glEnable(GL_CULL_FACE);
 	
-	uint32 face_idx=0;
-	while(curr_prim->next_ref!=NULL) {
-		curr_prim=curr_prim->next_ref;
-		face_idx++;
-		if(curr_prim->uv_id!=UNTEXTURED) {
-		  //glDisable( GL_DEPTH_TEST);
-		  //glDisable(GL_FOG);
-		  //glDisable( GL_LIGHTING);
-		  glEnable(GL_TEXTURE_2D);
-		  glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
-		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-		  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		  if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
-		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-		  } else {
-		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-		    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-		  }
-		}
-
-		switch (curr_prim->type) {
-		case line: 
-			glBegin(  GL_LINES );
-			for (i=0;i<2;i++) {
-				if(curr_prim->uv_id != UNTEXTURED) {
-				  glColor3f(1.0f, 1.0f, 1.0f);
-				  glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
-				} else {
-				  glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
-				}
-				glVertex3f(curr_prim->vert[i]->x, curr_prim->vert[i]->y, curr_prim->vert[i]->z);	
-			}
-			glEnd();
-			break;
-		case tri:
-		  glBegin(  GL_TRIANGLES );
-		  for (i=0;i<3;i++) {
-		    //intensity=1.0f;				
-		    glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);				
-		    GLfloat diff[]={curr_prim->r,
-				    curr_prim->g,
-				    curr_prim->b,1.0f};
-		    glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
-		    if(curr_prim->uv_id != UNTEXTURED) {
-		      //glColor3f(intensity, intensity, intensity);
-		      glColor3f(1.0, 1.0, 1.0);
-		      glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
-		    } else {
-		      //glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
-		      glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
-		    }
-		    glVertex3f(	curr_prim->vert[i]->x, 
-				curr_prim->vert[i]->y, 
-				curr_prim->vert[i]->z);	
-		  }
-		  glEnd();
-		  break;
-		case quad:
-			glBegin(  GL_QUADS );
-			for (i=0;i<4;i++) {
-				if (flags&OBJ_NO_LIGHTING) {
-				  //intensity=1.0f;
-				  glDisable(GL_LIGHTING);
-				}
-				else {
-					if (!(flags&OBJ_USE_FAST_LIGHT)) {
-						if (obj_use_gl_lighting) 
-							objSetVertexNormal(curr_prim->vert[i]->norm,flags);			
-					}
-				}
-
-				GLfloat diff[]={curr_prim->r,
-							curr_prim->g,
-							curr_prim->b,1.0f};
-				glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
-				if(curr_prim->uv_id != UNTEXTURED) {
-				  //glColor3f(intensity, intensity, intensity);
-				  glColor3f(1.0, 1.0, 1.0);
-				  glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
-				} else {
-				  //glColor3f(curr_prim->r*intensity, curr_prim->g*intensity, curr_prim->b*intensity);
-				  glColor3f(curr_prim->r, curr_prim->g, curr_prim->b);
-				}
-				glVertex3f(	curr_prim->vert[i]->x, 
-						curr_prim->vert[i]->y, 
-						curr_prim->vert[i]->z);	
-			}
-			glEnd();			
-			break;
-		default: 
-		  printf("unrecognised prim type 0x%x in mesh %s\n", curr_prim->type, p_mesh->mesh_path);
-		  assert(false);
-		}
-		if(curr_prim->uv_id!=UNTEXTURED) {
-		  glDisable(GL_TEXTURE_2D);
-		  glEnable( GL_DEPTH_TEST);
-		  uint32 error=glGetError();
-		  if(error) {
-		    printf("err %u\n", error);
-		  }
-		}
-	}
-	return error;
+  uint32 face_idx=0;
+  uint32 last_textured=false;
+  //glDisable( GL_DEPTH_TEST);
+  glBegin(  GL_TRIANGLES );
+  while(curr_prim->next_ref!=NULL) {
+    curr_prim=curr_prim->next_ref;
+    face_idx++;
+    if(curr_prim->uv_id!=UNTEXTURED) {
+      glEnd();
+      glEnable(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
+      glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+      if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+      } else {
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+      }
+      //glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+      glBegin(GL_TRIANGLES);
+    }
+    for (i=0;i<3;i++) {
+      glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);				
+      GLfloat diff[]={curr_prim->r,
+		      curr_prim->g,
+		      curr_prim->b,1.0f};
+      glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
+      if(curr_prim->uv_id != UNTEXTURED) {
+	glColor4f(1.0, 1.0, 1.0, alpha);
+	glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+      } else {
+	glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
+      }
+      glVertex3f(	curr_prim->vert[i]->x, 
+			curr_prim->vert[i]->y, 
+			curr_prim->vert[i]->z);	
+    }
+    if(curr_prim->uv_id!=UNTEXTURED) {
+      glEnd();
+      glDisable(GL_TEXTURE_2D);
+      //glEnable( GL_DEPTH_TEST);
+      uint32 error=glGetError();
+      if(error) {
+	printf("err %u\n", error);
+      }
+      glBegin(GL_TRIANGLES);
+    }
+  }
+  glEnd();
+  return error;
 }
 
 //Pre: call to objSetLoadPos.. angle not yet supported
@@ -365,7 +641,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	if (file==NULL) return nofile;
 	int i,j;
 	int temp;
-	obj_vertex mid;
+	obj_vertex mid, min, max;
 	obj_vertex *inverts=NULL;
 	int inverts_max;
 	obj_3dPrimitive *inprims;
@@ -400,36 +676,70 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	mid.x=0;
 	mid.y=0;
 	mid.z=0;
+
 	//begin reading in vertex coords
 	for (i=0;i<inverts_max;i++) {
-		while (fgetc(file)!=','); //skip first comma
-		fscanf(file,"%f",&(inverts[i].x));
-		inverts[i].x-=origin_offset.x;
-		inverts[i].x*=obj_scaler;
-		if(inverts_max) {
-		  mid.x+=inverts[i].x/inverts_max;
-		}
-		while (fgetc(file)!=','); //skip second comma
-		fscanf(file,"%f",&(inverts[i].y));
-		inverts[i].y-=origin_offset.y;
-		inverts[i].y*=obj_scaler;
-		if(inverts_max) {
-		  mid.y+=inverts[i].y/inverts_max;
-		}
-		while (fgetc(file)!=','); //skip third comma
-		fscanf(file,"%f",&(inverts[i].z));
-		inverts[i].z-=origin_offset.z;
-		inverts[i].z*=obj_scaler;
-		if(inverts_max) {
-		  mid.z+=inverts[i].z/inverts_max;
-		}
-		while (fgetc(file)!=0x0a);//skip to next line
-		inverts[i].shared=0;
+	  while (fgetc(file)!=','); //skip first comma
+	  fscanf(file,"%f",&(inverts[i].x));
+	  inverts[i].x-=origin_offset.x;
+	  inverts[i].x*=obj_scaler;
+	  if(inverts_max) {
+	    mid.x+=inverts[i].x/inverts_max;
+	  }
+	  while (fgetc(file)!=','); //skip second comma
+	  fscanf(file,"%f",&(inverts[i].y));
+	  inverts[i].y-=origin_offset.y;
+	  inverts[i].y*=obj_scaler;
+	  if(inverts_max) {
+	    mid.y+=inverts[i].y/inverts_max;
+	  }
+	  while (fgetc(file)!=','); //skip third comma
+	  fscanf(file,"%f",&(inverts[i].z));
+	  inverts[i].z-=origin_offset.z;
+	  inverts[i].z*=obj_scaler;
+	  if(inverts_max) {
+	    mid.z+=inverts[i].z/inverts_max;
+	  }
+	  while (fgetc(file)!=0x0a);//skip to next line
+	  inverts[i].shared=0;
 
-		inverts[i].norm.x=0.0f;
-		inverts[i].norm.y=0.0f;
-		inverts[i].norm.z=0.0f;
+	  inverts[i].norm.x=0.0f;
+	  inverts[i].norm.y=0.0f;
+	  inverts[i].norm.z=0.0f;
+
+	  if(i==0) {
+	    min.x=inverts[i].x;
+	    min.y=inverts[i].y;
+	    min.z=inverts[i].z;
+	    max.x=inverts[i].x;
+	    max.y=inverts[i].y;
+	    max.z=inverts[i].z;
+	  } else {
+	    if(inverts[i].x<min.x) {
+	      min.x=inverts[i].x;
+	    }
+	    if(inverts[i].x>max.x) {
+	      max.x=inverts[i].x;
+	    }
+	    if(inverts[i].y<min.y) {
+	      min.y=inverts[i].y;
+	    }
+	    if(inverts[i].y>max.y) {
+	      max.y=inverts[i].y;
+	    }
+	    if(inverts[i].z<min.z) {
+	      min.z=inverts[i].z;
+	    }
+	    if(inverts[i].z>max.z) {
+	      max.z=inverts[i].z;
+	    }
+	  }
 	}
+	if(!strncmp((*pp_mesh)->mesh_path, match_mesh, PATH_LEN)) {
+	  printf("min %s: %f %f %f\n", (*pp_mesh)->mesh_path, min.x, min.y, min.z);
+	  printf("max: %f %f %f\n", max.x, max.y, max.z);
+	  printf("mid: %f %f %f\n", mid.x, mid.y, mid.z);
+	}			
 	//printf("mid: %f %f %f\n", mid.x, mid.y, mid.z);
 	//skip 1 lines
 	while (fgetc(file)!=0x0a);
@@ -503,25 +813,11 @@ oError objCreate(obj_3dMesh **pp_mesh,
 			vert[j]->norm.z/=vert[j]->shared;
 			
 		}
-/*
 
-		vert[0]->norm.x=unit_vector_norm.x;
-		vert[0]->norm.y=unit_vector_norm.y;
-		vert[0]->norm.z=unit_vector_norm.z;
-		
-		vert[1]->norm.x=unit_vector_norm.x;
-		vert[1]->norm.y=unit_vector_norm.y;
-		vert[1]->norm.z=unit_vector_norm.z;
-
-		vert[2]->norm.x=unit_vector_norm.x;
-		vert[2]->norm.y=unit_vector_norm.y;
-		vert[2]->norm.z=unit_vector_norm.z;
-*/
 		inprims[i].vertex_list=NULL; //only valid for first prim in list
 		inprims[i].flags=0;
 		inprims[i].uv_id=UNTEXTURED;
 		checkAllRanges(&inprims[i].uv_id);
-	//*************************************************
 		while (fgetc(file)!=0x0a);
 	}
 
@@ -603,16 +899,16 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	fclose(file);
 //-----------------------------------------------------------
 	(*pp_mesh)->mid=mid;
+	(*pp_mesh)->min=min;
+	(*pp_mesh)->max=max;
 	*obj= new obj_3dPrimitive;
 	if (*obj==NULL) return noMemory;
 	(*obj)->flags=flags;
 	(*obj)->type=empty;
 	(*obj)->scale=obj_scaler;
-//	(*obj)->next_ref=NULL;
 	curr_obj=*obj;
 	curr_obj->uv_id=UNTEXTURED;
 	curr_obj->vertex_list=inverts;
-//	curr_obj->next_ref=inprims;
 	
 	i=0;
 	while (i<inprims_max) {
@@ -621,13 +917,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 		curr_obj=curr_obj->next_ref;
 
 		*curr_obj=inprims[i];
-		if ((curr_obj->vert[1]->x==curr_obj->vert[2]->x) &&
-		    (curr_obj->vert[1]->y==curr_obj->vert[2]->y) &&
-		    (curr_obj->vert[1]->z==curr_obj->vert[2]->z) ) {
-		  curr_obj->type=line;
-		} else {
 		  curr_obj->type=tri;
-		}
 		i++;
 		curr_obj->next_ref=NULL;
 	}

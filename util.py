@@ -1,10 +1,12 @@
-from euclid import Vector3
+from euclid import Quaternion, Vector3
 import math
 import socket
- 
+
 X_UNIT=Vector3(1.0, 0.0, 0.0)
 Y_UNIT=Vector3(0.0, 1.0, 0.0)
 Z_UNIT=Vector3(0.0, 0.0, 1.0)
+NULL_VEC=Vector3(0.0,0.0,0.0)
+NULL_ROT=Quaternion.new_rotate_axis(0.0, Y_UNIT)
 
 def getAngleForXY(x, y):
     angle = 0.0
