@@ -14,7 +14,7 @@ global now, delta
 def updateTime():
     global now, delta
     n=time()
-    delta=now-n
+    delta=n-now
     now=n
     
 now=time()
