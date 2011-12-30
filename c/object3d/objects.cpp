@@ -595,10 +595,6 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
     }
     for (i=0;i<3;i++) {
       glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);				
-      GLfloat diff[]={curr_prim->r,
-		      curr_prim->g,
-		      curr_prim->b,1.0f};
-      glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
       if(curr_prim->uv_id != UNTEXTURED) {
 	glColor4f(1.0, 1.0, 1.0, alpha);
 	glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
