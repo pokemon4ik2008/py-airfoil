@@ -499,8 +499,10 @@ def simMain():
 		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale)
 		}, "data/models/cockpit/I_*.csv", scale)
 
-	(all_external, external_only)=genMeshArgs({ "data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale) },
-						  "data/models/cockpit/E_*.csv", scale)
+	(all_external, external_only)=genMeshArgs({
+		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale),
+		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale)
+		}, "data/models/cockpit/E_*.csv", scale)
 	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
 	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
 	#do not maintain ordering
@@ -550,7 +552,7 @@ def simMain():
 				view.activate()
 				if view.getPlaneId() in planes:
 					my_plane=planes[view.getPlaneId()]
-					view.printToScreen('pos = ' + str(my_plane.getPos()))
+					#view.printToScreen('pos = ' + str(my_plane.getPos()))
 					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
 					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
 					#view.printToScreen('thrust = ' + str(my_plane.thrust))

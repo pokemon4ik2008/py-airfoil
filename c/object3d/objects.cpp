@@ -573,7 +573,6 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
 	
   uint32 face_idx=0;
   uint32 last_textured=false;
-  //glDisable( GL_DEPTH_TEST);
   glBegin(  GL_TRIANGLES );
   while(curr_prim->next_ref!=NULL) {
     curr_prim=curr_prim->next_ref;

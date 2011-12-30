@@ -352,8 +352,6 @@ class PropMesh(Mesh):
         Mesh.__init__(self, mesh, views, key)
         self.__ang=0.0
         self.__momentum=0.0
-        self.__spindown_time=20.0
-        self.__last_rpm=0
         self.__fbo=None
         #img=image.load('data/textures/prop.png')
         #self.__tex=img.get_texture()
@@ -362,20 +360,15 @@ class PropMesh(Mesh):
         (path, img)=self._sibs['data/models/cockpit/E_PropBlend.csv'].texImages[0]
         #(path, img)=self.texImages[0]
         #self.__tex_copy=image.load(path)
-        self.__last_rpm=0.0
         self.__prop=self.texImages[0][1].get_texture()
         self.__fbo=object3dLib.createFBO(img.get_texture().id, self.__prop.width, self.__prop.height)
         #print 'loaded tex copy of: '+path+' to '+str(self.__tex_copy.id)
         #self.textures.append(tex)
         
     def draw(self, bot, view_id):
-        rpm_prop=getRPMFraction(bot)
-        #self.__momentum=(manage.delta*rpm_prop*6000+self.__momentum*(self.__spindown_time-1)*manage.delta)/(self.__spindown_time*manage.delta)
-        self.__momentum+=manage.delta*(rpm_prop-self.__last_rpm)
-        self.__momentum*=0.98
-        self.__last_prop=rpm_prop
-                                       
-        self.__ang+=self.__momentum+rpm_prop
+        rpm_prop=getRPMFraction(bot)*600
+        self.__momentum=max(self.__momentum, rpm_prop)-0.9*abs(self.__momentum-rpm_prop)*manage.delta
+        self.__ang+=self.__momentum
         self.__ang %= PI2
         #self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
         self.drawRotatedToTexAlpha(bot, Quaternion.new_rotate_axis(-self.__ang, Y_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__fbo, self.__prop.width, self.__prop.height, self.__prop.id, 0.99, MIN_Z, MAX_Y)
@@ -383,6 +376,15 @@ class PropMesh(Mesh):
         assert(self.__fbo is not None)
         #self.drawToTexAlpha(self.__fbo, 1.0, MIN_Z, MAX_Y)
         #self.test_draw(bot)
+
+class PropBlendMesh(Mesh):
+    def __init__(self, mesh, views, key):
+        Mesh.__init__(self, mesh, views, key)
+
+    def draw(self, bot, view_id):
+        glDepthMask(False)
+        Mesh.draw(self, bot, view_id)
+        glDepthMask(True)
 
 class AltMeterMesh(Mesh):
     def __init__(self, mesh, views, key):
