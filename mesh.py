@@ -353,7 +353,9 @@ class PropMesh(Mesh):
         self.ang=0.0
         self.alpha=0.0
         self.__momentum=0.0
-
+        self.__max_prop=60.0
+        self.__max_rot=self.__max_prop/2
+        
     def finishInit(self):
         pass
         #(path, img)=self._sibs['data/models/cockpit/E_PropBlend.csv'].texImages[0]
@@ -361,12 +363,15 @@ class PropMesh(Mesh):
         #self.__fbo=object3dLib.createFBO(img.get_texture().id, self.__prop.width, self.__prop.height)
         
     def draw(self, bot, view_id):
-        rpm_prop=getRPMFraction(bot)*60.0
+        rpm_prop=getRPMFraction(bot)*self.__max_prop
         self.__momentum=max(self.__momentum, rpm_prop)-0.9*abs(self.__momentum-rpm_prop)*manage.delta
-        self.alpha=self.__momentum/60.0
+        self.alpha=self.__momentum/self.__max_prop
         if self.alpha>1.0:
             self.alpha=1.0
-        self.ang+=self.__momentum
+        if self.__momentum>self.__max_rot:
+            self.ang+=self.__max_rot
+        else:
+            self.ang+=self.__momentum
         self.ang %= PI2
         self.drawRotated(bot, Quaternion.new_rotate_axis(-self.ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, 1.0-self.alpha)
         #self.drawRotatedToTexAlpha(bot, Quaternion.new_rotate_axis(-self.ang, Y_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__fbo, self.__prop.width, self.__prop.height, self.__prop.id, 0.9, MIN_Z, MAX_Y)
