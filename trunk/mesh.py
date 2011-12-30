@@ -278,7 +278,7 @@ class Mesh(object):
     def draw(self, bot, view_id):
         object3dLib.draw(self.mesh, 1.0)
 
-    def drawRotated(self, bot, angle_quat, centre_mesh):
+    def drawRotated(self, bot, angle_quat, centre_mesh, alpha=1.0):
         rot=bot.getAttitude()*angle_quat*SETUP_ROT
 
         mid = (c_float * 3)()
@@ -313,7 +313,7 @@ class Mesh(object):
         # fpos[2] = axis.z
         
         # object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        object3dLib.draw(self.mesh, 1.0)
+        object3dLib.draw(self.mesh, alpha)
 
         # glPushMatrix()
         # glLoadIdentity()
@@ -350,40 +350,39 @@ class PropMesh(Mesh):
     def __init__(self, mesh, views, key):
         print 'PropMesh.__init__'
         Mesh.__init__(self, mesh, views, key)
-        self.__ang=0.0
+        self.ang=0.0
+        self.alpha=0.0
         self.__momentum=0.0
-        self.__fbo=None
-        #img=image.load('data/textures/prop.png')
-        #self.__tex=img.get_texture()
 
     def finishInit(self):
-        (path, img)=self._sibs['data/models/cockpit/E_PropBlend.csv'].texImages[0]
-        #(path, img)=self.texImages[0]
-        #self.__tex_copy=image.load(path)
-        self.__prop=self.texImages[0][1].get_texture()
-        self.__fbo=object3dLib.createFBO(img.get_texture().id, self.__prop.width, self.__prop.height)
-        #print 'loaded tex copy of: '+path+' to '+str(self.__tex_copy.id)
-        #self.textures.append(tex)
+        pass
+        #(path, img)=self._sibs['data/models/cockpit/E_PropBlend.csv'].texImages[0]
+        #self.__prop=self.texImages[0][1].get_texture()
+        #self.__fbo=object3dLib.createFBO(img.get_texture().id, self.__prop.width, self.__prop.height)
         
     def draw(self, bot, view_id):
-        rpm_prop=getRPMFraction(bot)*600
+        rpm_prop=getRPMFraction(bot)*60.0
         self.__momentum=max(self.__momentum, rpm_prop)-0.9*abs(self.__momentum-rpm_prop)*manage.delta
-        self.__ang+=self.__momentum
-        self.__ang %= PI2
-        #self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self.mesh, self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
-        self.drawRotatedToTexAlpha(bot, Quaternion.new_rotate_axis(-self.__ang, Y_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__fbo, self.__prop.width, self.__prop.height, self.__prop.id, 0.99, MIN_Z, MAX_Y)
-        #self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh)
-        assert(self.__fbo is not None)
-        #self.drawToTexAlpha(self.__fbo, 1.0, MIN_Z, MAX_Y)
-        #self.test_draw(bot)
+        self.alpha=self.__momentum/60.0
+        if self.alpha>1.0:
+            self.alpha=1.0
+        self.ang+=self.__momentum
+        self.ang %= PI2
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-self.ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, 1.0-self.alpha)
+        #self.drawRotatedToTexAlpha(bot, Quaternion.new_rotate_axis(-self.ang, Y_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__fbo, self.__prop.width, self.__prop.height, self.__prop.id, 0.9, MIN_Z, MAX_Y)
+        #assert(self.__fbo is not None)
 
 class PropBlendMesh(Mesh):
     def __init__(self, mesh, views, key):
         Mesh.__init__(self, mesh, views, key)
 
+    def finishInit(self):
+        self.__prop=self._sibs['data/models/cockpit/E_Prop.csv']
+
     def draw(self, bot, view_id):
         glDepthMask(False)
-        Mesh.draw(self, bot, view_id)
+        self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__prop.ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__prop.alpha)
+        #Mesh.draw(self, bot, view_id)
         glDepthMask(True)
 
 class AltMeterMesh(Mesh):
