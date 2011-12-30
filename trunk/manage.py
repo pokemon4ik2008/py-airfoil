@@ -5,7 +5,7 @@ server=None
 global fast_path
 fast_path=True
 global sound_effects
-sound_effects=True
+sound_effects=False
 global opt
 
 from time import time
