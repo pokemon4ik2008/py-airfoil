@@ -384,8 +384,8 @@ def simMain():
 	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
 	glClearDepth(1.0)
 	#glClearStencil(0)
-	glEnable(GL_COLOR_MATERIAL)
 	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+	glEnable(GL_COLOR_MATERIAL)
 	glEnable(GL_LIGHT0)
 	fourfv = ctypes.c_float * 4        
 	glLightfv(GL_LIGHT0, GL_AMBIENT, fourfv(0.1, 0.1, 0.1, 1.0))
