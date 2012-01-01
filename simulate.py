@@ -460,8 +460,8 @@ def simMain():
 
 	planes = {}
 	plane_inits=[(Point3(0.0,100.0,0.0), 
-		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
-		      Vector3(0,0,60),
+		      Quaternion.new_rotate_axis(0, Y_UNIT), 
+		      Vector3(60,0,0),
 		      0),
 		     (Point3(-100,0.0,0), 
 		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 

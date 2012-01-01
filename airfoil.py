@@ -54,11 +54,11 @@ class Obj(object):
         self.__MAX_ACROBATIC_AIRSPEED_THRESHOLD = 60 # the speed at which our flaps etc. start having maximum effect
         self.__hasHitGround = False
         self._centreOfGravity = Vector3(0.2, 0.0, 0.0)
-        self._is_real=False
+        self._is_real=False	
         self._scales = [0.0, 0.0, 0.0]
         self._mesh = None
         self._cterrain = cterrain
-        #self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0)
+        self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
 
     def getPos(self):
         return self._pos
@@ -97,6 +97,13 @@ class Obj(object):
     def _getElevRot(self):
         return self.__elevRot
 
+
+    def _rotateByAngularVel(self, timeDiff):
+	(angle,axis)=self._angularVelocity.get_angle_axis()
+	#print angle, axis
+	self._attitude = self._attitude * (Quaternion.new_rotate_axis(angle*timeDiff,axis))
+	self._angularVelocity = Quaternion.new_rotate_axis(angle*0.99,axis)
+	
     def __updateInternalMoment(self, timeDiff):
         # This will model the rotation about a vector parrallel to the ground plane caused by an
         # internal weight imbalance in the aircraft. Example, the engine at the front of the plane
@@ -117,6 +124,10 @@ class Obj(object):
 
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis.normalized())
             self._attitude = internalRotation * self._attitude 
+
+
+                                                               
+
 
     def _getSpeedRatio(self):
         # Return the current speed as a ratio of the max speed
@@ -215,6 +226,7 @@ class Obj(object):
         self._updateRoll(timeDiff)
         self.__updateInternalMoment(timeDiff)
         self._updateVelFromEnv(timeDiff, zenithVector, noseVector)
+	self._rotateByAngularVel(timeDiff)
 
         # Finally correct any cumulative errors in attitude
         self._attitude.normalize()
@@ -239,8 +251,12 @@ class Obj(object):
         plane= (c_float * 3)()
         self._cterrain.getPlaneVectorAtPos(c_float(self._pos.x),c_float(self._pos.z),plane);
         pplane=Vector3(plane[0],plane[1],plane[2])
-        print pplane
         self.initiateBounce(pplane)
+	axis=pplane.cross(self._velocity).normalize()
+	axis = self._attitude.conjugated() * axis
+	axis = Quaternion.new_rotate_axis(math.pi/2*0, Vector3(0,1,0)) * axis
+	self._angularVelocity=self._angularVelocity*Quaternion.new_rotate_axis(math.pi/2*3,axis)
+
 
     def _updatePos(self, timeDiff):
         oldpos = self._pos
