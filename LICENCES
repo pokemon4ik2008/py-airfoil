@@ -1,0 +1,38 @@
+This file is part of py-airfoil. Below we list files in py-airfoil
+that are NOT released under the terms of the GNU General Public
+Licence and describe the terms under which they are distributed.
+
+data/34338__ERH__wind.wav
+
+	Original work downloaded from
+	http://www.freesound.org/people/ERH/sounds/34338/, modified
+	and then distributed in accordance with the Creative Commons
+	Attribution Licence
+	(http://creativecommons.org/licenses/by/3.0/). Created by user
+	ERH at www.freesound.org.  The adaption of this work provided
+	with py-airfoil has been cropped and made seamless.
+
+data/104026__rutgermuller__Tire_Squeek_www.rutgermuller.wav
+
+	Original work downloaded from
+	http://www.freesound.org/people/RutgerMuller/sounds/104026/
+	and distributed in accordance with the Creative Commons 0
+	Licence (http://creativecommons.org/publicdomain/zero/1.0/)
+	and then modified.
+
+data/gun.wav (originally 104399__kantouth__flak-shot.wav)
+
+	Original work downloaded from
+	http://www.freesound.org/people/kantouth/sounds/104399/,
+	modified and distributed in accordance with the Creative
+	Commons Attribution Licence
+	(http://creativecommons.org/licenses/by/3.0/). Created by user
+	kantouth at www.freesound.org. The adaption of this work which
+	is included with py-airfoil has been amplified.
+
+data/spitfire_engine.wav
+
+	This sample was created by Kieran White. To the extent
+	possible under law, Kieran White has waived all copyright and
+	related or neighboring rights to spitfire_engine.wav. This
+	work is published from: Ireland.
