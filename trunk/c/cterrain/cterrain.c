@@ -1,5 +1,6 @@
 #include "cterrain.h"
 
+
 int terrain_max_x=0;	//max size of terrain map data array in x direction
 int terrain_max_z=0;	//max size of terrain map data array in z direction
 terrain_mesh_point *terrain;
@@ -19,7 +20,7 @@ float aspectRatio;
 bool wireframe = true;
 float map_expansion_const = 1.0f; //how much the multiply the x and z coords by before plotting
 float y_scale_const = .02f*32.0f/32;	//how much to scale the y values before plotting
-
+IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 
 // Export an interface with standard C calling conventions so that it can 
 // be called in a standard way across different platforms.
@@ -64,6 +65,79 @@ extern "C"
 	{
 		return checkSimpleCollision(details);
 	}
+
+	DLL_EXPORT void getPlaneVectorAtPos(float x, float z, float outputVector[])
+	{
+		int xi = x/map_expansion_const;
+		int zi = z/map_expansion_const;
+
+		if (!boundsCheck(xi,zi) || !boundsCheck(xi+1,zi+1))
+		{
+			outputVector[0]=0;
+			outputVector[1]=1;
+			outputVector[2]=0;
+			return;
+		}
+
+       		// Determine which of the two tri's the point resides
+		// within. For this project all points to 2D plane (the ground) 
+		float side=linePointPosition2D(
+			(xi)*map_expansion_const,
+			(zi)*map_expansion_const,
+			(xi+1)*map_expansion_const,
+			(zi+1)*map_expansion_const,
+			x,
+			z);
+		
+		// Select the 3 points which reside within the plane
+		Vector3f p[3];
+		if (side <= 0.0f)
+		{
+			p[0]=getPointAtXZ(xi,zi);
+			p[1]=getPointAtXZ(xi,zi+1);
+			p[2]=getPointAtXZ(xi+1,zi+1);
+		}
+		else
+		{
+			p[0]=getPointAtXZ(xi+1,zi+1);
+			p[1]=getPointAtXZ(xi+1,zi);
+			p[2]=getPointAtXZ(xi,zi);
+		}
+		
+		Vector3f v[2];
+		v[0]=p[1]-p[0];
+		v[1]=p[2]-p[1];
+		
+		Vector3f plane=v[0].cross(v[1]);
+		plane.normalize();
+		outputVector[0] = plane[0];
+		outputVector[1] = plane[1];
+		outputVector[2] = plane[2];
+	}
+}
+
+// returns true when x,z is within the terrain array.
+bool boundsCheck(int x, int z)
+{
+	if (x < 0) return false;
+	if (z < 0) return false;
+	if (x >= terrain_max_x) return false; 
+	if (z >= terrain_max_z) return false; 
+	return true;
+}
+
+Vector3f getPointAtXZ(int x, int z)
+{
+	return Vector3f(x * map_expansion_const,
+			terrain_map(x,z).y*y_scale_const,
+			z * map_expansion_const);
+}
+
+// returns <0 if x3,y3 is to the left of line (x1,y1,x2,y2). >0 if to the 
+// right and ==0 if on the line.
+float linePointPosition2D ( float x1, float y1, float x2, float y2, float x3, float y3 )
+{
+	return (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);   
 }
 
 float getAngleForXY(float adj, float opp)
@@ -491,7 +565,7 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
 	glFogf(GL_FOG_START, cut_off_dist  * 0.7 * fog_scale);
 	glFogf(GL_FOG_END, cut_off_dist * fog_scale );
 
-	glBegin(  wireframe ? GL_LINES : GL_QUADS);	//start drawing quads
+	glBegin(  wireframe ? GL_LINES : GL_TRIANGLES);	//start drawing quads
 
 	//convert the pov coord's to coord's on the terrain map
 	pov.x=pov.x/map_expansion_const;
@@ -775,7 +849,9 @@ void terCalc_view_triangle(int topz,	int botz,
 						glVertex3f(x*map_expansion_const ,default_map_y, z*map_expansion_const);
 						glVertex3f(x*map_expansion_const ,default_map_y, (z+detail)*map_expansion_const);
 						glVertex3f((x+detail)*map_expansion_const , default_map_y, (z+detail)*map_expansion_const);
+						glVertex3f((x+detail)*map_expansion_const , default_map_y, (z+detail)*map_expansion_const);
 						glVertex3f((x+detail)*map_expansion_const , default_map_y, z*map_expansion_const);
+						glVertex3f(x*map_expansion_const ,default_map_y, z*map_expansion_const);
 					}
 					
 				}
@@ -790,36 +866,11 @@ void terCalc_view_triangle(int topz,	int botz,
 float terAdd_fog(float col,float backg_col,double dist) {
 //This is redundant..use opengl's hardware fog instead
 
-/*	float fog_const=30.0f;
-	float temp_const;
-
-	if (fog_dist<55) fog_dist=55;
-
-	if (dist<fog_dist) {
-		if (dist>(fog_dist-fog_const)) {
-			dist-=(fog_dist-fog_const);
-			fog_const=(float) dist/fog_const;
-			
-			if (col<backg_col) {
-				temp_const=fog_const*(backg_col-col);
-				if (backg_col-col>temp_const) col+=temp_const;
-				else col=backg_col;
-			}
-			else {
-				temp_const=fog_const*(col-backg_col);
-				if (col-backg_col>temp_const) col-=temp_const;
-				else col=backg_col;
-			}
-		}
-	}
-	else return backg_col;
-*/
 	return col;
 }
 
 inline void terDraw_Vertex(int x, int z)
 {
-
 	//set the colour. add fog (the fog depends on that quads distance from the viewer)
 	glColor3f(	terAdd_fog(terrain_map(x,z).col.r, backgr.r, terrain_map(x , z ).dist), 
 		terAdd_fog(terrain_map(x,z).col.g, backgr.g, terrain_map(x , z ).dist), 
@@ -833,12 +884,7 @@ inline void terDraw_Vertex(int x, int z)
 	else 
 	{
 		glVertex3f(x*map_expansion_const ,terrain_map(x,z).alt_y*y_scale_const, z*map_expansion_const);	
-		//printf("using alt y\n");
 	}
-	/*if (terrain_map(x,z).alt_y != terrain_map(x,z).y)
-	{
-
-	}*/
 }
 
 //create a terrain quad at (x,z) and with side length of <detail> vertexes
@@ -861,7 +907,27 @@ void terCreate_terrain_quad(int x,int z,int detail) {
 		terDraw_Vertex(x,z);
 		terDraw_Vertex(x,z+detail);
 		terDraw_Vertex(x+detail,z+detail);
+/*
+		glEnd();
+
+		glBegin(GL_LINES);
+		float o[3];
+		getPlaneVectorAtPos((((float)x)+0.5)*map_expansion_const, (((float)z)+0.2)*map_expansion_const, o);	
+		o[0]*=10;
+		o[1]*=10;
+		o[2]*=10;
+		glVertex3f(x*map_expansion_const+o[0], terrain_map(x,z).y*y_scale_const+o[1], z*map_expansion_const+o[2]);
+		terDraw_Vertex(x,z);
+
+		
+
+
+		glEnd();			
+		glBegin(GL_TRIANGLES);
+*/
+		terDraw_Vertex(x+detail,z+detail);
 		terDraw_Vertex(x+detail,z);
+		terDraw_Vertex(x,z);
 	}
 }
 

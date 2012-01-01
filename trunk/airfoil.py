@@ -58,6 +58,7 @@ class Obj(object):
         self._scales = [0.0, 0.0, 0.0]
         self._mesh = None
         self._cterrain = cterrain
+        #self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0)
 
     def getPos(self):
         return self._pos
@@ -223,28 +224,33 @@ class Obj(object):
         # Point the craft along the ground plane
         self._attitude = Quaternion.new_rotate_axis(self.getWindHeading(), Y_UNIT)
 
-    def __collisionDetect(self):
-        # Check collision with ground
-        if self._pos.y <= 0.0:
-            self._pos.y = 0.0
-            self._velocity.y = 0.0
-            if not self.__hasHitGround:
-                self._hitGround()
-        else:
-            self.__hasHitGround = False
-
+    def _collisionDetect(self):
         if (self._cterrain != None):
             colArgs = (c_float * 4)()
             colArgs[0] = self._pos.x
             colArgs[1] = self._pos.y
             colArgs[2] = self._pos.z
             colArgs[3] = 10.0
-            #print self._cterrain.checkCollision(colArgs)
-            #print "col check"
+            if self._cterrain.checkCollision(colArgs):                
+                return True
+        return False
+
+    def _reactToCollision(self):
+        plane= (c_float * 3)()
+        self._cterrain.getPlaneVectorAtPos(c_float(self._pos.x),c_float(self._pos.z),plane);
+        pplane=Vector3(plane[0],plane[1],plane[2])
+        print pplane
+        self.initiateBounce(pplane)
 
     def _updatePos(self, timeDiff):
+        oldpos = self._pos
         self._pos += (self._velocity * timeDiff)
-        self.__collisionDetect()
+        if self._collisionDetect(): 
+            self._reactToCollision()
+            self._pos = self._pos + Vector3(0,1,0)
+            while self._collisionDetect():
+                self._pos = self._pos + Vector3(0,1,0)
+
 
     def update(self):
         timeDiff=self._getTimeDiff()
@@ -254,6 +260,10 @@ class Obj(object):
       
     def getWindHeading(self):        
         return math.pi * 2 - getAngleForXY(self._velocity.x, self._velocity.z)            
+
+    def initiateBounce(self, planeVector):
+        self._velocity=self._velocity.reflect(planeVector.normalize())
+
 
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
