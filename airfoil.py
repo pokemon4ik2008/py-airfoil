@@ -100,8 +100,18 @@ class Obj(object):
 
     def _rotateByAngularVel(self, timeDiff):
 	(angle,axis)=self._angularVelocity.get_angle_axis()
-	#print angle, axis
-	self._attitude = self._attitude * (Quaternion.new_rotate_axis(angle*timeDiff,axis))
+
+        # We shall scale the application of the angular velocity to the rotation of the object
+        # by the actual velocity of the object:
+        # Calculate a scale between 0 and 1.0:
+        maxs = 60.0
+        scale = self._velocity.magnitude()/maxs
+        if scale > 1.0:
+            scale = 1.0
+
+        # Apply the rotation, scale by the time, and the scale factor from above
+	self._attitude = self._attitude * (Quaternion.new_rotate_axis(angle*timeDiff*scale,axis))
+        # Reduce the angular velocity by a factor so that the object doesn't rotate forever.
 	self._angularVelocity = Quaternion.new_rotate_axis(angle*0.99,axis)
 	
     def __updateInternalMoment(self, timeDiff):
@@ -124,10 +134,6 @@ class Obj(object):
 
             internalRotation = Quaternion.new_rotate_axis(angularChange, rotAxis.normalized())
             self._attitude = internalRotation * self._attitude 
-
-
-                                                               
-
 
     def _getSpeedRatio(self):
         # Return the current speed as a ratio of the max speed
@@ -249,14 +255,33 @@ class Obj(object):
 
     def _reactToCollision(self):
         plane= (c_float * 3)()
+
+        # Determine the Vector representing the plane of the face we collided with
         self._cterrain.getPlaneVectorAtPos(c_float(self._pos.x),c_float(self._pos.z),plane);
         pplane=Vector3(plane[0],plane[1],plane[2])
+
+        # Calculate a ratio to reduce the velocity of the object. This is dependent on the 
+        # angle between the plane-normal and the velocity vector of the object.
+        ratio = 1.0 - abs(self._velocity.normalized().dot(pplane))
         self.initiateBounce(pplane)
+        self._velocity *= ratio
+
+        # Calculate another ratio which depends on the angle between the nosevector and the plane-normal
+        (nose,zen) = self._getVectors()
+        ratio = abs(nose.dot(pplane))
+
+        # Calculate the angular velocity - a rotation applied to the object which is dependent
+        # on the magnitude of the velocity and the ratio calculated above. Ensure the angle remains between
+        # 0 and 2PI.
+        angle = getEffectiveAngle(self._velocity.magnitude()*ratio/10.0)
+
+        # Calculate the axis of rotation
 	axis=pplane.cross(self._velocity).normalize()
 	axis = self._attitude.conjugated() * axis
 	axis = Quaternion.new_rotate_axis(math.pi/2*0, Vector3(0,1,0)) * axis
-	self._angularVelocity=self._angularVelocity*Quaternion.new_rotate_axis(math.pi/2*3,axis)
 
+        # Update the angular velocity
+	self._angularVelocity=self._angularVelocity*Quaternion.new_rotate_axis(angle,axis)
 
     def _updatePos(self, timeDiff):
         oldpos = self._pos

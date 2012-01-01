@@ -65,3 +65,6 @@ def toHexStr(string):
     for c in string:
         bytes+='%02x'%ord(c)
     return bytes
+
+def getEffectiveAngle(angle):
+    return angle-math.floor(angle/math.pi/2)*math.pi*2
