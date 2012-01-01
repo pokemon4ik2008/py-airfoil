@@ -11,6 +11,11 @@
 #include <string.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include "../Eigen/Dense"
+#include <sstream>
+
+using namespace std;
+using namespace Eigen;
 
 #define FOG_GREY (0.8f)
 #define terrain_map(x,z) (*(terrain+(z)*terrain_max_z+(x)))		//macro for accessing the terrain memory by x,z coord
@@ -112,4 +117,7 @@ float terAdd_fog(float col,float backg_col,double dist);
 void terCreate_terrain_quad(int x,int z,int detail);
 void terDeleteAll();
 
+float linePointPosition2D ( float x1, float y1, float x2, float y2, float x3, float y3 );
+Vector3f getPointAtXZ(int x, int z);
+bool boundsCheck(int x, int z);
 #endif
