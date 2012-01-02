@@ -18,6 +18,12 @@ uint32 num_meshes=0;
 float rotAngle = 0;
 float *rotAxis = NULL;
 
+inline void memZero(void *p_mem, uint32 bytes) {
+    for(uint32 *p_ptr=(uint32 *)p_mem, *p_end=(uint32 *)(((uint8 *)p_mem)+bytes); p_ptr<p_end; p_ptr++) {
+    *p_ptr=0;
+  }
+}
+
 extern "C" 
 {
   DLL_EXPORT void *load(char *filename, float scale)
@@ -182,9 +188,29 @@ extern "C"
 
 	DLL_EXPORT void deleteMesh(void *meshToDelete)
 	{	
-		obj_3dMesh *meshToDeletePtr = static_cast<obj_3dMesh *>(meshToDelete);
-		objDelete(&meshToDeletePtr);			
-	}	
+		obj_3dMesh *p_mesh = static_cast<obj_3dMesh *>(meshToDelete);
+		if(p_mesh->ibo != NO_IBO) {
+		  glDeleteBuffersARB(1, &(p_mesh->ibo));
+		}
+		if(p_mesh->vbo != NO_VBO) {
+		  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_mesh->vbo);
+		  glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); 
+		  glDeleteBuffersARB(1, &(p_mesh->vbo));
+		}
+		objDelete(&p_mesh);			
+	}
+
+  /*
+  DLL_EXPORT setupRotation(x, y, z, wr, xr, yr, zr, xmid, ymid, zmid, xorig, yorig, zorig)
+  {
+    Vector3f pos(x, y, z), midPt(xmid, ymid, zmid), rotOrig(xorig, yorig, zorig);
+    pos << x << y << z;
+    Quaternion<float> angle_quat(xr, yr, zr, wr);
+    angle_quat.normalize();
+    AngleAxis<float> angleAxis(angle_quat);
+    Vector3f rotNew=angle_quat * midPt;
+  }
+  */
 }
 
 void	objSetCutOff		(float dist, float angle) {
@@ -550,14 +576,146 @@ oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize,
   return ok;
 }
 
+oError createVBO(obj_3dMesh *p_mesh, uint32 num_prims) {
+  obj_3dPrimitive *p_prim=p_mesh->p_prim;
+  uint32 num_verts=num_prims*3;
+  GLuint tri_map[num_verts];
+  //GLuint *tri_map;
+  //tri_map=(GLuint *)malloc(num_verts*sizeof(GLuint));
+  //if(!tri_map) {
+  //  return noMemory;
+  //}
+  // memZero(verts, sizeof(verts));
+
+  if(glewInit()!=GLEW_OK || !GL_ARB_vertex_buffer_object) {
+    printf("createVBO. no vertex buffer support\n");
+    return unsupported;
+  }
+  p_mesh->vbo=NO_VBO;
+  p_mesh->ibo=NO_IBO;
+  //return unsupported;
+
+  glGenBuffersARB(1, &(p_mesh->vbo));
+  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_mesh->vbo);
+  p_mesh->num_vert_components=3;
+  p_mesh->num_col_components=4;
+  p_mesh->num_norm_components=3;
+  p_mesh->stride=p_mesh->num_vert_components*sizeof(GLfloat)+
+    p_mesh->num_col_components*sizeof(GLfloat)+
+    p_mesh->num_norm_components*sizeof(GLfloat);
+
+  const GLsizeiptr vertex_size = num_verts*p_mesh->num_vert_components*sizeof(GLfloat);
+  const GLsizeiptr color_size = num_verts*p_mesh->num_col_components*sizeof(GLfloat);
+  const GLsizeiptr norm_size = num_verts*p_mesh->num_norm_components*sizeof(GLfloat);
+  //printf("size alloced: %u\n", num_verts*(num_vert_components+num_col_components));
+  glBufferDataARB(GL_ARRAY_BUFFER_ARB, vertex_size+color_size+norm_size, 0, GL_STATIC_DRAW_ARB);
+  //printf("assigning buffer size: verts %u cols %u %u\n", vertex_size, color_size, vertex_size+color_size);
+  GLvoid* vbo_buf = glMapBufferARB(GL_ARRAY_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+  if(!vbo_buf) {
+    printf("createVBO. failed to map\n");
+    return noMemory;
+  }
+
+  GLfloat *p_comp=(GLfloat *)vbo_buf;
+
+
+
+  oError error=ok;
+  uint32 i;
+  uint32 prim=0;
+  while(p_prim->next_ref!=NULL) {
+    p_prim=p_prim->next_ref;
+    //for(uint32 prim=0; prim<num_prims; prim++) {
+    assert(p_prim->type==tri);
+    // if(curr_prim->uv_id!=UNTEXTURED) {
+    //   glEnd();
+    //   glEnable(GL_TEXTURE_2D);
+    //   glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
+    //   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    //   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    //   if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
+    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    //   } else {
+    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    //   }
+    //   glBegin(GL_TRIANGLES);
+    // }
+    for (i=0;i<3;i++) {
+      tri_map[prim*3+i]=prim*3+i;
+      //glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);
+      
+      *(p_comp++)=p_prim->vert[i]->norm.x;
+      *(p_comp++)=p_prim->vert[i]->norm.y;
+      *(p_comp++)=p_prim->vert[i]->norm.z;
+
+      // if(curr_prim->uv_id != UNTEXTURED) {
+      // 	glColor4f(1.0, 1.0, 1.0, alpha);
+      // 	glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+      // } else {
+      //glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
+ 
+
+      *(p_comp++)=p_prim->r;
+      *(p_comp++)=p_prim->g;
+      *(p_comp++)=p_prim->b;
+      *(p_comp++)=1.0;
+
+	//}
+	//glVertex3f(	curr_prim->vert[i]->x, 
+	//		curr_prim->vert[i]->y, 
+	//	curr_prim->vert[i]->z);
+      *(p_comp++)=p_prim->vert[i]->x;
+      *(p_comp++)=p_prim->vert[i]->y;
+      //printf("byte offset %u comp offset %u\n", (uint8 *)p_comp-(uint8 *)vbo_buf, p_comp-(GLfloat *)vbo_buf);
+      *(p_comp++)=p_prim->vert[i]->z;
+      //printf("x %f y %f z %f r %f g %f b %f\n", p_prim->vert[i]->x, p_prim->vert[i]->y, p_prim->vert[i]->z, p_prim->r, p_prim->g, p_prim->b);
+    }
+    // if(curr_prim->uv_id!=UNTEXTURED) {
+    //   glEnd();
+    //   glDisable(GL_TEXTURE_2D);
+    //   uint32 error=glGetError();
+    //   if(error) {
+    // 	printf("err %u\n", error);
+    //   }
+    //   glBegin(GL_TRIANGLES);
+    // }
+    prim++;
+  }
+
+
+
+
+  // transfer the vertex data to the VBO
+  //memcpy(vbo_buffer, s_cubeVertices, vertex_size);
+  
+  // append color data to vertex data. To be optimal, 
+  // data should probably be interleaved and not appended
+  //vbo_buffer += vertex_size;
+  //memcpy(vbo_buffer, s_cubeColors, color_size);
+  //glUnmapBufferARB(GL_ARRAY_BUFFER); 
+
+  // Describe to OpenGL where the color data is in the buffer
+  // Describe to OpenGL where the vertex data is in the buffer
+  glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+
+  glGenBuffers(1, &(p_mesh->ibo));
+  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, p_mesh->ibo);
+  glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, num_verts*sizeof(GLuint), tri_map, GL_STATIC_DRAW_ARB);
+  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+  p_mesh->num_indices=num_verts;
+  return ok;
+}
+
 //Pre: call to objSetPlotPos/Angle to set plotting position
 oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
   obj_3dPrimitive *obj=p_mesh->p_prim;
   oError error=ok;
   obj_3dPrimitive* curr_prim=obj;
-  int i;
+  uint32 i;
 	
-  unsigned int flags;
+  //unsigned int flags;
   /*
   glTranslatef(pos.x ,pos.y ,pos.z );
   glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
@@ -565,58 +723,86 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
       glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
   }
   */
-  flags=curr_prim->flags;
+  //flags=curr_prim->flags;
 
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_LIGHTING);
   //glEnable(GL_CULL_FACE);
 	
-  uint32 face_idx=0;
-  uint32 last_textured=false;
-  glBegin(  GL_TRIANGLES );
-  while(curr_prim->next_ref!=NULL) {
-    curr_prim=curr_prim->next_ref;
-    face_idx++;
-    if(curr_prim->uv_id!=UNTEXTURED) {
-      glEnd();
-      glEnable(GL_TEXTURE_2D);
-      glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
-      glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-      if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-      } else {
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-      }
-      //glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
-      glBegin(GL_TRIANGLES);
+  if(p_mesh->vbo != NO_VBO && p_mesh->ibo != NO_IBO) {
+    // Activate the VBOs to draw
+    glBindBuffer(GL_ARRAY_BUFFER, p_mesh->vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, p_mesh->ibo);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+
+    glVertexPointer(p_mesh->num_vert_components, GL_FLOAT, p_mesh->stride, (GLvoid*)((char*)NULL+p_mesh->num_col_components*sizeof(GLfloat)+p_mesh->num_norm_components*sizeof(GLfloat)));
+    glColorPointer(p_mesh->num_col_components, GL_FLOAT, p_mesh->stride, (GLvoid*)((char*)NULL+p_mesh->num_norm_components*sizeof(GLfloat)));
+    glNormalPointer(GL_FLOAT, p_mesh->stride, (GLvoid*)((char*)NULL));
+    //glColor4f(1.0, 1.0, 1.0, 1.0);
+    // This is the actual draw command
+    glDrawElements(GL_TRIANGLES, p_mesh->num_indices, 
+		   GL_UNSIGNED_INT, (GLvoid*)((char*)NULL));
+
+    glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    uint32 error=glGetError();
+    if(error) {
+      printf("err %u\n", error);
     }
-    for (i=0;i<3;i++) {
-      glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);				
-      if(curr_prim->uv_id != UNTEXTURED) {
-	glColor4f(1.0, 1.0, 1.0, alpha);
-	glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
-      } else {
-	glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
+  } else {
+    uint32 last_textured=false;
+    glBegin(  GL_TRIANGLES );
+    while(curr_prim->next_ref!=NULL) {
+      curr_prim=curr_prim->next_ref;
+      if(curr_prim->uv_id!=UNTEXTURED) {
+	glEnd();
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+	if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
+	  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+	  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+	} else {
+	  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+	  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+	}
+	//glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+	glBegin(GL_TRIANGLES);
       }
-      glVertex3f(	curr_prim->vert[i]->x, 
+      for (i=0;i<3;i++) {
+	glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);				
+	if(curr_prim->uv_id != UNTEXTURED) {
+	  glColor4f(1.0, 1.0, 1.0, alpha);
+	  glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+	} else {
+	  glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
+	}
+	glVertex3f(	curr_prim->vert[i]->x, 
 			curr_prim->vert[i]->y, 
 			curr_prim->vert[i]->z);	
-    }
-    if(curr_prim->uv_id!=UNTEXTURED) {
-      glEnd();
-      glDisable(GL_TEXTURE_2D);
-      //glEnable( GL_DEPTH_TEST);
-      uint32 error=glGetError();
-      if(error) {
-	printf("err %u\n", error);
       }
-      glBegin(GL_TRIANGLES);
+      if(curr_prim->uv_id!=UNTEXTURED) {
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+	//glEnable( GL_DEPTH_TEST);
+	uint32 error=glGetError();
+	if(error) {
+	  printf("err %u\n", error);
+	}
+	glBegin(GL_TRIANGLES);
+      }
     }
+    glEnd();
   }
-  glEnd();
   return error;
 }
 
@@ -729,6 +915,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	      max.z=inverts[i].z;
 	    }
 	  }
+	  inverts[i].id=i;
 	}
 	if(!strncmp((*pp_mesh)->mesh_path, match_mesh, PATH_LEN)) {
 	  printf("min %s: %f %f %f\n", (*pp_mesh)->mesh_path, min.x, min.y, min.z);
@@ -747,7 +934,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	//skip 2 lines
 	while (fgetc(file)!=0x0a);
 	while (fgetc(file)!=0x0a);
-
+	
 	//start reading in triangles
 	for (i=0;i<inprims_max;i++) {
 		for (j=0;j<3;j++) {
@@ -814,6 +1001,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 		inprims[i].uv_id=UNTEXTURED;
 		checkAllRanges(&inprims[i].uv_id);
 		while (fgetc(file)!=0x0a);
+		inprims[i].id=i;
 	}
 
 	//skip to colours definitions
@@ -900,7 +1088,6 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	if (*obj==NULL) return noMemory;
 	(*obj)->flags=flags;
 	(*obj)->type=empty;
-	(*obj)->scale=obj_scaler;
 	curr_obj=*obj;
 	curr_obj->uv_id=UNTEXTURED;
 	curr_obj->vertex_list=inverts;
@@ -910,13 +1097,13 @@ oError objCreate(obj_3dMesh **pp_mesh,
 		curr_obj->next_ref=new obj_3dPrimitive[1];
 		if (curr_obj->next_ref==NULL) return noMemory;
 		curr_obj=curr_obj->next_ref;
-
+		inprims[i].type=tri;
 		*curr_obj=inprims[i];
-		  curr_obj->type=tri;
-		i++;
 		curr_obj->next_ref=NULL;
+		i++;
 	}
-
+	
+	createVBO(*pp_mesh, inprims_max);
 	delete [] inprims;
 	
 	return error;

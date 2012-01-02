@@ -175,6 +175,7 @@ class Mesh(object):
         # self.texImages exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
         self.texImages=[]
         self.uvId=[]
+        #print 'mesh key: '+str(mesh_key)
         self.upload_textures()
         for v in views:
             v.push_handlers(self)
@@ -231,14 +232,14 @@ class Mesh(object):
                 new_details[(view_id, bot_id)]=self._bot_details[(view_id, bot_id)]
         self._bot_details=new_details
 
-    def setupRotation(self, pos, angle_quat, centre_mesh, midPt, rotOrig=None):
+    def setupRotation(self, pos, angle_quat, midPt, rotOrig=None):
         assert setPosRotUnchanged(False)
         if rotOrig is None:
             rotOrig = midPt
         angleAxis= angle_quat.get_angle_axis()
 
         rotNew=angle_quat * (midPt)
-        axis = angle_quat.get_angle_axis()[1].normalized()
+        axis = angleAxis[1].normalized()
         offset=pos-(rotNew-rotOrig)
 
         fpos = (c_float * 3)()
@@ -258,7 +259,7 @@ class Mesh(object):
         mid = (c_float * 3)()
         object3dLib.getMid(centre_mesh, mid)
         midPt=Vector3(mid[0], mid[1], mid[2])
-        self.setupRotation(NULL_VEC, rot, centre_mesh, midPt)
+        self.setupRotation(NULL_VEC, rot, midPt)
         object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bg, boundPlane, top)
 
     def drawToTexAlpha(self, fbo, width, height, bgTex, alpha, boundPlane, top):
@@ -286,7 +287,7 @@ class Mesh(object):
         midPt=Vector3(mid[0], mid[1], mid[2])
         rotOrig=(bot.getAttitude() * SETUP_ROT * (midPt))
 
-        self.setupRotation(bot.getPos(), rot, centre_mesh, midPt, rotOrig)
+        self.setupRotation(bot.getPos(), rot, midPt, rotOrig)
         # assert setPosRotUnchanged(False)
         
         # att=bot.getAttitude()
