@@ -96,20 +96,21 @@ typedef struct {
   float32				u,v;
   obj_vector			norm;		//vertex normal
   ubyte				shared;		//holds number of primitives sharing this vertex
-  ubyte reserved[3];
+  uint32 id;
 } obj_vertex;
 
 typedef struct OBJ_3DPRIMITIVE
 {
-	obj_vertex			*vertex_list;
-	obj_vertex			*vert[4];
-	float				r,g,b;			//primitives colour
-	struct OBJ_3DPRIMITIVE	*next_ref;	//pointer to the next node
-							//points to NULL if last in obj
-	primitiveType		type;		//describes the type of the data held
-	unsigned int		flags;		//holds details about normals/shiny surface etc.		
-	float scale;
+  obj_vertex			*vertex_list;
+  obj_vertex			*vert[4];
+  float				r,g,b;			//primitives colour
+  struct OBJ_3DPRIMITIVE	*next_ref;	//pointer to the next node
+  //points to NULL if last in obj
+  primitiveType		type;		//describes the type of the data held
+  unsigned int		flags;		//holds details about normals/shiny surface etc.		
+  //float scale;
   uint32 uv_id;
+  uint32 id;
 } obj_3dPrimitive;
 
 typedef struct {
@@ -124,6 +125,15 @@ typedef struct {
   uint32 *p_tex_flags;
   uint8 **pp_tex_paths;
   uint8 mesh_path[PATH_LEN];
+#define NO_VBO 0xffffffff
+  GLuint vbo;
+#define NO_IBO 0xffffffff
+  GLuint ibo;
+  GLuint num_indices;
+  uint32 num_vert_components;
+  uint32 num_col_components;
+  uint32 num_norm_components;
+  uint32 stride;
   void *p_vert_start;
   void *p_vert_end;
 } obj_3dMesh;
@@ -171,6 +181,7 @@ oError	objCreate			(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned in
 void	objDelete			(obj_3dMesh **pp_mesh);
 oError	objPlot				(obj_3dMesh *p_mesh, float32 alpha);
 oError	objPlotToTex			(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize, uint32 ySize, uint32 bgTex, uint32 boundPlane, uint32 top);
+oError createVBO(obj_3dPrimitive *p_mesh, uint32 num_prims);
 
 inline float32 max(float32 x, float32 y) {
   return x>y?x:y;
