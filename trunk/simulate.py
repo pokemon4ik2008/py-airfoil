@@ -44,7 +44,7 @@ from sound import *
 from skybox import *
 from util import X_UNIT, Y_UNIT, Z_UNIT
 
-import cProfile
+#import cProfile
 
 global listNum
 global opt
@@ -372,6 +372,7 @@ def init():
 	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
 	global win
 	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
+	#win = pyglet.window.Window(fullscreen=True, config=config_template)
 	win.set_vsync(False)
 	win.dispatch_events()
 	win.clear()
@@ -422,6 +423,7 @@ def init():
 
 	global win_ctrls
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
+			      (Controller.TOG_FULLSCREEN, KeyAction(key.F, onPress=True)),
 			      (Controller.TOG_SOUND_EFFECTS, KeyAction(key.N, onPress=True))], win)
 
 	player_keys = []
@@ -523,6 +525,8 @@ def init():
 			  }, views)
 	global mouse_cap
 	mouse_cap=False
+	global fullscreen
+	fullscreen=False
 	global bots
 	bots=[]
 	global skybox
@@ -530,6 +534,18 @@ def init():
 
 	global start_time
 	start_time=time.time()
+
+def ptrOn(st=True):
+	# kw. set_exclusive_mouse called twice due to Pyglet bug in X windows.
+	# Pyglet only does something in set_exclusive_mouse if the new st
+	# != to the previous st.
+	# However when fullscreen is enabled mouse ptr appears without Pyglet
+	# updating its internal state so we call set_exclusive_mouse first with
+	# the wrong st. This updates the internal st to a different value to the
+	# st that we provide in our 2nd invocation of set_exclusive_mouse so
+	# the 2nd invocation always does something. Ta da
+	win.set_exclusive_mouse(not st)	
+	win.set_exclusive_mouse(st)	
 
 def timeSlice(dt):
 	try:
@@ -557,8 +573,13 @@ def timeSlice(dt):
 			events=win_ctrls.eventCheck()
 			if events[Controller.TOG_MOUSE_CAP]!=0:
 				global mouse_cap
-				mouse_cap = ~mouse_cap
-				win.set_exclusive_mouse(mouse_cap)
+				mouse_cap = not mouse_cap
+				ptrOn(mouse_cap)
+			if events[Controller.TOG_FULLSCREEN]!=0:
+				global fullscreen
+				fullscreen = not fullscreen
+				win.set_fullscreen(fullscreen)
+				ptrOn(mouse_cap)
 			if events[Controller.TOG_SOUND_EFFECTS]!=0:
 				SoundSlot.sound_toggle()
 			win_ctrls.clearEvents()
