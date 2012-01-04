@@ -51,6 +51,9 @@ object3dLib.drawToTex.restype=None
 object3dLib.draw.argtypes=[ c_void_p, c_float ]
 object3dLib.draw.restype=None
 
+#object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
+#object3dLib.createVBO.restype=c_int
+
 YZ_SWAP_ROT=Quaternion.new_rotate_axis(HALF_PI, Vector3(1.0, 0.0, 0.0))
 SETUP_ROT=Quaternion(0.5, -0.5, 0.5, 0.5)
 
@@ -83,42 +86,51 @@ def setPosRotUnchanged(flag):
     pos_rot_unchanged=flag
     return True
     
-last_cams={}
+def transformBot(bot):
+    angleAxis = (bot.getAttitude() * SETUP_ROT ).get_angle_axis()
+    axis = angleAxis[1].normalized()
+    
+    fpos = (c_float * 3)()
+    fpos[0] = bot._pos.x
+    fpos[1] = bot._pos.y
+    fpos[2] = bot._pos.z
+    object3dLib.setPosition(fpos)
+    
+    fpos[0] = axis.x
+    fpos[1] = axis.y
+    fpos[2] = axis.z
+    
+    object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+    
 def draw(bot, view):
     v_type=view.getPlaneView(bot.getId())
+    if (bot.TYP, v_type) in vbos:
+        for v in vbos[(bot.TYPE, v_type)]:
+            glPushMatrix()
+            transformBot(bot)
+            object3dLib.drawVBO(v)
+            glPopMatrix()
     if (bot.TYP, v_type) in meshes:
-        angleAxis = (bot.getAttitude() * SETUP_ROT ).get_angle_axis()
-        axis = angleAxis[1].normalized()
-
-        fpos = (c_float * 3)()
-        fpos[0] = bot._pos.x
-        fpos[1] = bot._pos.y
-        fpos[2] = bot._pos.z
-        object3dLib.setPosition(fpos)
-
-        fpos[0] = axis.x
-        fpos[1] = axis.y
-        fpos[2] = axis.z
-
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        try:
-            assert setPosRotUnchanged(True)
-            for m in meshes[(bot.TYPE, v_type)]:
-                glPushMatrix()
-                m.draw(bot, view.view_id)
-                glPopMatrix()
-        except AssertionError:
-            print_exc()
-            sys.exit(-1)
+        count=0
+        for m in meshes[(bot.TYPE, v_type)]:
+            glPushMatrix()
+            m.draw(bot, view.view_id)
+            glPopMatrix()
     else:
         glPushMatrix()
         bot.draw()
         glPopMatrix()
 
 def loadMeshes(mesh_paths, views):
+    print 'mesh_path: '+str(mesh_paths)
+
     lookup = {}
     global meshes
     meshes = {}
+    global vbos
+    vbos = {}
+    global all_vbos
+    all_vbos = []
     global name_to_mesh
     name_to_mesh = {}
     paths = {}
@@ -127,39 +139,60 @@ def loadMeshes(mesh_paths, views):
     else:
         convert=lambda s: s
 
-    def genGlobbedList(glob_path, cls, scale, blacklisted):
+    def genGlobbedList(glob_path, cls, scale, group, blacklisted):
         globs=glob.glob(convert(glob_path))
-        return [ (path, (cls, scale)) for path in globs if path not in blacklisted]
+        return [ (path, (cls, scale, group)) for path in globs if path not in blacklisted]
 
     for mesh_key in mesh_paths:
         all_possible_globs=mesh_paths[mesh_key][0]
         blacklist=list(itertools.chain(*[ glob.glob(convert(black_glob)) for black_glob in mesh_paths[mesh_key][1]]))
-        paths[mesh_key]=dict(itertools.chain(*[ genGlobbedList(glob_path, cls, scale, blacklist) for (glob_path, (cls, scale)) in all_possible_globs ])).items()
+        paths[mesh_key]=dict(itertools.chain(*[ genGlobbedList(glob_path, cls, scale, group, blacklist) for (glob_path, (cls, scale, group)) in all_possible_globs ])).items()
 
-    for mesh_key in mesh_paths:
-        meshes[mesh_key]=[ cls(object3dLib.load(path, scale), views, mesh_key) for (path, (cls, scale)) in paths[mesh_key] ]
+    for key in mesh_paths:
+        meshes[key]=[ cls(object3dLib.load(path, scale, group), views, key, group)
+                           for (path, (cls, scale, group)) in paths[key]]
+
+    all_vbo_groups = set()
+    for key in meshes:
+        all_vbo_groups|= set([ m.group for m in meshes[key] if m.group is not None ])
+
+    vbo_map={}
+    for g in all_vbo_groups:
+        vbo_map[g]=object3dLib.createVBO(g)
+        all_vbos.append(vbo_map[g])
+        
+    for key in meshes:
+        vbos[key]= list(set([ vbo_map[m.group] for m in meshes[key] if m.group is not None]))
+    print 'vbos: '+str(vbos)
+    for mesh_key in dict(meshes):
+        [ m.finishInit() for m in meshes[mesh_key] ]
+        meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None]
+        
 
     #draw function assumes that Mesh instances are first in the meshes values lists
     #so reorder
-    for mesh_key in meshes:
-        unordered_meshes=meshes[mesh_key]
-        meshes[mesh_key]=[]
-        for m in unordered_meshes:
-            if type(m) is Mesh:
-                meshes[mesh_key].append(m)
-                m.finishInit()
-        for m in unordered_meshes:
-            if type(m) is not Mesh:
-                meshes[mesh_key].append(m)
-                m.finishInit()
+    #for mesh_key in meshes:
+    #    unordered_meshes=meshes[mesh_key]
+    #    meshes[mesh_key]=[]
+    #    for m in unordered_meshes:
+    #        if type(m) is Mesh:
+    #            meshes[mesh_key].append(m)
+    #            m.finishInit()
+    #    for m in unordered_meshes:
+    #        if type(m) is not Mesh:
+    #            meshes[mesh_key].append(m)
+    #            m.finishInit()
 
 all_meshes=[]
 def deleteMeshes():
     for mesh in all_meshes:
         object3dLib.deleteMesh(mesh)
+    for vbo in all_vbos:
+        object3dLib.deleteVBO(vbo)
 
 class Mesh(object):
-    def __init__(self, mesh, views, mesh_key):
+    def __init__(self, mesh, views, mesh_key, group=None):
+        self.group=group
         self.mesh=mesh
         self.key=mesh_key
         all_meshes.append(mesh)
@@ -233,7 +266,6 @@ class Mesh(object):
         self._bot_details=new_details
 
     def setupRotation(self, pos, angle_quat, midPt, rotOrig=None):
-        assert setPosRotUnchanged(False)
         if rotOrig is None:
             rotOrig = midPt
         angleAxis= angle_quat.get_angle_axis()
@@ -288,7 +320,6 @@ class Mesh(object):
         rotOrig=(bot.getAttitude() * SETUP_ROT * (midPt))
 
         self.setupRotation(bot.getPos(), rot, midPt, rotOrig)
-        # assert setPosRotUnchanged(False)
         
         # att=bot.getAttitude()
         # axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
@@ -348,9 +379,9 @@ class Mesh(object):
         # glPopMatrix()
                         
 class PropMesh(Mesh):
-    def __init__(self, mesh, views, key):
+    def __init__(self, *args, **kwargs):
         print 'PropMesh.__init__'
-        Mesh.__init__(self, mesh, views, key)
+        Mesh.__init__(self, *args, **kwargs)
         self.ang=0.0
         self.alpha=0.0
         self.__momentum=0.0
@@ -379,8 +410,8 @@ class PropMesh(Mesh):
         #assert(self.__fbo is not None)
 
 class PropBlendMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def finishInit(self):
         self.__prop=self._sibs['data/models/cockpit/E_Prop.csv']
@@ -392,15 +423,15 @@ class PropBlendMesh(Mesh):
         glDepthMask(True)
 
 class AltMeterMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         self.drawRotated(bot, Quaternion.new_rotate_axis(((bot.getPos().y % 6154.0)/6154)*(PI2), X_UNIT), self._sibs['data/models/cockpit/AltDial.csv'].mesh)
 
 class ClimbMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         ident=bot.getId()
@@ -419,29 +450,29 @@ class ClimbMesh(Mesh):
         self._bot_details[(view_id, ident)]=(manage.now, smoothed_rate)
 
 class BankingMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getAttitude().get_bank()), X_UNIT), self._sibs['data/models/cockpit/LRDial.csv'].mesh)
 
 class AirSpeedMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         self.drawRotated(bot, Quaternion.new_rotate_axis((bot.getVelocity().magnitude()/200.0) * PI2, X_UNIT), self._sibs['data/models/cockpit/Circle.003.csv'].mesh)
 
 class WingAirSpeedMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         self.drawRotated(bot, Quaternion.new_rotate_axis(-(bot.getVelocity().magnitude()/200.0) * QUART_PI, Z_UNIT), self._sibs['data/models/cockpit/Circle.008.csv'].mesh)
 
 class RPMMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         rpm_frac=getRPMFraction(bot)
@@ -452,8 +483,8 @@ class RPMMesh(Mesh):
         self.drawRotated(bot, Quaternion.new_rotate_axis((rpm_frac+rnd) * math.pi, X_UNIT), self._sibs['data/models/cockpit/Circle.004.csv'].mesh)
 
 class CompassMesh(Mesh):
-    def __init__(self, mesh, views, key):
-        Mesh.__init__(self, mesh, views, key)
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
 
     def draw(self, bot, view_id):
         heading=bot.getHeading()

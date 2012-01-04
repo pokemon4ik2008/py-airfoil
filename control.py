@@ -28,6 +28,14 @@ class Action:
     def __repr__(self):
         return self.__name
 
+class NullAction(Action):
+    def __init__(self):
+        Action.__init__(self, 'NullAction')
+
+    def getState(self):
+        return 0
+NULL_ACTION=NullAction()
+
 class KeyAction(Action):
     __KEYS = key.KeyStateHandler()
 

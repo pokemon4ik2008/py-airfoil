@@ -50,7 +50,7 @@
 #include <math.h>
 #include <GL/glew.h>
 
-typedef enum {ok, noMemory,invalidPrimitive,emptyObject,nofile, unsupported, failedAssert} oError;
+typedef enum {ok, noMemory,invalidPrimitive,emptyObject,nofile, unsupported, glErr, failedAssert} oError;
 typedef unsigned char ubyte;
 typedef enum {line,tri,quad,empty} primitiveType;
 #define PI	(22.0f/7.0f)
@@ -114,6 +114,19 @@ typedef struct OBJ_3DPRIMITIVE
 } obj_3dPrimitive;
 
 typedef struct {
+#define NO_VBO 0xffffffff
+  GLuint vbo;
+#define NO_IBO 0xffffffff
+  GLuint ibo;
+  uint32 num_prims;
+  GLuint num_indices;
+  uint32 num_vert_components;
+  uint32 num_col_components;
+  uint32 num_norm_components;
+  uint32 stride;
+} obj_vbo;
+
+typedef struct {
   obj_3dPrimitive *p_prim;
   obj_vertex mid;
   obj_vertex min;
@@ -125,15 +138,20 @@ typedef struct {
   uint32 *p_tex_flags;
   uint8 **pp_tex_paths;
   uint8 mesh_path[PATH_LEN];
-#define NO_VBO 0xffffffff
-  GLuint vbo;
-#define NO_IBO 0xffffffff
-  GLuint ibo;
-  GLuint num_indices;
-  uint32 num_vert_components;
-  uint32 num_col_components;
-  uint32 num_norm_components;
-  uint32 stride;
+  uint32 num_prims;
+
+/* #define NO_VBO 0xffffffff */
+/*   GLuint vbo; */
+/* #define NO_IBO 0xffffffff */
+/*   GLuint ibo; */
+/*   GLuint num_indices; */
+/*   uint32 num_vert_components; */
+/*   uint32 num_col_components; */
+/*   uint32 num_norm_components; */
+/*   uint32 stride; */
+#define NO_VBO_GROUP 0xffffffff
+  uint32 vbo_group;
+  obj_vbo vbo;
   void *p_vert_start;
   void *p_vert_end;
 } obj_3dMesh;
@@ -176,12 +194,13 @@ void	objSetViewAngle		(float ax, float ay, float az);
 void	objSetPointOfView	(float x, float y, float z, float ax, float ay, float az);
 
 void	objSetVertexNormal	(obj_vector unit_vector_norm,unsigned int flags);
-oError	objCreate			(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags);
+oError	objCreate			(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags, uint32 vbo_group);
 
 void	objDelete			(obj_3dMesh **pp_mesh);
 oError	objPlot				(obj_3dMesh *p_mesh, float32 alpha);
+oError	vboPlot				(obj_vbo *p_vbo);
 oError	objPlotToTex			(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize, uint32 ySize, uint32 bgTex, uint32 boundPlane, uint32 top);
-oError createVBO(obj_3dPrimitive *p_mesh, uint32 num_prims);
+oError setupVBO(obj_3dMesh *p_meshes, uint32 num_meshes, obj_vbo *p_vbo);
 
 inline float32 max(float32 x, float32 y) {
   return x>y?x:y;

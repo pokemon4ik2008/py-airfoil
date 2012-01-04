@@ -26,13 +26,13 @@ inline void memZero(void *p_mem, uint32 bytes) {
 
 extern "C" 
 {
-  DLL_EXPORT void *load(char *filename, float scale)
+  DLL_EXPORT void *load(char *filename, float scale, uint32 vbo_group)
 	{
 		oError err = ok;		
 		unsigned int objectflags=0;
 		obj_3dMesh *obj = NULL;
 		objectflags|=OBJ_NORMAL_POSITIVE;
-		err = objCreate(&obj, filename, scale, objectflags);
+		err = objCreate(&obj, filename, scale, objectflags, vbo_group);
 		
 		if (err != ok)
 		{
@@ -186,19 +186,78 @@ extern "C"
 		}
 	}
 
+  DLL_EXPORT void drawVBO(void *p_vboToPlot)
+	{
+		oError err = ok;
+		glTranslatef(pos.x ,pos.y ,pos.z );
+		glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
+		if (rotAxis) {
+		  glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
+		}
+  
+		err = vboPlot(static_cast<obj_vbo *>(p_vboToPlot));
+		if (err != ok)
+		{
+			printf("ERROR: when drawing object\n");
+		}
+	}
+
+  void deleteVBOBuffers(obj_vbo *p_vbo) {
+		if(p_vbo->ibo != NO_IBO) {
+		  printf("1 start ibo\n");
+	          glDeleteBuffersARB(1, &(p_vbo->ibo));
+		  printf("2 start ibo\n");
+		}
+		if(p_vbo->vbo != NO_VBO) {
+		  printf("1 start vbo\n");
+		  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_vbo->vbo);
+		  glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); 
+		  glDeleteBuffersARB(1, &(p_vbo->vbo));
+		  printf("2 start vbo\n");
+		}
+  }
+
 	DLL_EXPORT void deleteMesh(void *meshToDelete)
 	{	
 		obj_3dMesh *p_mesh = static_cast<obj_3dMesh *>(meshToDelete);
-		if(p_mesh->ibo != NO_IBO) {
-		  glDeleteBuffersARB(1, &(p_mesh->ibo));
-		}
-		if(p_mesh->vbo != NO_VBO) {
-		  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_mesh->vbo);
-		  glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); 
-		  glDeleteBuffersARB(1, &(p_mesh->vbo));
-		}
+		deleteVBOBuffers(&(p_mesh->vbo));
 		objDelete(&p_mesh);			
 	}
+  
+	DLL_EXPORT void deleteVBO(void *vboToDelete)
+	{	
+		obj_vbo *p_vbo = static_cast<obj_vbo *>(vboToDelete);
+		deleteVBOBuffers(p_vbo);
+		free(p_vbo);			
+	}
+  
+  DLL_EXPORT void *createVBO(uint32 vbo_group)
+  {
+    uint32 group_size=0;
+    for(uint32 i=0; i<num_meshes; i++) {
+      obj_3dMesh *p_mesh=p_meshes[i];
+      if(p_mesh->vbo_group!=NO_VBO_GROUP && p_mesh->vbo_group==vbo_group) {
+	group_size++;
+      }
+    }
+    obj_3dMesh *p_group_meshes=(obj_3dMesh *)malloc(sizeof(obj_3dMesh)*group_size);
+    uint32 group_idx=0;
+    for(uint32 i=0; i<num_meshes; i++) {
+      obj_3dMesh *p_mesh=p_meshes[i];
+      if(p_mesh->vbo_group!=NO_VBO_GROUP && p_mesh->vbo_group==vbo_group) {
+	p_group_meshes[group_idx]=*p_mesh;
+	group_idx++;
+      }
+    }
+    
+    obj_vbo *p_vbo=(obj_vbo *)malloc(sizeof(obj_vbo));
+    setupVBO(p_group_meshes, group_size, p_vbo);
+    return p_vbo;
+  }
+
+  DLL_EXPORT void *createMeshVBO(obj_3dMesh *p_mesh) {
+    setupVBO(p_mesh, 1, &(p_mesh->vbo));
+  }
 
   /*
   DLL_EXPORT setupRotation(x, y, z, wr, xr, yr, zr, xmid, ymid, zmid, xorig, yorig, zorig)
@@ -576,37 +635,40 @@ oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize,
   return ok;
 }
 
-oError createVBO(obj_3dMesh *p_mesh, uint32 num_prims) {
-  obj_3dPrimitive *p_prim=p_mesh->p_prim;
-  uint32 num_verts=num_prims*3;
-  GLuint tri_map[num_verts];
-  //GLuint *tri_map;
-  //tri_map=(GLuint *)malloc(num_verts*sizeof(GLuint));
-  //if(!tri_map) {
-  //  return noMemory;
-  //}
-  // memZero(verts, sizeof(verts));
-
+oError setupVBO(obj_3dMesh *p_meshes, uint32 num_meshes, obj_vbo *p_vbo) {
   if(glewInit()!=GLEW_OK || !GL_ARB_vertex_buffer_object) {
     printf("createVBO. no vertex buffer support\n");
     return unsupported;
   }
-  p_mesh->vbo=NO_VBO;
-  p_mesh->ibo=NO_IBO;
-  //return unsupported;
 
-  glGenBuffersARB(1, &(p_mesh->vbo));
-  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_mesh->vbo);
-  p_mesh->num_vert_components=3;
-  p_mesh->num_col_components=4;
-  p_mesh->num_norm_components=3;
-  p_mesh->stride=p_mesh->num_vert_components*sizeof(GLfloat)+
-    p_mesh->num_col_components*sizeof(GLfloat)+
-    p_mesh->num_norm_components*sizeof(GLfloat);
+  obj_3dMesh *p_mesh;
+  uint32 num_prims=0;
+  for(uint32 m=0; m<num_meshes; m++) {
+    p_mesh=&p_meshes[m];
+    num_prims+=p_mesh->num_prims;
+  }
 
-  const GLsizeiptr vertex_size = num_verts*p_mesh->num_vert_components*sizeof(GLfloat);
-  const GLsizeiptr color_size = num_verts*p_mesh->num_col_components*sizeof(GLfloat);
-  const GLsizeiptr norm_size = num_verts*p_mesh->num_norm_components*sizeof(GLfloat);
+  uint32 num_verts=num_prims*3;
+  //GLuint tri_map[num_verts];
+  GLuint *tri_map;
+  tri_map=(GLuint *)malloc(num_verts*sizeof(GLuint));
+  if(!tri_map) {
+    return noMemory;
+  }
+  memZero(tri_map, sizeof(tri_map));
+
+  glGenBuffersARB(1, &(p_vbo->vbo));
+  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_vbo->vbo);
+  p_vbo->num_vert_components=3;
+  p_vbo->num_col_components=4;
+  p_vbo->num_norm_components=3;
+  p_vbo->stride=p_vbo->num_vert_components*sizeof(GLfloat)+
+    p_vbo->num_col_components*sizeof(GLfloat)+
+    p_vbo->num_norm_components*sizeof(GLfloat);
+
+  const GLsizeiptr vertex_size = num_verts*p_vbo->num_vert_components*sizeof(GLfloat);
+  const GLsizeiptr color_size = num_verts*p_vbo->num_col_components*sizeof(GLfloat);
+  const GLsizeiptr norm_size = num_verts*p_vbo->num_norm_components*sizeof(GLfloat);
   //printf("size alloced: %u\n", num_verts*(num_vert_components+num_col_components));
   glBufferDataARB(GL_ARRAY_BUFFER_ARB, vertex_size+color_size+norm_size, 0, GL_STATIC_DRAW_ARB);
   //printf("assigning buffer size: verts %u cols %u %u\n", vertex_size, color_size, vertex_size+color_size);
@@ -616,72 +678,73 @@ oError createVBO(obj_3dMesh *p_mesh, uint32 num_prims) {
     return noMemory;
   }
 
-  GLfloat *p_comp=(GLfloat *)vbo_buf;
-
-
-
   oError error=ok;
   uint32 i;
   uint32 prim=0;
-  while(p_prim->next_ref!=NULL) {
-    p_prim=p_prim->next_ref;
-    //for(uint32 prim=0; prim<num_prims; prim++) {
-    assert(p_prim->type==tri);
-    // if(curr_prim->uv_id!=UNTEXTURED) {
-    //   glEnd();
-    //   glEnable(GL_TEXTURE_2D);
-    //   glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
-    //   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    //   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-    //   if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
-    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-    //   } else {
-    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-    //   }
-    //   glBegin(GL_TRIANGLES);
-    // }
-    for (i=0;i<3;i++) {
-      tri_map[prim*3+i]=prim*3+i;
-      //glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);
-      
-      *(p_comp++)=p_prim->vert[i]->norm.x;
-      *(p_comp++)=p_prim->vert[i]->norm.y;
-      *(p_comp++)=p_prim->vert[i]->norm.z;
+  GLfloat *p_comp=(GLfloat *)vbo_buf;
 
-      // if(curr_prim->uv_id != UNTEXTURED) {
-      // 	glColor4f(1.0, 1.0, 1.0, alpha);
-      // 	glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
-      // } else {
-      //glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
+  for(uint32 m=0; m<num_meshes; m++) {
+    obj_3dPrimitive *p_prim=p_meshes[m].p_prim;
+    while(p_prim->next_ref!=NULL) {
+      p_prim=p_prim->next_ref;
+      //for(uint32 prim=0; prim<num_prims; prim++) {
+      assert(p_prim->type==tri);
+      // if(curr_prim->uv_id!=UNTEXTURED) {
+      //   glEnd();
+      //   glEnable(GL_TEXTURE_2D);
+      //   glBindTexture(GL_TEXTURE_2D, p_mesh->p_tex_ids[curr_prim->uv_id]);
+      //   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+      //   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+      //   if(p_mesh->p_tex_flags[curr_prim->uv_id] & OBJ_TEX_FLAG_REPEAT) {
+      // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+      // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+      //   } else {
+      // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+      // 	glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+      //   }
+      //   glBegin(GL_TRIANGLES);
+      // }
+      for (i=0;i<3;i++) {
+	tri_map[prim*3+i]=prim*3+i;
+	//glNormal3f( curr_prim->vert[i]->norm.x, curr_prim->vert[i]->norm.y, curr_prim->vert[i]->norm.z);
+      
+	*(p_comp++)=p_prim->vert[i]->norm.x;
+	*(p_comp++)=p_prim->vert[i]->norm.y;
+	*(p_comp++)=p_prim->vert[i]->norm.z;
+
+	// if(curr_prim->uv_id != UNTEXTURED) {
+	// 	glColor4f(1.0, 1.0, 1.0, alpha);
+	// 	glTexCoord2f(curr_prim->vert[i]->u, curr_prim->vert[i]->v);
+	// } else {
+	//glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
  
 
-      *(p_comp++)=p_prim->r;
-      *(p_comp++)=p_prim->g;
-      *(p_comp++)=p_prim->b;
-      *(p_comp++)=1.0;
+	*(p_comp++)=p_prim->r;
+	*(p_comp++)=p_prim->g;
+	*(p_comp++)=p_prim->b;
+	*(p_comp++)=1.0;
 
 	//}
 	//glVertex3f(	curr_prim->vert[i]->x, 
 	//		curr_prim->vert[i]->y, 
 	//	curr_prim->vert[i]->z);
-      *(p_comp++)=p_prim->vert[i]->x;
-      *(p_comp++)=p_prim->vert[i]->y;
-      //printf("byte offset %u comp offset %u\n", (uint8 *)p_comp-(uint8 *)vbo_buf, p_comp-(GLfloat *)vbo_buf);
-      *(p_comp++)=p_prim->vert[i]->z;
-      //printf("x %f y %f z %f r %f g %f b %f\n", p_prim->vert[i]->x, p_prim->vert[i]->y, p_prim->vert[i]->z, p_prim->r, p_prim->g, p_prim->b);
+	*(p_comp++)=p_prim->vert[i]->x;
+	*(p_comp++)=p_prim->vert[i]->y;
+	//printf("byte offset %u comp offset %u\n", (uint8 *)p_comp-(uint8 *)vbo_buf, p_comp-(GLfloat *)vbo_buf);
+	*(p_comp++)=p_prim->vert[i]->z;
+	//printf("x %f y %f z %f r %f g %f b %f\n", p_prim->vert[i]->x, p_prim->vert[i]->y, p_prim->vert[i]->z, p_prim->r, p_prim->g, p_prim->b);
+      }
+      // if(curr_prim->uv_id!=UNTEXTURED) {
+      //   glEnd();
+      //   glDisable(GL_TEXTURE_2D);
+      //   uint32 error=glGetError();
+      //   if(error) {
+      // 	printf("err %u\n", error);
+      //   }
+      //   glBegin(GL_TRIANGLES);
+      // }
+      prim++;
     }
-    // if(curr_prim->uv_id!=UNTEXTURED) {
-    //   glEnd();
-    //   glDisable(GL_TEXTURE_2D);
-    //   uint32 error=glGetError();
-    //   if(error) {
-    // 	printf("err %u\n", error);
-    //   }
-    //   glBegin(GL_TRIANGLES);
-    // }
-    prim++;
   }
 
 
@@ -700,11 +763,14 @@ oError createVBO(obj_3dMesh *p_mesh, uint32 num_prims) {
   // Describe to OpenGL where the vertex data is in the buffer
   glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
 
-  glGenBuffers(1, &(p_mesh->ibo));
-  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, p_mesh->ibo);
+  glGenBuffers(1, &(p_vbo->ibo));
+  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, p_vbo->ibo);
   glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, num_verts*sizeof(GLuint), tri_map, GL_STATIC_DRAW_ARB);
   glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
-  p_mesh->num_indices=num_verts;
+  p_vbo->num_indices=num_verts;
+  p_vbo->num_prims=num_prims;
+
+  free(tri_map);
   return ok;
 }
 
@@ -714,7 +780,7 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
   oError error=ok;
   obj_3dPrimitive* curr_prim=obj;
   uint32 i;
-	
+
   //unsigned int flags;
   /*
   glTranslatef(pos.x ,pos.y ,pos.z );
@@ -729,35 +795,7 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
   glEnable(GL_LIGHTING);
   //glEnable(GL_CULL_FACE);
 	
-  if(p_mesh->vbo != NO_VBO && p_mesh->ibo != NO_IBO) {
-    // Activate the VBOs to draw
-    glBindBuffer(GL_ARRAY_BUFFER, p_mesh->vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, p_mesh->ibo);
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-
-    glVertexPointer(p_mesh->num_vert_components, GL_FLOAT, p_mesh->stride, (GLvoid*)((char*)NULL+p_mesh->num_col_components*sizeof(GLfloat)+p_mesh->num_norm_components*sizeof(GLfloat)));
-    glColorPointer(p_mesh->num_col_components, GL_FLOAT, p_mesh->stride, (GLvoid*)((char*)NULL+p_mesh->num_norm_components*sizeof(GLfloat)));
-    glNormalPointer(GL_FLOAT, p_mesh->stride, (GLvoid*)((char*)NULL));
-    //glColor4f(1.0, 1.0, 1.0, 1.0);
-    // This is the actual draw command
-    glDrawElements(GL_TRIANGLES, p_mesh->num_indices, 
-		   GL_UNSIGNED_INT, (GLvoid*)((char*)NULL));
-
-    glDisableClientState(GL_NORMAL_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    uint32 error=glGetError();
-    if(error) {
-      printf("err %u\n", error);
-    }
-  } else {
+  if(p_mesh->vbo.vbo == NO_VBO) {
     uint32 last_textured=false;
     glBegin(  GL_TRIANGLES );
     while(curr_prim->next_ref!=NULL) {
@@ -794,14 +832,84 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
 	//glEnable( GL_DEPTH_TEST);
-	uint32 error=glGetError();
-	if(error) {
+	uint32 gl_error=glGetError();
+	if(gl_error) {
 	  printf("err %u\n", error);
+	  error=glErr;
 	}
 	glBegin(GL_TRIANGLES);
       }
     }
     glEnd();
+  } else {
+    assert(p_mesh->vbo.ibo!=NO_IBO);
+    // Activate the VBOs to draw
+    glBindBuffer(GL_ARRAY_BUFFER, p_mesh->vbo.vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, p_mesh->vbo.ibo);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+
+    glVertexPointer(p_mesh->vbo.num_vert_components, GL_FLOAT, p_mesh->vbo.stride, (GLvoid*)((char*)NULL+p_mesh->vbo.num_col_components*sizeof(GLfloat)+p_mesh->vbo.num_norm_components*sizeof(GLfloat)));
+    glColorPointer(p_mesh->vbo.num_col_components, GL_FLOAT, p_mesh->vbo.stride, (GLvoid*)((char*)NULL+p_mesh->vbo.num_norm_components*sizeof(GLfloat)));
+    glNormalPointer(GL_FLOAT, p_mesh->vbo.stride, (GLvoid*)((char*)NULL));
+    //glColor4f(1.0, 1.0, 1.0, 1.0);
+    // This is the actual draw command
+    glDrawElements(GL_TRIANGLES, p_mesh->vbo.num_indices, 
+		   GL_UNSIGNED_INT, (GLvoid*)((char*)NULL));
+
+    glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    uint32 error=glGetError();
+    if(error) {
+      printf("err %u\n", error);
+    }
+  }
+  return error;
+}
+
+//Pre: call to objSetPlotPos/Angle to set plotting position
+oError vboPlot(obj_vbo *p_vbo) {
+  oError error=ok;
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_LIGHTING);
+  //glEnable(GL_CULL_FACE);
+	
+  assert(p_vbo->vbo != NO_VBO);
+  assert(p_vbo->ibo!=NO_IBO);
+  // Activate the VBOs to draw
+  glBindBuffer(GL_ARRAY_BUFFER, p_vbo->vbo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, p_vbo->ibo);
+
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glEnableClientState(GL_NORMAL_ARRAY);
+
+  glVertexPointer(p_vbo->num_vert_components, GL_FLOAT, p_vbo->stride, (GLvoid*)((char*)NULL+p_vbo->num_col_components*sizeof(GLfloat)+p_vbo->num_norm_components*sizeof(GLfloat)));
+  glColorPointer(p_vbo->num_col_components, GL_FLOAT, p_vbo->stride, (GLvoid*)((char*)NULL+p_vbo->num_norm_components*sizeof(GLfloat)));
+  glNormalPointer(GL_FLOAT, p_vbo->stride, (GLvoid*)((char*)NULL));
+  //glColor4f(1.0, 1.0, 1.0, 1.0);
+  // This is the actual draw command
+  glDrawElements(GL_TRIANGLES, p_vbo->num_indices, 
+		 GL_UNSIGNED_INT, (GLvoid*)((char*)NULL));
+
+  glDisableClientState(GL_NORMAL_ARRAY);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  uint32 gl_error=glGetError();
+  if(gl_error) {
+    printf("err %u\n", error);
+    error=glErr;
   }
   return error;
 }
@@ -809,7 +917,7 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
 //Pre: call to objSetLoadPos.. angle not yet supported
 oError objCreate(obj_3dMesh **pp_mesh, 
 					char *fname,float obj_scaler
-		 , unsigned int flags ) {
+		 , unsigned int flags, uint32 vbo_group ) {
   //printf("objCreate for %s\n", fname);
   *pp_mesh=new obj_3dMesh;
   p_meshes[num_meshes++]=*pp_mesh;
@@ -1103,7 +1211,12 @@ oError objCreate(obj_3dMesh **pp_mesh,
 		i++;
 	}
 	
-	createVBO(*pp_mesh, inprims_max);
+	(*pp_mesh)->vbo_group=vbo_group;
+	(*pp_mesh)->num_prims=inprims_max;
+	(*pp_mesh)->vbo.vbo=NO_VBO;
+	(*pp_mesh)->vbo.ibo=NO_IBO;
+	//(*pp_mesh)->ibo=NO_IBO;
+	//createVBO(*pp_mesh);
 	delete [] inprims;
 	
 	return error;
@@ -1123,5 +1236,3 @@ void objDelete(obj_3dMesh **pp_mesh) {
   }
   obj=NULL;
 }
-
-

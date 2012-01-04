@@ -44,6 +44,8 @@ from sound import *
 from skybox import *
 from util import X_UNIT, Y_UNIT, Z_UNIT
 
+import cProfile
+
 global listNum
 global opt
 
@@ -319,8 +321,8 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__play_tire=play_tire
 	    return self
 
-def simMain():
-	man=manage
+man=manage
+def init():
         #try:
         #        import psyco
         #except ImportError:
@@ -368,12 +370,14 @@ def simMain():
 	win_width=800
 	win_height=600
 	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
+	global win
 	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
 	win.set_vsync(False)
 	win.dispatch_events()
 	win.clear()
 	win.flip()
 
+	global views
 	views = []
 	def resize(width, height):
 		for view in views:
@@ -416,32 +420,37 @@ def simMain():
 	loadTerrain()
         r = 0.0
 
+	global win_ctrls
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
 			      (Controller.TOG_SOUND_EFFECTS, KeyAction(key.N, onPress=True))], win)
 
 	player_keys = []
 	if man.opt.two_player == True:
 		player_keys.extend([Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-					   (Controller.FIRE, KeyAction(key.R)),
-					   (Controller.PITCH, KeyAction(key.S, key.W)),
-					   (Controller.ROLL, KeyAction(key.A, key.D)),
-					   (Controller.CAM_FIXED, KeyAction(key._1)),
-					   (Controller.CAM_FOLLOW, KeyAction(key._2)),
-					   (Controller.CAM_INTERNAL, KeyAction(key._3)),
-					   (Controller.CAM_Z, KeyAction(key.C, key.V)),
-					   (Controller.CAM_X, KeyAction(key.Z, key.X)),
-					   (Controller.CAM_ZOOM, KeyAction(key.G, key.H))], 
+						(Controller.FIRE, KeyAction(key.R)),
+						(Controller.PITCH, KeyAction(key.S, key.W)),
+						(Controller.ROLL, KeyAction(key.A, key.D)),
+						(Controller.CAM_FIXED, KeyAction(key._1)),
+						(Controller.CAM_FOLLOW, KeyAction(key._2)),
+						(Controller.CAM_INTERNAL, KeyAction(key._3)),
+						(Controller.CAM_Z, KeyAction(key.C, key.V)),
+						(Controller.CAM_X, KeyAction(key.Z, key.X)),
+						(Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
+						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
+						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
 			       win),
 				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-					       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-					       (Controller.CAM_FIXED, KeyAction(key._8)),
-					       (Controller.CAM_FOLLOW, KeyAction(key._9)), 
-					       (Controller.CAM_INTERNAL, KeyAction(key._0)), 
-					       (Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
-					       (Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
-					       (Controller.CAM_X, KeyAction(key.O, key.P)), 
-					       (Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
-					       (Controller.CAM_ZOOM, KeyAction(key.J, key.K))], 
+						(Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
+						(Controller.CAM_FIXED, KeyAction(key._8)),
+						(Controller.CAM_FOLLOW, KeyAction(key._9)), 
+						(Controller.CAM_INTERNAL, KeyAction(key._0)), 
+						(Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
+						(Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
+						(Controller.CAM_X, KeyAction(key.O, key.P)), 
+						(Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
+						(Controller.CAM_ZOOM, KeyAction(key.J, key.K)),
+						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
+						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
 					      win)])
 	else:
 			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
@@ -458,12 +467,13 @@ def simMain():
 						       (Controller.CAM_MOUSE_LOOK_Y, MouseAction(-0.00002, MouseAction.Y))],
 		       win))
 
+	global planes
 	planes = {}
 	plane_inits=[(Point3(0.0,100.0,0.0), 
 		      Quaternion.new_rotate_axis(0, Y_UNIT), 
 		      Vector3(60,0,0),
 		      0),
-		     (Point3(-100,0.0,0), 
+		     (Point3(-100,200.0,0), 
 		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
 		      Vector3(0,0,0),
 		      0)]
@@ -480,42 +490,50 @@ def simMain():
 
 	scale=3.0
 
-	def genMeshArgs(moving_maps, onlys, scale):
-		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale))]
+	def genMeshArgs(moving_maps, onlys, scale, group):
+		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
 		all.extend(moving_maps.items())
 
 		movingAndOnly=moving_maps.keys()[:]
 		movingAndOnly.append(onlys)
 
 		return (all, movingAndOnly)
-	
+
+	internal_grp=1
+	external_grp=2
 	(all_internal, internal_only)=genMeshArgs({
-		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale),
-		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale), 
-		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale), 
-		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale), 
-		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale),
-		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale),
-		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale)
-		}, "data/models/cockpit/I_*.csv", scale)
+		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
+		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
+		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
+		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
+		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
+		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
+		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
+		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
 
 	(all_external, external_only)=genMeshArgs({
-		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale),
-		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale)
-		}, "data/models/cockpit/E_*.csv", scale)
+		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
+		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
+		}, "data/models/cockpit/E_*.csv", scale, external_grp)
 	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
 	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
 	#do not maintain ordering
 	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, internal_only),
 			  (MyAirfoil.TYP, INTERNAL): (all_internal, external_only)
 			  }, views)
+	global mouse_cap
 	mouse_cap=False
+	global bots
 	bots=[]
+	global skybox
 	skybox = Skybox()
 
+	global start_time
 	start_time=time.time()
+
+def timeSlice(dt):
 	try:
-		while man.proxy.alive():
+		if man.proxy.alive():
 			man.updateTime()
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 			[ b.update() for b in set(Bullet.getInFlight())]
@@ -525,7 +543,6 @@ def simMain():
 				[ b.estUpdate() for b in bots ]
 				man.proxy.releaseLock()
 			
-
 			[ plane.markChanged() for plane in planes.itervalues() if plane.alive() ]
 			[ b.markChanged() for b in Bullet.getInFlight() if b.justBornOrDead() ]
 
@@ -539,14 +556,16 @@ def simMain():
 
 			events=win_ctrls.eventCheck()
 			if events[Controller.TOG_MOUSE_CAP]!=0:
+				global mouse_cap
 				mouse_cap = ~mouse_cap
 				win.set_exclusive_mouse(mouse_cap)
 			if events[Controller.TOG_SOUND_EFFECTS]!=0:
 				SoundSlot.sound_toggle()
 			win_ctrls.clearEvents()
 
-			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-			
+			glClear(GL_DEPTH_BUFFER_BIT)
+			#glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
+
 			for view in views:
 				glLoadIdentity()
 				view.activate()
@@ -559,9 +578,8 @@ def simMain():
 					#view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					#view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
-                                skybox.draw(view)
+				skybox.draw(view)
 				drawTerrain(view)
-				                                				
 				for bot in bots:
 					if bot.alive():
 						mesh.draw(bot, view)
@@ -569,7 +587,7 @@ def simMain():
 				view.eventCheck()
 				glLoadIdentity()
 				view.drawText()
-				dt=clock.tick()
+				#dt=clock.tick()
 
 			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
 
@@ -586,13 +604,30 @@ def simMain():
 							del planes[bot.getId()]
 
 			[ plane.eventCheck() for plane in planes.itervalues() if plane.alive() ]
-			yield True
-
+			return
+		
 	except Exception as detail:
 		print str(detail)
 		traceback.print_exc()
 		man.proxy.markDead()
 		man.proxy.markChanged()
+
+#def main_next(dt):
+#	main_iter.next()
+
+def run():
+	# global main_iter
+	# main_iter=simMain()
+	# main_iter.next()
+	# pyglet.clock.schedule_interval(main_next, 1/60.0)
+	# pyglet.app.run()
+	# while main_iter.next():
+	# 	pass
+	init()
+	#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
+	pyglet.clock.schedule(timeSlice)
+	pyglet.app.run()
+
 	print 'before proxy.join'
 	if man.proxy:
 		flush_start=time.time()
@@ -600,7 +635,6 @@ def simMain():
 			if time()-flush_start>3:
 				break
 			sleep(0)
-			yield True
 		man.proxy.join(3)
 		try:
 			assert not man.proxy.isAlive()
@@ -624,15 +658,8 @@ def simMain():
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
 	else:
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)
-	yield False
 
-def main_next(dt):
-	main_iter.next()
 
 if __name__ == '__main__':
-	main_iter=simMain()
-	main_iter.next()
-	pyglet.clock.schedule_interval(main_next, 1/60.0)
-	pyglet.app.run()
-	while main_iter.next():
-		pass
+	#cProfile.run('run()', 'profile')
+	run()
