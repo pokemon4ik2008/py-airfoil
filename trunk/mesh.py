@@ -17,6 +17,7 @@ from pyglet import image
 from pyglet.gl import *
 
 all_vbos=[]
+vbos={}
 vbo_meshes={}
 
 QUART_PI=0.25*math.pi
@@ -105,7 +106,7 @@ def transformBot(bot):
     fpos[2] = axis.z
     
     object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-    
+
 def draw(bot, view):
     v_type=view.getPlaneView(bot.getId())
     if (bot.TYP, v_type) in vbos:
@@ -155,11 +156,12 @@ def loadMeshes(mesh_paths, views):
     #createVBOs(meshes)
     for mesh_key in dict(meshes):
         [ m.finishInit() for m in meshes[mesh_key] ]
-        vbo_meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is not None]
-        meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None]
+        vbo_meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is not None and manage.vbo]
+        meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None or not manage.vbo]
         
 def createVBOs(mesh_map):
-    pyglet.options['graphics_vbo'] = True
+    if not manage.vbo:
+        return
     
     global vbos
     vbos = {}
@@ -326,6 +328,7 @@ class Mesh(object):
         object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
 
     def draw(self, bot, view_id):
+        transformBot(bot)
         object3dLib.draw(self.mesh, 1.0)
 
     def drawRotated(self, bot, angle_quat, centre_mesh, alpha=1.0):
