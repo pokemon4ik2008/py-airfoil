@@ -204,16 +204,14 @@ extern "C"
 
   void deleteVBOBuffers(obj_vbo *p_vbo) {
 		if(p_vbo->ibo != NO_IBO) {
-		  printf("1 start ibo\n");
+		  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, p_vbo->ibo);
+		  glUnmapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB); 
 	          glDeleteBuffersARB(1, &(p_vbo->ibo));
-		  printf("2 start ibo\n");
 		}
 		if(p_vbo->vbo != NO_VBO) {
-		  printf("1 start vbo\n");
 		  glBindBufferARB(GL_ARRAY_BUFFER_ARB, p_vbo->vbo);
 		  glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); 
 		  glDeleteBuffersARB(1, &(p_vbo->vbo));
-		  printf("2 start vbo\n");
 		}
   }
 
@@ -241,18 +239,24 @@ extern "C"
       }
     }
     obj_3dMesh *p_group_meshes=(obj_3dMesh *)malloc(sizeof(obj_3dMesh)*group_size);
-    uint32 group_idx=0;
-    for(uint32 i=0; i<num_meshes; i++) {
-      obj_3dMesh *p_mesh=p_meshes[i];
-      if(p_mesh->vbo_group!=NO_VBO_GROUP && p_mesh->vbo_group==vbo_group) {
-	p_group_meshes[group_idx]=*p_mesh;
-	group_idx++;
+    if(p_group_meshes) {
+      uint32 group_idx=0;
+      for(uint32 i=0; i<num_meshes; i++) {
+	obj_3dMesh *p_mesh=p_meshes[i];
+	if(p_mesh->vbo_group!=NO_VBO_GROUP && p_mesh->vbo_group==vbo_group) {
+	  p_group_meshes[group_idx]=*p_mesh;
+	  group_idx++;
+	}
       }
-    }
     
-    obj_vbo *p_vbo=(obj_vbo *)malloc(sizeof(obj_vbo));
-    setupVBO(p_group_meshes, group_size, p_vbo);
-    return p_vbo;
+      obj_vbo *p_vbo=(obj_vbo *)malloc(sizeof(obj_vbo));
+      setupVBO(p_group_meshes, group_size, p_vbo);
+      free(p_group_meshes);
+      return p_vbo;
+    } else {
+      printf("createVBO. failed to allocate mem\n");
+      return NULL;
+    }
   }
 
   DLL_EXPORT void *createMeshVBO(obj_3dMesh *p_mesh) {
@@ -351,16 +355,16 @@ uint8 match_mesh[]="data/models/cockpit/E_Prop.csv";
 void checkRange(obj_3dMesh *p_mesh, void *p_addr, bool within) {
   if(within) {
     if(p_addr<p_mesh->p_vert_start) {
-      printf("checkRange too low 0x%x start 0x%x end 0x%x\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
+      printf("checkRange too low 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
       assert(false);
     }
     if(p_addr>=p_mesh->p_vert_end) {
-      printf("checkRange too low 0x%x start 0x%x end 0x%x\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
+      printf("checkRange too low 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
       assert(false);
     }
   } else {
     if(p_addr>=p_mesh->p_vert_start && p_addr<p_mesh->p_vert_end) {
-      printf("within range 0x%x start 0x%x end 0x%x\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
+      printf("within range 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
       assert(false);
     }
   }
@@ -651,8 +655,15 @@ oError setupVBO(obj_3dMesh *p_meshes, uint32 num_meshes, obj_vbo *p_vbo) {
   uint32 num_verts=num_prims*3;
   //GLuint tri_map[num_verts];
   GLuint *tri_map;
-  tri_map=(GLuint *)malloc(num_verts*sizeof(GLuint));
+
+  glGenBuffers(1, &(p_vbo->ibo));
+  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, p_vbo->ibo);
+  //glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, num_verts*sizeof(GLuint), tri_map, GL_STATIC_DRAW_ARB);
+  glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, num_verts*sizeof(GLuint), 0, GL_STATIC_DRAW_ARB);
+  tri_map=(GLuint *)glMapBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+  //tri_map=(GLuint *)malloc(num_verts*sizeof(GLuint));
   if(!tri_map) {
+    printf("createVBO. failed to map indices\n");
     return noMemory;
   }
   memZero(tri_map, sizeof(tri_map));
@@ -762,15 +773,11 @@ oError setupVBO(obj_3dMesh *p_meshes, uint32 num_meshes, obj_vbo *p_vbo) {
   // Describe to OpenGL where the color data is in the buffer
   // Describe to OpenGL where the vertex data is in the buffer
   glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
-
-  glGenBuffers(1, &(p_vbo->ibo));
-  glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, p_vbo->ibo);
-  glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, num_verts*sizeof(GLuint), tri_map, GL_STATIC_DRAW_ARB);
   glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
   p_vbo->num_indices=num_verts;
   p_vbo->num_prims=num_prims;
 
-  free(tri_map);
+  //free(tri_map);
   return ok;
 }
 
@@ -883,6 +890,11 @@ oError vboPlot(obj_vbo *p_vbo) {
 	
   assert(p_vbo->vbo != NO_VBO);
   assert(p_vbo->ibo!=NO_IBO);
+  assert(glIsBuffer(p_vbo->vbo)==GL_TRUE);
+  assert(glIsBuffer(p_vbo->ibo)==GL_TRUE);
+
+  //printf("vboPlot %u %u\n", p_vbo->vbo, p_vbo->ibo);
+
   // Activate the VBOs to draw
   glBindBuffer(GL_ARRAY_BUFFER, p_vbo->vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, p_vbo->ibo);

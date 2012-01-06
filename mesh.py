@@ -5,6 +5,7 @@ import glob
 import itertools
 from math import cos, degrees, sin
 import manage
+import pyglet
 from pyglet.gl import *
 import os
 import random
@@ -14,6 +15,9 @@ from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT
 
 from pyglet import image
 from pyglet.gl import *
+
+all_vbos=[]
+vbo_meshes={}
 
 QUART_PI=0.25*math.pi
 HALF_PI=0.5*math.pi
@@ -117,9 +121,7 @@ def draw(bot, view):
             m.draw(bot, view.view_id)
             glPopMatrix()
     else:
-        glPushMatrix()
         bot.draw()
-        glPopMatrix()
 
 def loadMeshes(mesh_paths, views):
     print 'mesh_path: '+str(mesh_paths)
@@ -127,10 +129,8 @@ def loadMeshes(mesh_paths, views):
     lookup = {}
     global meshes
     meshes = {}
-    global vbos
-    vbos = {}
-    global all_vbos
-    all_vbos = []
+    global vbo_meshes
+    vbo_meshes = {}
     global name_to_mesh
     name_to_mesh = {}
     paths = {}
@@ -152,22 +152,30 @@ def loadMeshes(mesh_paths, views):
         meshes[key]=[ cls(object3dLib.load(path, scale, group), views, key, group)
                            for (path, (cls, scale, group)) in paths[key]]
 
+    #createVBOs(meshes)
+    for mesh_key in dict(meshes):
+        [ m.finishInit() for m in meshes[mesh_key] ]
+        vbo_meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is not None]
+        meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None]
+        
+def createVBOs(mesh_map):
+    pyglet.options['graphics_vbo'] = True
+    
+    global vbos
+    vbos = {}
+    global all_vbos
+
     all_vbo_groups = set()
-    for key in meshes:
-        all_vbo_groups|= set([ m.group for m in meshes[key] if m.group is not None ])
+    for key in mesh_map:
+        all_vbo_groups|= set([ m.group for m in mesh_map[key] if m.group is not None ])
 
     vbo_map={}
     for g in all_vbo_groups:
         vbo_map[g]=object3dLib.createVBO(g)
         all_vbos.append(vbo_map[g])
         
-    for key in meshes:
-        vbos[key]= list(set([ vbo_map[m.group] for m in meshes[key] if m.group is not None]))
-    print 'vbos: '+str(vbos)
-    for mesh_key in dict(meshes):
-        [ m.finishInit() for m in meshes[mesh_key] ]
-        meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None]
-        
+    for key in mesh_map:
+        vbos[key]= list(set([ vbo_map[m.group] for m in mesh_map[key] if m.group is not None]))
 
     #draw function assumes that Mesh instances are first in the meshes values lists
     #so reorder
@@ -184,11 +192,20 @@ def loadMeshes(mesh_paths, views):
     #            m.finishInit()
 
 all_meshes=[]
+
+def deleteVBOs():
+    global all_vbos
+    for vbo in all_vbos:
+        print 'deleting vbo'
+        object3dLib.deleteVBO(vbo)
+    all_vbos=[]
+
 def deleteMeshes():
+    global all_meshes
     for mesh in all_meshes:
         object3dLib.deleteMesh(mesh)
-    for vbo in all_vbos:
-        object3dLib.deleteVBO(vbo)
+    all_meshes=[]
+    deleteVBOs()
 
 class Mesh(object):
     def __init__(self, mesh, views, mesh_key, group=None):

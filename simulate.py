@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python2.6
 
 ##//
 ##//    Copyright 2011 Paul White
@@ -44,11 +44,6 @@ from sound import *
 from skybox import *
 from util import X_UNIT, Y_UNIT, Z_UNIT
 
-#import cProfile
-
-global listNum
-global opt
-
 def loadTerrain():
 	global cterrain
 	colFileName = ''
@@ -82,6 +77,8 @@ def drawTerrain(view):
 	pointOfView[5] = cameraCenter[2]
 	cterrain.draw(pointOfView)
 
+BULLET_MASS=1.0
+BULLET_DRAG_COEFF=0.05/BULLET_MASS
 class Bullet(Obj, ControlledSer):
     TYP=3
     #LIFE_SPAN is in seconds
@@ -94,7 +91,8 @@ class Bullet(Obj, ControlledSer):
 
     def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Quaternion(0.5,-0.5,0.5, 0.5), vel = Vector3(0,0,0), proxy=None, parent=None):
         Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
-        self._mass = 1.0 # 100g -- a guess
+        self._mass = BULLET_MASS
+	
         self._scales = [0.032, 0.032, 0.005]
 	self.__parent=parent
         ControlledSer.__init__(self, Bullet.TYP, ident, proxy=proxy)
@@ -141,9 +139,9 @@ class Bullet(Obj, ControlledSer):
     def _updateVelFromEnv(self, timeDiff):
         self._updateVelFromGrav(timeDiff)
         #Drag, acts || to Velocity vector
-        dv  = self.getDragForce(timeDiff) * timeDiff / self._mass
-        self._velocity -= dv
-
+        #dv  = self.getDragForce(timeDiff) * timeDiff / self._mass
+	self._velocity-=self._velocity*BULLET_DRAG_COEFF*timeDiff
+	
     def _updateFromEnv(self, timeDiff):
         self._updateVelFromEnv(timeDiff)
 
@@ -161,7 +159,7 @@ class Bullet(Obj, ControlledSer):
 
     def estUpdate(self):
         timeDiff=self._getTimeDiff()
-	self._updateFromEnv(timeDiff)
+	self._updateVelFromEnv(timeDiff)
         self._updatePos(timeDiff)
   
     def serialise(self):
@@ -171,18 +169,26 @@ class Bullet(Obj, ControlledSer):
     def justBornOrDead(self):
         return self._just_born or self._just_dead
 
+    @classmethod
+    def drawAll(cls):
+	    #glPushMatrix()
+	    glDisable(GL_CULL_FACE)
+            #glTranslatef(self._pos.x, self._pos.y, self_pos.z)
+            glBegin(GL_POINTS)
+            glColor4f(1.0,1.0,1.0,1.0)
+	    for p in cls.positions:
+		    glVertex3f(p.x, p.y, p.z)
+            glEnd()
+	    #glPopMatrix()
+	    cls.positions=[]
+
     def draw(self):
         try:
             assert self.alive()
-            pos = self.getPos()
-            glDisable(GL_CULL_FACE)
-            glTranslatef(pos.x, pos.y, pos.z)
-            glBegin(GL_POINTS)
-            glColor4f(1.0,1.0,1.0,1.0)
-	    glVertex3f(0,0,0)
-            glEnd()
+	    Bullet.positions.append(self._pos)
         except AssertionError:
             print_exc()
+Bullet.positions=[]
 
 class MyAirfoil(Airfoil, ControlledSer):
     UPDATE_SIZE=Mirrorable.META+12
@@ -197,7 +203,10 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    global cterrain
 	    Airfoil.__init__(self, pos, attitude, velocity, thrust, cterrain)
 	    ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
-	    self.__controls=controls
+	    self.setControls(controls)
+
+    def setControls(self, c):
+	    self.__controls=c
 
     def localInit(self):
         ControlledSer.localInit(self)
@@ -237,6 +246,9 @@ class MyAirfoil(Airfoil, ControlledSer):
             b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy, parent=self.getId())
             b.update()
             b.markChanged(full_ser=True)
+	    #mesh.deleteVBOs()
+	    #mesh.createVBOs(mesh.vbo_meshes)
+	    #glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
             self.__last_fire=manage.now
         self.__controls.clearEvents(self.__interesting_events)
 
@@ -362,72 +374,116 @@ def init():
 			man.proxy=Client(server=man.opt.client, factory=factory)
 	Sys.init(man.proxy)
 
-        #zoom = -150
-        #pressed = False
-        #xrot = 0
-        #zrot = 0
-	#win_planes=[]
-	win_width=800
-	win_height=600
-	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
-	global win
-	win = pyglet.window.Window(width=win_width, height=win_height, resizable=True, config=config_template)
-	#win = pyglet.window.Window(fullscreen=True, config=config_template)
-	win.set_vsync(False)
-	win.dispatch_events()
-	win.clear()
-	win.flip()
-
-	global views
+	global mouse_cap, fullscreen, views, planes, bots, skybox
+	mouse_cap=False
+	fullscreen=True
 	views = []
-	def resize(width, height):
-		for view in views:
-			view.updateDimensions()
-		return pyglet.event.EVENT_HANDLED
 
-	win.on_resize=resize       
-	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
-	glClearDepth(1.0)
-	#glClearStencil(0)
-	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
-	glEnable(GL_COLOR_MATERIAL)
-	glEnable(GL_LIGHT0)
-	fourfv = ctypes.c_float * 4        
-	glLightfv(GL_LIGHT0, GL_AMBIENT, fourfv(0.1, 0.1, 0.1, 1.0))
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, fourfv(0.6, 0.6, 0.6, 1.0))
-	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
-	lightPosition = fourfv(0.0,1000.0,1.0,1.0)
-	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)	
-	mesh.object3dLib.setLightPosition(lightPosition)
-	glEnable(GL_DEPTH_TEST)
-	glEnable(GL_CULL_FACE)
-	glDepthFunc(GL_LEQUAL)
-	glShadeModel(GL_SMOOTH)
-	glEnable(GL_BLEND)
-	glEnable(GL_POINT_SMOOTH)
-	glPointSize(2)
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-
-	#glFogfv(GL_FOG_COLOR, fourfv(0.6, 0.55, 0.7, 0.8))
-	#glFogf(GL_FOG_START, opt.width / 2)
-	#glFogf(GL_FOG_END, opt.width)
-	#glFogi(GL_FOG_MODE, GL_LINEAR)
-
-	#if not opt.wireframe:
-	glEnable(GL_FOG)     
-	print "width: "+str(win_width)+" height: "+str(win_height)
-	resize(win.width, win.height)
         clock = pyglet.clock.Clock()
 	loadTerrain()
         r = 0.0
 
+	planes = {}
+	plane_inits=[(Point3(0.0,100.0,0.0), 
+		      Quaternion.new_rotate_axis(0, Y_UNIT), 
+		      Vector3(60,0,0),
+		      0),
+		     (Point3(-100,200.0,0), 
+		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
+		      Vector3(0,0,0),
+		      0)]
+
+	plane_ids=[]
+	if man.opt.two_player==True:
+		num_players=2
+	else:
+		num_players=1
+	for i in range(num_players):
+		(pos, att, vel, thrust)=plane_inits[i]
+		print 'att: '+str(att)
+		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, proxy=man.proxy)
+		plane_ids.append(plane.getId())
+		planes[plane.getId()]=plane
+		view = View(plane, num_players, man.opt)
+		views.append(view)
+
+	if man.opt.two_player==True:
+		num_players=2
+	else:
+		num_players=1
+	scale=3.0
+
+	def genMeshArgs(moving_maps, onlys, scale, group):
+		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
+		all.extend(moving_maps.items())
+
+		movingAndOnly=moving_maps.keys()[:]
+		movingAndOnly.append(onlys)
+
+		return (all, movingAndOnly)
+
+	internal_grp=1
+	external_grp=2
+	(all_internal, internal_only)=genMeshArgs({
+		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
+		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
+		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
+		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
+		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
+		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
+		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
+		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
+
+	(all_external, external_only)=genMeshArgs({
+		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
+		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
+		}, "data/models/cockpit/E_*.csv", scale, external_grp)
+	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
+	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
+	#do not maintain ordering
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, internal_only),
+			  (MyAirfoil.TYP, INTERNAL): (all_internal, external_only)
+			  }, views)
+	bots=[]
+	skybox = Skybox()
+	start_time=time.time()
+	print 'startup current ctx: '+str(glx.glXGetCurrentContext())
+	return num_players, plane_ids, start_time
+
+def ptrOn(st=True):
+	# kw. set_exclusive_mouse called twice due to Pyglet bug in X windows.
+	# Pyglet only does something in set_exclusive_mouse if the new st
+	# != to the previous st.
+	# However when fullscreen is enabled mouse ptr appears without Pyglet
+	# updating its internal state so we call set_exclusive_mouse first with
+	# the wrong st. This updates the internal st to a different value to the
+	# st that we provide in our 2nd invocation of set_exclusive_mouse so
+	# the 2nd invocation always does something. Ta da
+	win.set_exclusive_mouse(not st)	
+	win.set_exclusive_mouse(st)	
+
+def resize(width, height):
+	for view in views:
+		view.updateDimensions()
+	return pyglet.event.EVENT_HANDLED
+
+def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
+	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
+	global win
+	if fs:
+		win = pyglet.window.Window(fullscreen=True, config=config_template)
+	else:
+		win = pyglet.window.Window(width=w, height=h, resizable=False, config=config_template)
+	win.set_vsync(False)
+	win.on_resize=resize       
 	global win_ctrls
 	win_ctrls=Controller([(Controller.TOG_MOUSE_CAP, KeyAction(key.M, onPress=True)),
 			      (Controller.TOG_FULLSCREEN, KeyAction(key.F, onPress=True)),
 			      (Controller.TOG_SOUND_EFFECTS, KeyAction(key.N, onPress=True))], win)
-
+	
+	global player_keys
 	player_keys = []
-	if man.opt.two_player == True:
+	if num_players==2:
 		player_keys.extend([Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 						(Controller.FIRE, KeyAction(key.R)),
 						(Controller.PITCH, KeyAction(key.S, key.W)),
@@ -468,84 +524,34 @@ def init():
 						       (Controller.CAM_MOUSE_LOOK_X, MouseAction(-0.00003, MouseAction.X)),
 						       (Controller.CAM_MOUSE_LOOK_Y, MouseAction(-0.00002, MouseAction.Y))],
 		       win))
+	for i in range(num_players):
+		print 'planes: '+str(planes)+' '+str(player_keys[i])
+		planes[plane_ids[i]].setControls(player_keys[i])
+		views[i].setViewController(win, player_keys[0])
 
-	global planes
-	planes = {}
-	plane_inits=[(Point3(0.0,100.0,0.0), 
-		      Quaternion.new_rotate_axis(0, Y_UNIT), 
-		      Vector3(60,0,0),
-		      0),
-		     (Point3(-100,200.0,0), 
-		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
-		      Vector3(0,0,0),
-		      0)]
 
-	for i in range(len(player_keys)):
-		controller=player_keys[i]
-		(pos, att, vel, thrust)=plane_inits[i]
-		print 'att: '+str(att)
-		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, 
-				  controls=controller, proxy=man.proxy)
-		planes[plane.getId()]=plane
-		view = View(controller, win, plane, len(player_keys), man.opt)
-		views.append(view)
+	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
+	glClearDepth(1.0)
+	glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+	glEnable(GL_COLOR_MATERIAL)
+	glEnable(GL_LIGHT0)
+	fourfv = ctypes.c_float * 4        
+	glLightfv(GL_LIGHT0, GL_AMBIENT, fourfv(0.1, 0.1, 0.1, 1.0))
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, fourfv(0.6, 0.6, 0.6, 1.0))
+	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
+	lightPosition = fourfv(0.0,1000.0,1.0,1.0)
+	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)	
+	mesh.object3dLib.setLightPosition(lightPosition)
+	glEnable(GL_DEPTH_TEST)
+	glEnable(GL_CULL_FACE)
+	glDepthFunc(GL_LEQUAL)
+	glShadeModel(GL_SMOOTH)
+	glEnable(GL_BLEND)
+	glEnable(GL_POINT_SMOOTH)
+	glPointSize(2)
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-	scale=3.0
-
-	def genMeshArgs(moving_maps, onlys, scale, group):
-		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
-		all.extend(moving_maps.items())
-
-		movingAndOnly=moving_maps.keys()[:]
-		movingAndOnly.append(onlys)
-
-		return (all, movingAndOnly)
-
-	internal_grp=1
-	external_grp=2
-	(all_internal, internal_only)=genMeshArgs({
-		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
-		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
-		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
-		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
-		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
-		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
-		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
-		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
-
-	(all_external, external_only)=genMeshArgs({
-		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
-		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
-		}, "data/models/cockpit/E_*.csv", scale, external_grp)
-	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
-	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
-	#do not maintain ordering
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, internal_only),
-			  (MyAirfoil.TYP, INTERNAL): (all_internal, external_only)
-			  }, views)
-	global mouse_cap
-	mouse_cap=False
-	global fullscreen
-	fullscreen=False
-	global bots
-	bots=[]
-	global skybox
-	skybox = Skybox()
-
-	global start_time
-	start_time=time.time()
-
-def ptrOn(st=True):
-	# kw. set_exclusive_mouse called twice due to Pyglet bug in X windows.
-	# Pyglet only does something in set_exclusive_mouse if the new st
-	# != to the previous st.
-	# However when fullscreen is enabled mouse ptr appears without Pyglet
-	# updating its internal state so we call set_exclusive_mouse first with
-	# the wrong st. This updates the internal st to a different value to the
-	# st that we provide in our 2nd invocation of set_exclusive_mouse so
-	# the 2nd invocation always does something. Ta da
-	win.set_exclusive_mouse(not st)	
-	win.set_exclusive_mouse(st)	
+	glEnable(GL_FOG)
 
 def timeSlice(dt):
 	try:
@@ -578,14 +584,18 @@ def timeSlice(dt):
 			if events[Controller.TOG_FULLSCREEN]!=0:
 				global fullscreen
 				fullscreen = not fullscreen
-				win.set_fullscreen(fullscreen)
-				ptrOn(mouse_cap)
+				mesh.deleteVBOs()
+				glFinish()
+				#win.set_fullscreen(fullscreen)
+				#pyglet.app.exit()
+				win.dispatch_event('on_close')
+				return
 			if events[Controller.TOG_SOUND_EFFECTS]!=0:
 				SoundSlot.sound_toggle()
 			win_ctrls.clearEvents()
 
-			glClear(GL_DEPTH_BUFFER_BIT)
-			#glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
+			#glClear(GL_DEPTH_BUFFER_BIT)
+			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
 			for view in views:
 				glLoadIdentity()
@@ -604,7 +614,8 @@ def timeSlice(dt):
 				for bot in bots:
 					if bot.alive():
 						mesh.draw(bot, view)
-
+				Bullet.drawAll()
+				
 				view.eventCheck()
 				glLoadIdentity()
 				view.drawText()
@@ -644,23 +655,28 @@ def run():
 	# pyglet.app.run()
 	# while main_iter.next():
 	# 	pass
-	init()
+	num_players, plane_ids, start_time=init()
 	#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
 	pyglet.clock.schedule(timeSlice)
-	pyglet.app.run()
+	while man.proxy.alive():
+		setupWin(num_players, plane_ids, fs=fullscreen)
+		glFinish()
+		mesh.createVBOs(mesh.vbo_meshes)
+		glFinish()
+		ptrOn(mouse_cap)
+		pyglet.app.run()
+		glFinish()
 
-	print 'before proxy.join'
-	if man.proxy:
-		flush_start=time.time()
-		while not man.proxy.attemptSendAll():
-			if time()-flush_start>3:
-				break
-			sleep(0)
-		man.proxy.join(3)
-		try:
-			assert not man.proxy.isAlive()
-		except:
-			print_exc()
+	flush_start=time.time()
+	while not man.proxy.attemptSendAll():
+		if time()-flush_start>3:
+			break
+		sleep(0)
+	man.proxy.join(3)
+	try:
+		assert not man.proxy.isAlive()
+	except:
+		print_exc()
 	if man.server:
 		man.server.join(3)
 		try:
