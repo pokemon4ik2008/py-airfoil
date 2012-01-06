@@ -375,7 +375,7 @@ def init():
 	Sys.init(man.proxy)
 
 	global mouse_cap, fullscreen, views, planes, bots, skybox
-	mouse_cap=False
+	mouse_cap=True
 	fullscreen=True
 	views = []
 
