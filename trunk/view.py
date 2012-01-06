@@ -110,20 +110,24 @@ class View(pyglet.event.EventDispatcher):
     __INTERNAL=2
     __VIEW_COUNT=0
 
-    def __init__(self, controller, win, plane, num_players, opt):
+    def __init__(self, plane, num_players, opt):
         self.__opt=opt
         self.__cams=[FollowCam(plane), FixedCam(plane), InternalCam(plane)]
         self.__currentCamera = self.__cams[View.__FIXED]
-        self.__controls = controller
+        self.__controls=None
         self.__plane_id=plane.getId()
         self.view_id=View.__VIEW_COUNT
         View.__VIEW_COUNT+=1
-        self.__win=win
+        self.__win=None
         self.__num_players=num_players
-        self.updateDimensions()
         #(self.__xrot, self.__zrot, self.__zoom) = self.__currentCamera.vantage
         self.__screenMessage=''
       
+    def setViewController(self, win, controller):
+        self.__win=win
+        self.__controls=controller
+        self.updateDimensions()
+
     def updateDimensions(self):
         self.__width=self.__win.width
         self.__height=self.__win.height/self.__num_players
