@@ -7,7 +7,8 @@ fast_path=True
 global sound_effects
 sound_effects=False
 global opt
-
+global vbo
+vbo=False
 from time import time
 global now, delta
 
