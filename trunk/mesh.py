@@ -56,6 +56,18 @@ object3dLib.drawToTex.restype=None
 object3dLib.draw.argtypes=[ c_void_p, c_float ]
 object3dLib.draw.restype=None
 
+object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
+                                     c_double, c_double, c_double, c_double,
+                                     c_double, c_double, c_double,
+                                     c_double, c_double, c_double ]
+object3dLib.setupRotation.restype=None
+
+object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
+                                   c_double, c_double, c_double, c_double,
+                                   c_double, c_double, c_double, c_double,
+                                   c_void_p, c_float, c_void_p ]
+object3dLib.drawRotated.restype=None
+
 #object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
 #object3dLib.createVBO.restype=c_int
 
@@ -90,7 +102,7 @@ def setPosRotUnchanged(flag):
     global pos_rot_unchanged
     pos_rot_unchanged=flag
     return True
-    
+
 def transformBot(bot):
     angleAxis = (bot.getAttitude() * SETUP_ROT ).get_angle_axis()
     axis = angleAxis[1].normalized()
@@ -287,30 +299,42 @@ class Mesh(object):
     def setupRotation(self, pos, angle_quat, midPt, rotOrig=None):
         if rotOrig is None:
             rotOrig = midPt
+        #print 'python. pos: '+str(pos)
+        #print 'python. angle_quat: '+str(angle_quat)
+        #print 'python. midPt: '+str(midPt)
+        #print 'python. rotOrig: '+str(rotOrig)
         angleAxis= angle_quat.get_angle_axis()
 
         rotNew=angle_quat * (midPt)
         axis = angleAxis[1].normalized()
         offset=pos-(rotNew-rotOrig)
+        #print 'python. rotNew: '+str(rotNew)
 
         fpos = (c_float * 3)()
         fpos[0] = offset.x
         fpos[1] = offset.y
         fpos[2] = offset.z
         object3dLib.setPosition(fpos)
-        
+        #print 'python. set pos: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
         fpos[0] = axis.x
         fpos[1] = axis.y
         fpos[2] = axis.z
         
         object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        #print 'python. set rot: '+str(degrees(angleAxis[0]))+' axis: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
 
     def drawRotatedToTexAlpha(self, bot, angle_quat, centre_mesh, fbo, width, height, bg, alpha, boundPlane, top):
         rot=angle_quat
         mid = (c_float * 3)()
         object3dLib.getMid(centre_mesh, mid)
-        midPt=Vector3(mid[0], mid[1], mid[2])
-        self.setupRotation(NULL_VEC, rot, midPt)
+        #midPt=Vector3(mid[0], mid[1], mid[2])
+        #self.setupRotation(NULL_VEC, rot, midPt)
+        object3dLib.setupRotation(
+            NULL_VEC.x, NULL_VEC.y, NULL_VEC.z,
+            rot.x, rot.y, rot.z,
+            mid[0], mid[1], mid[2],
+            mid[0], mid[1], mid[2]
+            )
         object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bg, boundPlane, top)
 
     def drawToTexAlpha(self, fbo, width, height, bgTex, alpha, boundPlane, top):
@@ -332,72 +356,33 @@ class Mesh(object):
         object3dLib.draw(self.mesh, 1.0)
 
     def drawRotated(self, bot, angle_quat, centre_mesh, alpha=1.0):
-        rot=bot.getAttitude()*angle_quat*SETUP_ROT
+        # rot=bot.getAttitude()*angle_quat*SETUP_ROT
 
-        mid = (c_float * 3)()
-        object3dLib.getMid(centre_mesh, mid)
-        midPt=Vector3(mid[0], mid[1], mid[2])
-        rotOrig=(bot.getAttitude() * SETUP_ROT * (midPt))
-
-        self.setupRotation(bot.getPos(), rot, midPt, rotOrig)
-        
-        # att=bot.getAttitude()
-        # axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
-        # angleAxis= (att * angle_quat * axisRotator ).get_angle_axis()
-        
         # mid = (c_float * 3)()
         # object3dLib.getMid(centre_mesh, mid)
         # midPt=Vector3(mid[0], mid[1], mid[2])
-        # rotOrig=(att * axisRotator * (midPt))
-        # rotNew=(att * angle_quat * axisRotator * (midPt))
+        # rotOrig=(bot.getAttitude() * SETUP_ROT * (midPt))
+        # print 'python. pos: '+str(bot.getPos())
+        # print 'python. rotOrig: '+str(rotOrig)
+        # print 'python. rot: '+str(rot)
+        # pos=bot.getPos()
+        # object3dLib.setupRotation(
+        #     pos.x, pos.y, pos.z,
+        #     rot.w, rot.x, rot.y, rot.z,
+        #     mid[0], mid[1], mid[2],
+        #     rotOrig.x, rotOrig.y, rotOrig.z
+        #     )
 
-        # axis = angleAxis[1].normalized()
-        # c=bot.getPos()-(rotNew-rotOrig)
-        
-        # fpos = (c_float * 3)()
-        # fpos[0] = c.x
-        # fpos[1] = c.y
-        # fpos[2] = c.z
-        # object3dLib.setPosition(fpos)
-        
-        # fpos[0] = axis.x
-        # fpos[1] = axis.y
-        # fpos[2] = axis.z
-        
-        # object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+
+        p=bot.getPos();
+        a=bot.getAttitude();
+        object3dLib.drawRotated(p.x, p.y, p.z,
+                                a.w, a.x, a.y, a.z,
+                                angle_quat.w, angle_quat.x, angle_quat.y, angle_quat.z,
+                                centre_mesh, alpha, self.mesh);
         object3dLib.draw(self.mesh, alpha)
 
-        # glPushMatrix()
-        # glLoadIdentity()
-        # #att=bot.getAttitude()
-        # #axisRotator=Quaternion(0.5, -0.5, 0.5, 0.5)
-        # axisRotator=Quaternion(0.0, 0.0, 0.71, 0.71)
-        # angleAxis= (angle_quat * axisRotator ).get_angle_axis()
-        
-        # mid = (c_float * 3)()
-        # object3dLib.getMid(centre_mesh, mid)
-        # midPt=Vector3(mid[0], mid[1], mid[2]) * 100.0
-        # rotOrig=(axisRotator * (midPt))
-        # rotNew=(angle_quat * axisRotator * (midPt))
 
-        # axis = angleAxis[1].normalized()
-        # #c=bot.getPos()-(rotNew-rotOrig)
-        # c=-(rotNew-rotOrig)
-        
-        # fpos = (c_float * 3)()
-        # fpos[0] = c.x
-        # fpos[1] = c.y
-        # fpos[2] = c.z
-        # object3dLib.setPosition(fpos)
-        
-        # fpos[0] = axis.x
-        # fpos[1] = axis.y
-        # fpos[2] = axis.z
-        
-        # object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        # object3dLib.draw(drawing_mesh)
-        # glPopMatrix()
-                        
 class PropMesh(Mesh):
     def __init__(self, *args, **kwargs):
         print 'PropMesh.__init__'
