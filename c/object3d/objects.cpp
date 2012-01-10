@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <Eigen/Geometry>
 #include <GL/glew.h>
 #include <string.h>
 #include "objects.h"
@@ -44,9 +45,9 @@ extern "C"
 	DLL_EXPORT void getMid(void *p_meshToPlot, float mid[])
 	{
 	  obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
-	  mid[0]=static_cast<obj_3dMesh *>(p_mesh)->mid.x;
-	  mid[1]=static_cast<obj_3dMesh *>(p_mesh)->mid.y;
-	  mid[2]=static_cast<obj_3dMesh *>(p_mesh)->mid.z;
+	  mid[0]=static_cast<obj_3dMesh *>(p_mesh)->mid.x();
+	  mid[1]=static_cast<obj_3dMesh *>(p_mesh)->mid.y();
+	  mid[2]=static_cast<obj_3dMesh *>(p_mesh)->mid.z();
 	}
 
   DLL_EXPORT uint8* getMeshPath(void *p_meshToPlot)
@@ -170,7 +171,7 @@ extern "C"
 		}
 	}
 
-  DLL_EXPORT void draw(void *meshToPlot, float32 alpha)
+  DLL_EXPORT void draw(obj_3dMesh *p_meshToPlot, float32 alpha)
 	{
 		oError err = ok;
 		glTranslatef(pos.x ,pos.y ,pos.z );
@@ -179,7 +180,7 @@ extern "C"
 		  glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
 		}
   
-		err = objPlot(static_cast<obj_3dMesh *>(meshToPlot), alpha);
+		err = objPlot(p_meshToPlot, alpha);
 		if (err != ok)
 		{
 			printf("ERROR: when drawing object\n");
@@ -263,18 +264,105 @@ extern "C"
     setupVBO(p_mesh, 1, &(p_mesh->vbo));
   }
 
-  /*
-  DLL_EXPORT setupRotation(x, y, z, wr, xr, yr, zr, xmid, ymid, zmid, xorig, yorig, zorig)
+  Eigen::Quaternion<float64> SETUP_ROT(0.5, -0.5, 0.5, 0.5);
+  DLL_EXPORT void drawRotated(float64 xPos, float64 yPos, float64 zPos,
+			      float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt,
+			      float64 wAng, float64 xAng, float64 yAng, float64 zAng,
+			      obj_3dMesh *p_centre_mesh, float32 alpha, obj_3dMesh *p_mesh) {
+    using namespace Eigen;
+    Quaternion<float64> att(wAtt, xAtt, yAtt, zAtt);
+    Quaternion<float64> angle_quat(wAng, xAng, yAng, zAng);
+    Quaternion<float64> rot=att*angle_quat*SETUP_ROT;
+    Vector3d rotOrig=att*SETUP_ROT*p_centre_mesh->mid;
+    //printf("c. pos: %f %f %f\n", xPos, yPos, zPos);
+    //printf("c. rotOrig: %f %f %f\n", rotOrig.x(), rotOrig.y(), rotOrig.z());
+    //printf("c. rot: %f %f %f %f\n", rot.w(), rot.x(), rot.y(), rot.z());
+    setupRotation(xPos, yPos, zPos,
+		  rot, p_centre_mesh->mid, rotOrig);
+    //draw(p_mesh, alpha);
+ }
+
+  DLL_EXPORT void setupRotation(float64 x, 
+			   float64 y, 
+			   float64 z, 
+			   float64 wr, 
+			   float64 xr, 
+			   float64 yr, 
+			   float64 zr, 
+			   float64 xmid, 
+			   float64 ymid, 
+			   float64 zmid, 
+			   float64 xorig, 
+			   float64 yorig, 
+			   float64 zorig)
   {
-    Vector3f pos(x, y, z), midPt(xmid, ymid, zmid), rotOrig(xorig, yorig, zorig);
-    pos << x << y << z;
-    Quaternion<float> angle_quat(xr, yr, zr, wr);
+    //printf("c: pos %f %f %f\n", x, y, z);
+    //printf("c: angle_quat %f %f %f %f\n", wr, xr, yr, zr);
+    //printf("c: midPt %f %f %f\n", xmid, ymid, zmid);
+    //printf("c: rotOrig %f %f %f\n", xorig, yorig, zorig);
+    using namespace Eigen;
+    Vector3d pos(x, y, z), midPt(xmid, ymid, zmid), rotOrig(xorig, yorig, zorig);
+    Quaternion<float64> angle_quat(wr, xr, yr, zr);
+    setupRotation(x, y, z, angle_quat, midPt, rotOrig);
+    /*
     angle_quat.normalize();
-    AngleAxis<float> angleAxis(angle_quat);
-    Vector3f rotNew=angle_quat * midPt;
+    AngleAxis<float64> angleAxis(angle_quat);
+
+    Vector3d rotNew=angle_quat * midPt;
+    Vector3d axis=angleAxis.axis();
+    Vector3d offset=pos-(rotNew-rotOrig);
+    //printf("c: rotNew %f %f %f\n", rotNew.x(), rotNew.y(), rotNew.z());
+
+    float32 fpos[3];
+    fpos[0]=offset.x();
+    fpos[1]=offset.y();
+    fpos[2]=offset.z();
+    setPosition(fpos);
+    //printf("c: set pos %f %f %f\n", fpos[0], fpos[1], fpos[2]);
+
+    fpos[0]=axis.x();
+    fpos[1]=axis.y();
+    fpos[2]=axis.z();
+
+    setAngleAxisRotation(angleAxis.angle() * (180.0/3.141592653589793), fpos);
+    //printf("c: set rot %f axis: %f %f %f\n", angleAxis.angle() * (180.0/3.141592653589793), fpos[0], fpos[1], fpos[2]);
+    */
   }
-  */
 }
+
+  void setupRotation(float64 x,
+		     float64 y,
+		     float64 z,
+		     Eigen::Quaternion<float64> &angle_quat,
+		     Eigen::Vector3d &midPt, Eigen::Vector3d &rotOrig) {
+    //printf("c: pos %f %f %f\n", x, y, z);
+    //printf("c: angle_quat %f %f %f %f\n", wr, xr, yr, zr);
+    //printf("c: midPt %f %f %f\n", xmid, ymid, zmid);
+    //printf("c: rotOrig %f %f %f\n", xorig, yorig, zorig);
+    using namespace Eigen;
+    Vector3d pos(x, y, z);
+    angle_quat.normalize();
+    AngleAxis<float64> angleAxis(angle_quat);
+
+    Vector3d rotNew=angle_quat * midPt;
+    Vector3d axis=angleAxis.axis();
+    Vector3d offset=pos-(rotNew-rotOrig);
+    //printf("c: rotNew %f %f %f\n", rotNew.x(), rotNew.y(), rotNew.z());
+
+    float32 fpos[3];
+    fpos[0]=offset.x();
+    fpos[1]=offset.y();
+    fpos[2]=offset.z();
+    setPosition(fpos);
+    //printf("c: set pos %f %f %f\n", fpos[0], fpos[1], fpos[2]);
+
+    fpos[0]=axis.x();
+    fpos[1]=axis.y();
+    fpos[2]=axis.z();
+
+    setAngleAxisRotation(angleAxis.angle() * (180.0/3.141592653589793), fpos);
+    //printf("c: set rot %f axis: %f %f %f\n", angleAxis.angle() * (180.0/3.141592653589793), fpos[0], fpos[1], fpos[2]);
+  }
 
 void	objSetCutOff		(float dist, float angle) {
 	obj_cut_off_dist=dist;
@@ -1201,7 +1289,7 @@ oError objCreate(obj_3dMesh **pp_mesh,
 
 	fclose(file);
 //-----------------------------------------------------------
-	(*pp_mesh)->mid=mid;
+	(*pp_mesh)->mid=Eigen::Vector3d(mid.x, mid.y, mid.z);
 	(*pp_mesh)->min=min;
 	(*pp_mesh)->max=max;
 	*obj= new obj_3dPrimitive;

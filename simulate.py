@@ -18,31 +18,32 @@
 ##//    You should have received a copy of the GNU General Public License
 ##//    along with FtpServerMobile.  If not, see <http://www.gnu.org/licenses/>.
 ##//
-from math import sqrt, atan2
-import random
-import array
-import itertools
-import optparse
-import pyglet
-import manage
 from airfoil import Airfoil, Obj
+import array
+from control import *
+import cProfile
+from euclid import *
+import itertools
+import manage
+from math import sqrt, atan2
+import mesh
+import optparse
 import os
 #import view
 from proxy import *
+import pyglet
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
 from pyglet.window import key
-from control import *
-from euclid import *
-import mesh
+import random
+from skybox import *
+from sound import *
 import sys
 from threading import Condition
 from time import sleep
 import traceback
-from view import EXTERNAL, INTERNAL, View
-from sound import *
-from skybox import *
 from util import X_UNIT, Y_UNIT, Z_UNIT
+from view import EXTERNAL, INTERNAL, View
 
 def loadTerrain():
 	global cterrain
@@ -648,13 +649,6 @@ def timeSlice(dt):
 #	main_iter.next()
 
 def run():
-	# global main_iter
-	# main_iter=simMain()
-	# main_iter.next()
-	# pyglet.clock.schedule_interval(main_next, 1/60.0)
-	# pyglet.app.run()
-	# while main_iter.next():
-	# 	pass
 	num_players, plane_ids, start_time=init()
 	#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
 	pyglet.clock.schedule(timeSlice)

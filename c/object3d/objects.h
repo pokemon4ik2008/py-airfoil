@@ -48,6 +48,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <math.h>
+#include <Eigen/Geometry>
 #include <GL/glew.h>
 
 typedef enum {ok, noMemory,invalidPrimitive,emptyObject,nofile, unsupported, glErr, failedAssert} oError;
@@ -128,7 +129,7 @@ typedef struct {
 
 typedef struct {
   obj_3dPrimitive *p_prim;
-  obj_vertex mid;
+  Eigen::Vector3d mid;
   obj_vertex min;
   obj_vertex max;
   uint32 num_uv_maps;
@@ -201,7 +202,11 @@ oError	objPlot				(obj_3dMesh *p_mesh, float32 alpha);
 oError	vboPlot				(obj_vbo *p_vbo);
 oError	objPlotToTex			(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize, uint32 ySize, uint32 bgTex, uint32 boundPlane, uint32 top);
 oError setupVBO(obj_3dMesh *p_meshes, uint32 num_meshes, obj_vbo *p_vbo);
-
+  void setupRotation(float64 x,
+		     float64 y,
+		     float64 z,
+		     Eigen::Quaternion<float64> &angle_quat,
+		     Eigen::Vector3d &midPt, Eigen::Vector3d &rotOrig);
 inline float32 max(float32 x, float32 y) {
   return x>y?x:y;
 }
