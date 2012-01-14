@@ -699,5 +699,5 @@ def run():
 
 
 if __name__ == '__main__':
-	cProfile.run('run()', 'profile')
-	#run()
+	#cProfile.run('run()', 'profile')
+	run()
