@@ -83,7 +83,9 @@ BULLET_DRAG_COEFF=0.05/BULLET_MASS
 class Bullet(Obj, ControlledSer):
     TYP=3
     #LIFE_SPAN is in seconds
-    LIFE_SPAN=30 
+    LIFE_SPAN=30
+    OFFSET=Vector3(0, -15, 0)
+    VEL=Vector3(0, -750, 0)
     __IN_FLIGHT=set()
 
     @classmethod
@@ -201,13 +203,13 @@ class MyAirfoil(Airfoil, ControlledSer):
                  attitude = Quaternion(0.5, -0.5, 0.5, 0.5), 
                  velocity = Vector3(0,0,0), 
                  thrust = 0, ident=None):
-	    global cterrain
-	    Airfoil.__init__(self, pos, attitude, velocity, thrust, cterrain)
-	    ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
-	    self.setControls(controls)
+	global cterrain
+	Airfoil.__init__(self, pos, attitude, velocity, thrust, cterrain)
+	ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
+	self.setControls(controls)
 
     def setControls(self, c):
-	    self.__controls=c
+	self.__controls=c
 
     def localInit(self):
         ControlledSer.localInit(self)
@@ -217,6 +219,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__rollAdjust = 0.01
         self.__bullets=[]
         self.__last_fire=manage.now
+	self.frame_rot=None
 
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
@@ -243,14 +246,16 @@ class MyAirfoil(Airfoil, ControlledSer):
         if events[Controller.ROLL]!=0:
             self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
 	if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
-            vOff=self.getVelocity().normalized()*800
-            b=Bullet(pos=self.getPos().copy(), attitude=self.getAttitude().copy(), vel=self.getVelocity()+vOff, proxy=self._proxy, parent=self.getId())
-            b.update()
-            b.markChanged(full_ser=True)
-	    #mesh.deleteVBOs()
-	    #mesh.createVBOs(mesh.vbo_meshes)
-	    #glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-            self.__last_fire=manage.now
+		frame_rot=self._attitude*mesh.SETUP_ROT
+		vOff=self.getVelocity().normalized()+frame_rot* Bullet.VEL
+		
+		b=Bullet(pos=self.getPos()+frame_rot*Bullet.OFFSET, attitude=self._attitude.copy(), vel=self.getVelocity()+vOff, proxy=self._proxy, parent=self.getId())
+		b.update()
+		b.markChanged(full_ser=True)
+		self.__last_fire=manage.now
+		#mesh.deleteVBOs()
+		#mesh.createVBOs(mesh.vbo_meshes)
+		#glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
         self.__controls.clearEvents(self.__interesting_events)
 
     def play(self):
@@ -598,6 +603,7 @@ def timeSlice(dt):
 			#glClear(GL_DEPTH_BUFFER_BIT)
 			glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
+    			[ plane.eventCheck() for plane in planes.itervalues() if plane.alive() ]
 			for view in views:
 				glLoadIdentity()
 				view.activate()
@@ -612,6 +618,8 @@ def timeSlice(dt):
 
 				skybox.draw(view)
 				drawTerrain(view)
+
+				#draws should precede plne.eventCheck to ensure correct frame_rot is used
 				for bot in bots:
 					if bot.alive():
 						mesh.draw(bot, view)
@@ -636,7 +644,6 @@ def timeSlice(dt):
 					if bot.getId() in planes and not bot.alive():
 							del planes[bot.getId()]
 
-			[ plane.eventCheck() for plane in planes.itervalues() if plane.alive() ]
 			return
 		
 	except Exception as detail:
@@ -692,5 +699,5 @@ def run():
 
 
 if __name__ == '__main__':
-	#cProfile.run('run()', 'profile')
-	run()
+	cProfile.run('run()', 'profile')
+	#run()
