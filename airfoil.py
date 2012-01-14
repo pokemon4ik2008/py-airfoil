@@ -564,7 +564,6 @@ class Airfoil(Obj):
 
         self._velocity+=self.__getVelThrustDelta(timeDiff, noseVector)
 
-
     def update(self):
         timeDiff=self._getTimeDiff()
         (zenithVector, noseVector)=self._getVectors()

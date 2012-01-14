@@ -104,7 +104,7 @@ def setPosRotUnchanged(flag):
     return True
 
 def transformBot(bot):
-    angleAxis = (bot.getAttitude() * SETUP_ROT ).get_angle_axis()
+    angleAxis = bot.frame_rot.get_angle_axis()
     axis = angleAxis[1].normalized()
     
     fpos = (c_float * 3)()
@@ -120,6 +120,7 @@ def transformBot(bot):
     object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
 
 def draw(bot, view):
+    bot.frame_rot=bot._attitude*SETUP_ROT
     v_type=view.getPlaneView(bot.getId())
     if (bot.TYP, v_type) in vbos:
         for v in vbos[(bot.TYPE, v_type)]:
