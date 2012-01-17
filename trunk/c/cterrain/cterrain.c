@@ -19,8 +19,8 @@ int terrain_size;
 terrain_tile hmap_tile = {0};
 float aspectRatio;
 bool wireframe = true;
-float map_expansion_const = 1.0f; //how much the multiply the x and z coords by before plotting
-float y_scale_const = .02f*32.0f/32;	//how much to scale the y values before plotting
+float map_expansion_const = 5.0f; //how much the multiply the x and z coords by before plotting
+float y_scale_const = .02f*32.0f/32*5;	//how much to scale the y values before plotting
 IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 
 // Export an interface with standard C calling conventions so that it can 

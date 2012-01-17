@@ -62,8 +62,8 @@ def loadTerrain():
 		      c_char_p(mapFileName), 
 		      c_float(4.0/3.0*2.0),
 		      c_int(0),
-		      c_float(10.0),
-		      c_float(0.2))
+		      c_float(50.0),
+		      c_float(1.0))
 
 def drawTerrain(view):
 	pointOfView = (c_float * 9)()
