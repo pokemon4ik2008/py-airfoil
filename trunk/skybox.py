@@ -26,6 +26,8 @@ class Skybox:
 		glDisable( GL_DEPTH_TEST)
 		glDisable(GL_FOG)
 		glDisable( GL_LIGHTING)
+		glDisable(GL_CULL_FACE)
+
 
 		cloudsize=100.0
 		offset=0.01

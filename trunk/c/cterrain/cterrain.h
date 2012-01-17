@@ -13,6 +13,8 @@
 #include <GL/glu.h>
 #include "../Eigen/Dense"
 #include <sstream>
+#include "mini/mini.h"
+
 
 using namespace std;
 using namespace Eigen;
@@ -120,4 +122,7 @@ void terDeleteAll();
 float linePointPosition2D ( float x1, float y1, float x2, float y2, float x3, float y3 );
 Vector3f getPointAtXZ(int x, int z);
 bool boundsCheck(int x, int z);
+int loadMiniTerrain(terrain_tile *tile);
+ubyte* create_terrain_texture(short *hfield,int size,int *tsize);
+float* precalc_mini_vertex_intensities(short *hfield,int size);
 #endif

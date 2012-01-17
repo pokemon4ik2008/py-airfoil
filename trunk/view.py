@@ -129,6 +129,7 @@ class View(pyglet.event.EventDispatcher):
         self.updateDimensions()
 
     def updateDimensions(self):
+        print self.__win.width, self.__win.height
         self.__width=self.__win.width
         self.__height=self.__win.height/self.__num_players
         (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.view_id))
@@ -146,7 +147,7 @@ class View(pyglet.event.EventDispatcher):
         self.__label.color = (0, 0, 0, 255)
 
     def getAspectRatio(self):
-        return self.__width/self.__height
+        return self.__width/1.0/self.__height
 
     def getPlaneId(self):
         return self.__plane_id

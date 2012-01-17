@@ -66,17 +66,21 @@ def loadTerrain():
 		      c_float(0.2))
 
 def drawTerrain(view):
-	pointOfView = (c_float * 6)()
+	pointOfView = (c_float * 9)()
 	cameraVectors = view.getCamera().getCameraVectors()
         cameraCenter = cameraVectors[0]
         cameraPosition = cameraVectors[1]
+	cameraZenith = cameraVectors[2]
 	pointOfView[0] = cameraPosition[0]
 	pointOfView[1] = cameraPosition[1]
 	pointOfView[2] = cameraPosition[2]
 	pointOfView[3] = cameraCenter[0]
 	pointOfView[4] = cameraCenter[1]
 	pointOfView[5] = cameraCenter[2]
-	cterrain.draw(pointOfView)
+	pointOfView[6] = cameraZenith[0]
+	pointOfView[7] = cameraZenith[1]
+	pointOfView[8] = cameraZenith[2]
+	cterrain.draw(pointOfView, c_float(view.getAspectRatio()))
 
 BULLET_MASS=1.0
 BULLET_DRAG_COEFF=0.05/BULLET_MASS
@@ -384,7 +388,6 @@ def init():
 	mouse_cap=True
 	fullscreen=True
 	views = []
-
         clock = pyglet.clock.Clock()
 	loadTerrain()
         r = 0.0
@@ -557,7 +560,7 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	glPointSize(2)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-	glEnable(GL_FOG)
+	#glEnable(GL_FOG)
 
 def timeSlice(dt):
 	try:
@@ -646,8 +649,7 @@ def timeSlice(dt):
 
 			return
 		
-	except Exception as detail:
-		print str(detail)
+	except Exception:
 		traceback.print_exc()
 		man.proxy.markDead()
 		man.proxy.markChanged()

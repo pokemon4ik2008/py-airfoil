@@ -1,4 +1,5 @@
 #include "cterrain.h"
+#include <GL/glut.h>
 
 
 int terrain_max_x=0;	//max size of terrain map data array in x direction
@@ -26,14 +27,14 @@ IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 // be called in a standard way across different platforms.
 extern "C" 
 {
-	DLL_EXPORT void init(char *colourRefFilename, char *mapFilename, float aspectRatioArg, bool wireframeArg, float scale, float yScale)
+	DLL_EXPORT void init(char *colourRefFilename, char *mapFilename, float aspectRatioArg, bool wireframeArg, float scale2, float yScale)
 	{
-		wireframe = wireframeArg;
-		map_expansion_const = scale;
-		y_scale_const = yScale;
-		aspectRatio = aspectRatioArg;
-		load_hm_colour_ref(colourRefFilename);
-		preloadTerrain(mapFilename);
+		  wireframe = wireframeArg;
+		  map_expansion_const = scale2;
+		  y_scale_const = yScale;
+		  aspectRatio = aspectRatioArg;
+		  load_hm_colour_ref(colourRefFilename);
+		  preloadTerrain(mapFilename);
 	}
 
 	DLL_EXPORT void initDefault()
@@ -41,9 +42,9 @@ extern "C"
 		init ("strip1.bmp", "map_output.hm2", 4.0f/3.0f, wireframe, map_expansion_const, y_scale_const);
 	}
 
-	DLL_EXPORT void draw(float povArg[])
+	DLL_EXPORT void draw(float povArg[], float aspectRatio)
 	{
-		//point_of_view *pov =(point_of_view *)povArg;
+		float shift=-(terrain_size-1)/2.0f*map_expansion_const;
 		point_of_view pov;		
 		float viewVector[3];
 		viewVector[0] = povArg[3] - povArg[0];
@@ -52,13 +53,29 @@ extern "C"
 		pov.x = povArg[0];
 		pov.y = povArg[1];
 		pov.z = povArg[2];
-		// Calculate the distance from the origin to the viewVector projected onto the ground plane.
-		float dist = sqrt(sqr(viewVector[0]) + sqr(viewVector[2]));
-		pov.ax = getAngleForXY(dist, viewVector[1]);
-		pov.ay = -getAngleForXY(viewVector[2], viewVector[0]); // 0 radians points down the positive Z-axis
-		pov.az = 0;
+		glPushMatrix();
+		glTranslatef(-shift ,0 ,-shift );
+		float fovy=80.0f;
+		float nearp=1.0f;
+		float res=100.0f;
 
-		terDrawLandscape(pov, aspectRatio, 4);	
+		mini::drawlandscape(res,
+				    pov.x+shift, 
+				    pov.y, 
+				    pov.z+shift,
+				    pov.x+shift, 
+				    pov.y, 
+				    pov.z+shift,
+				    viewVector[0],
+				    viewVector[1],
+				    viewVector[2],
+				    povArg[6],
+				    povArg[7],
+				    povArg[8],
+				    fovy,aspectRatio,
+				    nearp,1000.0f);
+		glPopMatrix();
+	 
 	}
 
 	DLL_EXPORT int checkCollision(float details[])
@@ -115,6 +132,127 @@ extern "C"
 		outputVector[2] = plane[2];
 	}
 }
+
+int loadMiniTerrain(terrain_tile *tile) {
+	int width=tile->width,height=tile->height;
+	tile->scale=y_scale_const;
+
+	tile->texture=create_terrain_texture(tile->hfield,tile->size,&tile->width);
+	tile->height=tile->width;
+	width=tile->width;
+	height=tile->height;
+
+
+	tile->map=mini::initmap(tile->hfield,&tile->d2map,
+				&tile->size,&tile->dim,tile->scale);
+
+	tile->texid=mini::inittexmap(tile->texture,&width,&height);
+
+	return true;
+}
+
+ubyte* create_terrain_texture(short *hfield,int size,int *tsize) {
+	int i,j;
+	ubyte* texture;
+	int texquality=1;
+	*tsize=size/texquality;
+	texture=new ubyte [(*tsize) * (*tsize) * 3];
+	float *intensityfield=precalc_mini_vertex_intensities(hfield,size);
+
+	for (j=0;j<*tsize;j++) {
+		for (i=0;i<*tsize;i++) {
+			texture[j*3*(*tsize) + i*3 +0 ]=(ubyte) (intensityfield[j*texquality*size+i*texquality] * colr_ref[hfield[j*texquality*size+i*texquality]].r/1.0*256);
+			texture[j*3*(*tsize) + i*3 +1 ]=(ubyte) (intensityfield[j*texquality*size+i*texquality] * colr_ref[hfield[j*texquality*size+i*texquality]].g/1.0*256);
+			texture[j*3*(*tsize) + i*3 +2 ]=(ubyte) (intensityfield[j*texquality*size+i*texquality] * colr_ref[hfield[j*texquality*size+i*texquality]].b/1.0*256);
+		}
+	}
+	delete [] intensityfield;
+	return texture;
+}
+
+float* precalc_mini_vertex_intensities(short *hfield,int size) {
+#define htfield(i,j)	(hfield[(j)*size+(i)])
+#define intfield(i,j)	(output[(j)*size+(i)])
+	light_source light;
+	int x,z;
+	int y[4];
+	vector vector_normal;
+	vector light_vector;
+	vector_dec unit_vector_norm;
+	vector_dec unit_light_vector;
+	float vector_mag,light_mag,calc_mag;
+	float *output=new float[size*size];
+
+	light.x=10;
+	light.y=50;
+	light.z=10;
+	light.intensity=0.3f; 
+	light.ambient=0.4f;
+
+	for (x=0;x<size;x++) {
+		for (z=0;z<size;z++) {
+			if (z!=0) y[0]=htfield(x,z-1)-htfield(x,z);
+			else y[0]=0;
+			if (z!=size-1) y[1]=htfield(x,z+1)-htfield(x,z);
+			else y[1]=0;
+			if (x!=0) y[2]=htfield(x-1,z)-htfield(x,z);
+			else y[2]=0;
+			if (x!=size-1) y[3]=htfield(x+1,z)-htfield(x,z);
+			else y[3]=0;
+			
+			//calc the normal to the vertex
+			//depends on the 4 vertexes around it
+			vector_normal.x=(y[3])	+(-y[2])	+(-y[2])	+(y[3]);
+			vector_normal.y=(1)		+(1)		+(1)		+(1);
+			vector_normal.z=(-y[0])	+(-y[0])	+(y[1])		+(y[1]);
+			
+			//calc the magnitude of the vector normal to the vertex
+			vector_mag=(float) sqrt(sqr(vector_normal.x)+sqr(vector_normal.y)+sqr(vector_normal.z));
+			
+			//calculate the unit vector normal to the vertex
+			unit_vector_norm.x=vector_normal.x/vector_mag;
+			unit_vector_norm.y=vector_normal.y/vector_mag;
+			unit_vector_norm.z=vector_normal.z/vector_mag;
+			
+			//calculate the light vector between the light source and the current vertex
+			light_vector.x=light.x-x;
+			light_vector.y=light.y-htfield(x,z);
+			light_vector.z=light.z-z;
+			
+			//calculate the magnitude of the light vector
+			light_mag=(float)sqrt(sqr(light_vector.x)+sqr(light_vector.y)+sqr(light_vector.z));
+			
+			//calculate the unit light vector
+			unit_light_vector.x=light_vector.x/light_mag;
+			unit_light_vector.y=light_vector.y/light_mag;
+			unit_light_vector.z=light_vector.z/light_mag;
+			
+			//get: (unit vertex vector normal).(unit light vector) = light intensity magnitude
+			calc_mag=	unit_vector_norm.x*unit_light_vector.x+
+				unit_vector_norm.y*unit_light_vector.y+
+				unit_vector_norm.z*unit_light_vector.z;
+			
+			calc_mag*=-1;
+			calc_mag*=light.intensity;
+			calc_mag+=light.ambient;
+			if (calc_mag>1.0f) calc_mag=1.0f;
+			if (calc_mag<light.ambient) calc_mag=light.ambient;
+			intfield(x,z)=calc_mag;
+			/*
+			if (calc_mag>.3) calc_mag=.3f; //this makes the incident lighting effect less "shiny"..ie. it scales down the higher incident light intensites
+			
+			  intfield(x,z)=light.ambient+
+			  (float) fabs(light.intensity*(calc_mag));
+			  if (intfield(x,z)>1) intfield(x,z)=1;//just checking
+			*/
+			
+		}
+	}
+
+	return output;
+}
+
+
 
 // returns true when x,z is within the terrain array.
 bool boundsCheck(int x, int z)
@@ -266,6 +404,7 @@ int preloadTerrain(char *fname) {
 	hmap_tile.dim=map_expansion_const;
 	hmap_tile.size=size;
 	hmap_tile.hfield=hfield;
+	loadMiniTerrain(&hmap_tile);
 
 	terLoadTerrain(hfield,size,map_expansion_const,y_scale_const);
 	fclose(fptr);
