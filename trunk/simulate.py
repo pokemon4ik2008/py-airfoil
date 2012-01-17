@@ -386,7 +386,7 @@ def init():
 
 	global mouse_cap, fullscreen, views, planes, bots, skybox
 	mouse_cap=True
-	fullscreen=True
+	fullscreen=False
 	views = []
         clock = pyglet.clock.Clock()
 	loadTerrain()
@@ -560,7 +560,7 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	glPointSize(2)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-	#glEnable(GL_FOG)
+	glEnable(GL_FOG)
 
 def timeSlice(dt):
 	try:
