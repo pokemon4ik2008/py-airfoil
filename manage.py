@@ -8,7 +8,7 @@ global sound_effects
 sound_effects=False
 global opt
 global vbo
-vbo=False
+vbo=True
 from time import time
 global now, delta
 
