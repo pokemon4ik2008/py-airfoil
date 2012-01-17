@@ -127,7 +127,8 @@ typedef struct {
   uint32 stride;
 } obj_vbo;
 
-typedef struct {
+class obj_3dMesh {
+ public:
   obj_3dPrimitive *p_prim;
   Eigen::Vector3d mid;
   obj_vertex min;
@@ -141,21 +142,22 @@ typedef struct {
   uint8 mesh_path[PATH_LEN];
   uint32 num_prims;
 
-/* #define NO_VBO 0xffffffff */
-/*   GLuint vbo; */
-/* #define NO_IBO 0xffffffff */
-/*   GLuint ibo; */
-/*   GLuint num_indices; */
-/*   uint32 num_vert_components; */
-/*   uint32 num_col_components; */
-/*   uint32 num_norm_components; */
-/*   uint32 stride; */
+  /* #define NO_VBO 0xffffffff */
+  /*   GLuint vbo; */
+  /* #define NO_IBO 0xffffffff */
+  /*   GLuint ibo; */
+  /*   GLuint num_indices; */
+  /*   uint32 num_vert_components; */
+  /*   uint32 num_col_components; */
+  /*   uint32 num_norm_components; */
+  /*   uint32 stride; */
 #define NO_VBO_GROUP 0xffffffff
   uint32 vbo_group;
   obj_vbo vbo;
   void *p_vert_start;
   void *p_vert_end;
-} obj_3dMesh;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
 
 typedef struct {
 	// incident light source position and intensity
