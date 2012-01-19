@@ -57,15 +57,19 @@ extern "C"
 		glTranslatef(-shift ,0 ,-shift );
 		float fovy=80.0f;
 		float nearp=1.0f;
+		float farp=2000.0f;
 		float res=100.0f;
 
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_FOG);
 		GLfloat density = 0.001; 
 		GLfloat fogColor[4] = {FOG_GREY, FOG_GREY, FOG_GREY, 1.0}; //set the for color to grey
-		glFogi (GL_FOG_MODE, GL_EXP2); //set the fog mode to GL_EXP2
+		glFogi (GL_FOG_MODE, GL_LINEAR); //set the fog mode to GL_EXP2
 		glFogfv (GL_FOG_COLOR, fogColor); //set the fog color to our color chosen above
 		glFogf (GL_FOG_DENSITY, density); //set the density to the value above
+		glFogf (GL_FOG_START, farp * 0.9);
+		glFogf (GL_FOG_END, farp);
+		//		glFogf (GL_FOG_INDEX, );
 		glHint (GL_FOG_HINT, GL_NICEST); // set the fog to look the nicest, may slow down on older ca
 
 		mini::drawlandscape(res,
@@ -82,7 +86,7 @@ extern "C"
 				    povArg[7],
 				    povArg[8],
 				    fovy,aspectRatio,
-				    nearp,2000.0f);
+				    nearp,farp);
 		glPopMatrix();
 	 
 	}
