@@ -34,7 +34,7 @@ class Skybox:
 		texOffset = 0.624
 
 		pos = view.getCamera().getCameraVectors()[1]
-		glTranslatef( pos.x, pos.y, pos.z)
+		glTranslatef( pos.x, 5.0+pos.y, pos.z)
 		glColor3f(Skybox.FOG_GREY ,Skybox.FOG_GREY ,Skybox.FOG_GREY)						
 		glEnable(self.top.target)        # typically target is GL_TEXTURE_2D		
 
