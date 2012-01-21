@@ -623,53 +623,24 @@ bool checkSimpleCollision(float details[])
 {
 	float *point = details;
 	float *radius = &details[3];
-
-	// Find approx map index
-	int xi = details[0]/map_expansion_const;
-	int zi = details[2]/map_expansion_const;
-	int checkRadius = (*radius)/map_expansion_const;
-
-	// Calc search bounds
-	int lowx = xi - checkRadius;
-	int highx = xi + 1 + checkRadius;
-	int lowz = zi - checkRadius;
-	int highz = zi + 1 + checkRadius;
-       
-	for (int x=lowx; x<=highx; x++)
+	float height = -1.0;
+	float side = (mini::S-1)*map_expansion_const;
+	if (point[0]<0.0 || point[0]>=side) height = 0.0;
+	if (point[2]<0.0 || point[2]>side) height = 0.0;
+	float fx = point[0]/side;
+	float fz = point[2]/side;      
+	if (height < 0) 
 	{
-		for (int z=lowz; z<=highz; z++)
-		{
-			int y = -1;
+		// pass in coords bound by (x:[0,1.0], z:[0,1.0])
+		mini::getheight(fx,fz,&height);
+	}
+	float dist = fabs(point[1] - height);
 
-			// if coord out of bounds, pick sea level as y
-			if (x < 0) y = 0;
-			if (z < 0) y = 0;
-			if (x >= terrain_max_x) y=0;
-			if (z >= terrain_max_z) y=0;
-
-			// For x,z points located in the terrain map, load y from the terrain map
-			if (y==-1)
-			{
-				// load y from terrain map
-				y = terrain_map(x,z).y;
-			}
-
-			// Get actual coords of point to check against
-			float xf = x * map_expansion_const;
-			float yf = y * y_scale_const;
-			float zf = z * map_expansion_const;
-
-			// Calc dist between two points
-			float dist = sqrt(	sqr(xf - point[0]) +
-						sqr(yf - point[1]) +
-						sqr(zf - point[2]) );
-
-			if (dist < *radius)
-			{
-				// collision found
-				return true;
-			}
-		}
+	// Calc height above the ground
+	if (dist < *radius)
+	{
+		// collision found
+		return true;
 	}
 
 	return false;
