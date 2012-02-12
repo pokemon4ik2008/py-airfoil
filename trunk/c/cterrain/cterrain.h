@@ -13,8 +13,8 @@
 #include <GL/glu.h>
 #include "../Eigen/Dense"
 #include <sstream>
+#include <Eigen/Geometry>
 #include "mini/mini.h"
-
 
 using namespace std;
 using namespace Eigen;
@@ -97,7 +97,18 @@ typedef struct {
 	unsigned char* texture;
 } terrain_tile;
 
-bool checkSimpleCollision(float details[]);
+typedef char uint8;
+typedef unsigned int uint32;
+typedef float float32;
+typedef double float64;
+
+typedef struct {
+  Eigen::Vector3d mid;
+  Eigen::Vector3d rotated_mid;
+  float64 rad;
+} obj_collider;
+
+bool checkSimpleCollision(obj_collider *p_cols, uint32 idx);
 float getAngleForXY(float x, float y);
 int preloadTerrain(char *fname);
 int load_hm_colour_ref(char *fname);

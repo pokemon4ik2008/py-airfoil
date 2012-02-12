@@ -1,6 +1,6 @@
+#include <Eigen/Geometry>
 #include "cterrain.h"
 #include <GL/glut.h>
-
 
 int terrain_max_x=0;	//max size of terrain map data array in x direction
 int terrain_max_z=0;	//max size of terrain map data array in z direction
@@ -91,9 +91,9 @@ extern "C"
 	 
 	}
 
-	DLL_EXPORT int checkCollision(float details[])
+  DLL_EXPORT int checkCollision(obj_collider *p_cols, uint32 idx)
 	{
-		return checkSimpleCollision(details);
+	  return checkSimpleCollision(p_cols, idx);
 	}
 
 	DLL_EXPORT void getPlaneVectorAtPos(float x, float z, float outputVector[])
@@ -619,31 +619,33 @@ void terPrecalc_vertex_intensities() {
 				
 }
 
-bool checkSimpleCollision(float details[])
-{
-	float *point = details;
-	float *radius = &details[3];
-	float height = -1.0;
-	float side = (mini::S-1)*map_expansion_const;
-	if (point[0]<0.0 || point[0]>=side) height = 0.0;
-	if (point[2]<0.0 || point[2]>side) height = 0.0;
-	float fx = point[0]/side;
-	float fz = point[2]/side;      
-	if (height < 0) 
-	{
-		// pass in coords bound by (x:[0,1.0], z:[0,1.0])
-		mini::getheight(fx,fz,&height);
-	}
-	float dist = fabs(point[1] - height);
+bool checkSimpleCollision(obj_collider *p_cols, uint32 idx) {
+  float64 x_col=p_cols[idx].rotated_mid.x(), 
+    y_col=p_cols[idx].rotated_mid.y(), 
+    z_col=p_cols[idx].rotated_mid.z(), 
+    radius=p_cols[idx].rad;
+  float height = -1.0;
+  float side = (mini::S-1)*map_expansion_const;
+  if (x_col<0.0 || x_col>=side) height = 0.0;
+  if (z_col<0.0 || z_col>side) height = 0.0;
+  float fx = x_col/side;
+  float fz = z_col/side;      
+  if (height < 0) {
+      // pass in coords bound by (x:[0,1.0], z:[0,1.0])
+      mini::getheight(fx,fz,&height);
+    }
+  float dist = fabs(y_col - height);
 
-	// Calc height above the ground
-	if (dist < *radius)
-	{
-		// collision found
-		return true;
-	}
+  // Calc height above the ground
+  if (dist < radius)
+    {
+      // collision found
+      //printf("checkSimpleCollission dist: %f %f %f rad: %f\n", p_cols[idx].rotated_mid.x(), p_cols[idx].rotated_mid.y(), p_cols[idx].rotated_mid.z(), p_cols[idx].rad);
+      //printf("checkSimpleCollission returns true dist: %f radius: %f\n", dist, radius);
+      return true;
+    }
 
-	return false;
+  return false;
 }
 
 void terDrawLandscape(point_of_view &input_pov,float aspect
