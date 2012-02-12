@@ -215,7 +215,7 @@ class SerialisableFact:
 
     @staticmethod
     def getMaxType():
-        return 7
+        return 3
 
     @staticmethod
     def loads(obj_str):
