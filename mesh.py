@@ -11,7 +11,7 @@ import os
 import random
 import sys
 from traceback import print_exc
-from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT
+from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath
 
 from pyglet import image
 from pyglet.gl import *
@@ -19,6 +19,7 @@ from pyglet.gl import *
 all_vbos=[]
 vbos={}
 vbo_meshes={}
+manage.lookup_colliders={}
 
 QUART_PI=0.25*math.pi
 HALF_PI=0.5*math.pi
@@ -67,6 +68,20 @@ object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
                                    c_double, c_double, c_double, c_double,
                                    c_void_p, c_float, c_void_p ]
 object3dLib.drawRotated.restype=None
+
+object3dLib.rotColliders.argtypes=[ c_void_p, c_uint,
+                                    c_double, c_double, c_double,
+                                    c_double, c_double, c_double, c_double ]
+object3dLib.rotColliders.restype=None
+
+object3dLib.allocColliders.argtypes=[ c_uint ]
+object3dLib.allocColliders.restype=c_void_p
+
+object3dLib.deleteColliders.argtypes=[ c_uint, c_void_p ]
+object3dLib.deleteColliders.restype=None
+
+object3dLib.loadCollider.argtypes=[ c_void_p, c_uint, c_char_p, c_float ]
+object3dLib.loadCollider.restype=None
 
 #object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
 #object3dLib.createVBO.restype=c_int
@@ -123,23 +138,22 @@ def draw(bot, view):
     bot.frame_rot=bot._attitude*SETUP_ROT
     v_type=view.getPlaneView(bot.getId())
     if (bot.TYP, v_type) in vbos:
-        for v in vbos[(bot.TYPE, v_type)]:
+        for v in vbos[(bot.TYP, v_type)]:
             glPushMatrix()
             transformBot(bot)
             object3dLib.drawVBO(v)
             glPopMatrix()
     if (bot.TYP, v_type) in meshes:
         count=0
-        for m in meshes[(bot.TYPE, v_type)]:
+        for m in meshes[(bot.TYP, v_type)]:
             glPushMatrix()
             m.draw(bot, view.view_id)
             glPopMatrix()
     else:
         bot.draw()
 
+NO_VBO_GROUP=0xffffffff
 def loadMeshes(mesh_paths, views):
-    print 'mesh_path: '+str(mesh_paths)
-
     lookup = {}
     global meshes
     meshes = {}
@@ -148,30 +162,32 @@ def loadMeshes(mesh_paths, views):
     global name_to_mesh
     name_to_mesh = {}
     paths = {}
-    if os.name == 'nt':
-        convert=lambda s: re.sub(r'/', r'\\', s)
-    else:
-        convert=lambda s: s
 
     def genGlobbedList(glob_path, cls, scale, group, blacklisted):
-        globs=glob.glob(convert(glob_path))
+        globs=glob.glob(getNativePath(glob_path))
         return [ (path, (cls, scale, group)) for path in globs if path not in blacklisted]
 
     for mesh_key in mesh_paths:
         all_possible_globs=mesh_paths[mesh_key][0]
-        blacklist=list(itertools.chain(*[ glob.glob(convert(black_glob)) for black_glob in mesh_paths[mesh_key][1]]))
+        blacklist=list(itertools.chain(*[ glob.glob(getNativePath(black_glob)) for black_glob in mesh_paths[mesh_key][1]]))
         paths[mesh_key]=dict(itertools.chain(*[ genGlobbedList(glob_path, cls, scale, group, blacklist) for (glob_path, (cls, scale, group)) in all_possible_globs ])).items()
 
+    def c_ifyGroup(group):
+        if group is None:
+            return NO_VBO_GROUP
+        else:
+            return group
+
     for key in mesh_paths:
-        meshes[key]=[ cls(object3dLib.load(path, scale, group), views, key, group)
+        meshes[key]=[ cls(object3dLib.load(path, scale, c_ifyGroup(group)),
+                          views, key, group)
                            for (path, (cls, scale, group)) in paths[key]]
 
-    #createVBOs(meshes)
     for mesh_key in dict(meshes):
         [ m.finishInit() for m in meshes[mesh_key] ]
         vbo_meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is not None and manage.vbo]
         meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None or not manage.vbo]
-        
+
 def createVBOs(mesh_map):
     if not manage.vbo:
         return
@@ -192,20 +208,6 @@ def createVBOs(mesh_map):
     for key in mesh_map:
         vbos[key]= list(set([ vbo_map[m.group] for m in mesh_map[key] if m.group is not None]))
 
-    #draw function assumes that Mesh instances are first in the meshes values lists
-    #so reorder
-    #for mesh_key in meshes:
-    #    unordered_meshes=meshes[mesh_key]
-    #    meshes[mesh_key]=[]
-    #    for m in unordered_meshes:
-    #        if type(m) is Mesh:
-    #            meshes[mesh_key].append(m)
-    #            m.finishInit()
-    #    for m in unordered_meshes:
-    #        if type(m) is not Mesh:
-    #            meshes[mesh_key].append(m)
-    #            m.finishInit()
-
 all_meshes=[]
 
 def deleteVBOs():
@@ -214,6 +216,7 @@ def deleteVBOs():
         print 'deleting vbo'
         object3dLib.deleteVBO(vbo)
     all_vbos=[]
+    #TODO rebuild vbos dict
 
 def deleteMeshes():
     global all_meshes
@@ -221,6 +224,12 @@ def deleteMeshes():
         object3dLib.deleteMesh(mesh)
     all_meshes=[]
     deleteVBOs()
+
+def deleteColliders():
+    global all_colliders
+    for (num, arr) in manage.lookup_colliders.values():
+        object3dLib.deleteColliders(num, arr)
+    all_colliders=[]
 
 class Mesh(object):
     def __init__(self, mesh, views, mesh_key, group=None):
@@ -438,6 +447,7 @@ class AltMeterMesh(Mesh):
 class ClimbMesh(Mesh):
     def __init__(self, *args, **kwargs):
         Mesh.__init__(self, *args, **kwargs)
+        print 'ClimbMesh: '+str(args)
 
     def draw(self, bot, view_id):
         ident=bot.getId()
@@ -535,3 +545,27 @@ class CompassMesh(Mesh):
         ang=-last_heading/2
         self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)
+
+def loadColliders( colliders ):
+    print 'loadColliders start'
+    paths=[ (typ, glob.glob(glob_path), scale) for (typ, (glob_path, scale)) in colliders.items() ]
+    lookup_paths={}
+    for (typ, path_list, scale) in paths:
+        if typ not in lookup_paths:
+            lookup_paths[typ]=[]
+        lookup_paths[typ].extend([ (p, scale) for p in path_list ])
+
+    manage.lookup_colliders={}
+    for (typ, path_list, scale) in paths:
+        lookup_paths[typ][:]=[ (getNativePath(p), scale)
+                               for (p, scale) in lookup_paths[typ] ]
+        num_paths=len(lookup_paths[typ])
+        coll_arr=object3dLib.allocColliders(num_paths)
+        #lookup_colliders[typ]=object3dLib.allocColliders(num_paths)
+        idx=0
+        print 'loadColliders. in paths: '+str((type, path_list, scale))
+        for (path, scale) in lookup_paths[typ]:
+            print 'loadColliders. pathScale: '+str((path,scale))
+            object3dLib.loadCollider(coll_arr, idx, path, scale)
+            idx+=1
+        manage.lookup_colliders[typ]=(num_paths, coll_arr)

@@ -18,6 +18,7 @@
 ##//    You should have received a copy of the GNU General Public License
 ##//    along with FtpServerMobile.  If not, see <http://www.gnu.org/licenses/>.
 ##//
+import airfoil
 from airfoil import Airfoil, Obj
 import array
 from control import *
@@ -57,6 +58,8 @@ def loadTerrain():
 		cterrain = cdll.LoadLibrary("bin/cterrain.so")
 		colFileName = "data/strip1.bmp" 
 		mapFileName = "data/map_output.hm2"
+        cterrain.checkCollision.argtypes=[ c_void_p, c_uint ]
+        cterrain.checkCollision.restype=c_uint
 
 	cterrain.init(c_char_p(colFileName), 
 		      c_char_p(mapFileName), 
@@ -431,9 +434,12 @@ def init():
 
 		return (all, movingAndOnly)
 
-	internal_grp=1
-	external_grp=2
-	(all_internal, internal_only)=genMeshArgs({
+
+	colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
+	colliders=[ path for (path, scale) in colliders_map.values() ]
+	#colliders= [ ]
+	internal_grp, external_grp=range(2)
+	(all_internal, not_external)=genMeshArgs({
 		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
 		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
 		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
@@ -442,17 +448,20 @@ def init():
 		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
 		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
 		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
-
-	(all_external, external_only)=genMeshArgs({
+	not_external.extend(colliders)
+	(all_external, not_internal)=genMeshArgs({
 		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
 		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
 		}, "data/models/cockpit/E_*.csv", scale, external_grp)
+	not_internal.extend(colliders)
+
 	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
 	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
 	#do not maintain ordering
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, internal_only),
-			  (MyAirfoil.TYP, INTERNAL): (all_internal, external_only)
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, not_external),
+			  (MyAirfoil.TYP, INTERNAL): (all_internal, not_internal)
 			  }, views)
+	mesh.loadColliders( colliders_map )
 	bots=[]
 	skybox = Skybox()
 	start_time=time.time()
@@ -594,7 +603,7 @@ def timeSlice(dt):
 				global fullscreen
 				fullscreen = not fullscreen
 				mesh.deleteVBOs()
-				glFinish()
+				#glFinish()
 				#win.set_fullscreen(fullscreen)
 				#pyglet.app.exit()
 				win.dispatch_event('on_close')
@@ -622,7 +631,6 @@ def timeSlice(dt):
 				skybox.draw(view)
 				drawTerrain(view)
 
-				#draws should precede plne.eventCheck to ensure correct frame_rot is used
 				for bot in bots:
 					if bot.alive():
 						mesh.draw(bot, view)
@@ -687,6 +695,7 @@ def run():
 		except:
 			print_exc()
 	mesh.deleteMeshes()
+	mesh.deleteColliders()
 	print 'quitting main thread'
         print "fps:  %d" % clock.get_fps()
 	end_time=time.time()

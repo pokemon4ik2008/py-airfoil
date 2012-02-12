@@ -1,5 +1,7 @@
 from euclid import Quaternion, Vector3
+import glob
 import math
+import os
 import socket
 
 X_UNIT=Vector3(1.0, 0.0, 0.0)
@@ -68,3 +70,9 @@ def toHexStr(string):
 
 def getEffectiveAngle(angle):
     return angle-math.floor(angle/math.pi/2)*math.pi*2
+
+if os.name == 'nt':
+    getNativePath=lambda s: re.sub(r'/', r'\\', s)
+else:
+    getNativePath=lambda s: s
+    

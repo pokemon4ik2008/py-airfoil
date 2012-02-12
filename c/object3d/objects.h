@@ -127,6 +127,13 @@ typedef struct {
   uint32 stride;
 } obj_vbo;
 
+class obj_collider {
+ public: 
+  Eigen::Vector3d mid;
+  Eigen::Vector3d rotated_mid;
+  float64 rad;
+};
+
 class obj_3dMesh {
  public:
   obj_3dPrimitive *p_prim;
@@ -142,16 +149,11 @@ class obj_3dMesh {
   uint8 mesh_path[PATH_LEN];
   uint32 num_prims;
 
-  /* #define NO_VBO 0xffffffff */
-  /*   GLuint vbo; */
-  /* #define NO_IBO 0xffffffff */
-  /*   GLuint ibo; */
-  /*   GLuint num_indices; */
-  /*   uint32 num_vert_components; */
-  /*   uint32 num_col_components; */
-  /*   uint32 num_norm_components; */
-  /*   uint32 stride; */
+  uint32 num_colliders;
+  obj_collider *p_colliders;
+
 #define NO_VBO_GROUP 0xffffffff
+#define NO_VBO_GROUP_EVER 0xfffffffe
   uint32 vbo_group;
   obj_vbo vbo;
   void *p_vert_start;

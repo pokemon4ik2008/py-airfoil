@@ -22,7 +22,7 @@ def droppable(flags):
 
 class Mirrorable:
     META=0
-    __INDEXES=[TYPE, IDENT, SYS, FLAGS]=range(4)
+    __INDEXES=[TYP_IDX, IDENT, SYS, FLAGS]=range(4)
     _SIZES = [2, 2, 2, 1]
     UPDATE_SIZE=META_SIZE=sum(_SIZES)
     SHIFTS = [sum(_SIZES[:i]) for i in __INDEXES]
@@ -215,7 +215,7 @@ class SerialisableFact:
 
     @staticmethod
     def getMaxType():
-        return 3
+        return 7
 
     @staticmethod
     def loads(obj_str):
@@ -248,7 +248,7 @@ class SerialisableFact:
                 obj=objLookup[identifier]
                 typ=obj.getType()
             else:
-                typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYPE)
+                typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYP_IDX)
                 if typ in self.__ctors:
                     obj = self.__ctors[typ](ident=identifier)
                     objLookup[identifier] = obj

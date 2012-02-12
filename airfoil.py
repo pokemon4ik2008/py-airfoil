@@ -18,7 +18,9 @@
 ##//
 
 from euclid import *
+import glob
 import manage
+from mesh import object3dLib
 from pyglet.gl import *
 from pyglet.window import key
 import time
@@ -26,6 +28,7 @@ from util import *
 from math import *
 #import pdb
 import threading
+from traceback import print_exc
 
 ##[3]Spitfire Mk.XIV
 ##
@@ -243,14 +246,22 @@ class Obj(object):
         self._attitude = Quaternion.new_rotate_axis(self.getWindHeading(), Y_UNIT)
 
     def _collisionDetect(self):
-        if (self._cterrain != None):
-            colArgs = (c_float * 4)()
-            colArgs[0] = self._pos.x
-            colArgs[1] = self._pos.y
-            colArgs[2] = self._pos.z
-            colArgs[3] = 10.0
-            if self._cterrain.checkCollision(colArgs):                
-                return True
+        if self._cterrain != None:
+            #colArgs = (c_float * 4)()
+            #colArgs[0] = self._pos.x
+            #colArgs[1] = self._pos.y
+            #colArgs[2] = self._pos.z
+            #colArgs[3] = 10.0
+            try:
+                (num_cols, colliders)=manage.lookup_colliders[ self.TYP ]
+                assert num_cols>0
+                object3dLib.rotColliders( colliders, num_cols,
+                        self._pos.x, self._pos.y, self._pos.z,
+                        self._attitude.w, self._attitude.x,
+                        self._attitude.y, self._attitude.z )
+                return self._cterrain.checkCollision(colliders, 0)
+            except:
+                print_exc()
         return False
 
     def _reactToCollision(self):
@@ -278,7 +289,7 @@ class Obj(object):
         # Calculate the axis of rotation
 	axis=pplane.cross(self._velocity).normalize()
 	axis = self._attitude.conjugated() * axis
-	axis = Quaternion.new_rotate_axis(math.pi/2*0, Vector3(0,1,0)) * axis
+	axis = Quaternion.new_rotate_axis(math.pi/2*0, Y_UNIT) * axis
 
         # Update the angular velocity
 	self._angularVelocity=self._angularVelocity*Quaternion.new_rotate_axis(angle,axis)
@@ -288,10 +299,9 @@ class Obj(object):
         self._pos += (self._velocity * timeDiff)
         if self._collisionDetect(): 
             self._reactToCollision()
-            self._pos = self._pos + Vector3(0,1,0)
+            self._pos = self._pos + Y_UNIT
             while self._collisionDetect():
-                self._pos = self._pos + Vector3(0,1,0)
-
+                self._pos = self._pos + Y_UNIT
 
     def update(self):
         timeDiff=self._getTimeDiff()
@@ -569,8 +579,8 @@ class Airfoil(Obj):
         (zenithVector, noseVector)=self._getVectors()
         self._updateVelFromControls(timeDiff, noseVector)
         self._updateFromEnv(timeDiff, zenithVector, noseVector)
-        self.__pendingElevatorAdjustment = 0.0                     #reset the pending pitch adjustemnt
-        self.__pendingAileronAdjustment = 0.0                     #reset the pending roll adjustment
+        self.__pendingElevatorAdjustment = 0.0 #reset the pending pitch adjustemnt
+        self.__pendingAileronAdjustment = 0.0  #reset the pending roll adjustment
         self._updatePos(timeDiff)
         self.printDetails()
         

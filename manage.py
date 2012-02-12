@@ -8,9 +8,10 @@ global sound_effects
 sound_effects=False
 global opt
 global vbo
-vbo=True
+vbo=False
 from time import time
 global now, delta
+global lookup_colliders
 
 def updateTime():
     global now, delta
