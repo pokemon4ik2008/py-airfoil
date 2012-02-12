@@ -132,6 +132,7 @@ class obj_collider {
   Eigen::Vector3d mid;
   Eigen::Vector3d rotated_mid;
   float64 rad;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 class obj_3dMesh {
