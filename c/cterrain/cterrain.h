@@ -102,11 +102,13 @@ typedef unsigned int uint32;
 typedef float float32;
 typedef double float64;
 
-typedef struct {
+class obj_collider {
+ public:
   Eigen::Vector3d mid;
   Eigen::Vector3d rotated_mid;
   float64 rad;
-} obj_collider;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
 
 bool checkSimpleCollision(obj_collider *p_cols, uint32 idx);
 float getAngleForXY(float x, float y);
