@@ -44,6 +44,7 @@ from traceback import print_exc
 # constants
 rho = 1.29 # kg/m^3 density of air
 accelDueToGravity = 9.8 # m/s/s
+Y_FORCED=5.0
 
 class Obj(object):
     in_flight=0
@@ -62,69 +63,6 @@ class Obj(object):
         self._mesh = None
         self._cterrain = cterrain
         self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
-
-    def collisionForType(self, ident):
-        return mesh.collidedCollider(ident, self.getId())
-        
-        #if object3dLib.checkCollisionCol(otherModCols, self._modCols,
-        #                                 byref(otherCollisionCnt), otherCollisions,
-        #                                 byref(self._num_collisions), self._collisions):
-        #    import pdb; pdb.set_trace()
-        #    return True
-        #else:
-        #    return False
-
-    def _colCheck(self, b):
-        #num_cols=object3dLib.checkCollision(self._modCols, self._collisions)
-        #c=checkColForBot(b)
-        return b.collisionForType(getId())
-
-    def _resetResponses(self):
-        pass
-
-    def checkCols(self, bots, indestructible_types):
-        #print 'check start bots: '+str(bots)
-        if self.TYP in indestructible_types:
-            return
-        self._resetResponses()
-        for b in bots:
-            if b.TYP in indestructible_types:
-                self._colCheck(b)
-            else:
-                myId=self.getId()
-                botId=b.getId()
-                if myId[0]==botId[0]:
-                    #print 'about not to check mine: '+str(myId)+" his "+str(botId)
-                    if myId[1]>botId[1]:
-                        self._colCheck(b)
-                    else:
-                        pass
-                        #print 'not checking'
-                else:
-                    #print 'other guy: '+str(myId)+" his "+str(botId)
-                    self._colCheck(b)
-
-        #print 'using modCols for '+str(self.getId())
-        #print 'checkCollision for terrain '+str(type(self._num_collisions))
-        model=mesh.getCollisionModel(self.getId())
-        if self._cterrain!=None and model is not None:
-            if self._cterrain.checkCollision(model.colliders, byref(model.num_collisions), model.results):
-                self._forced_y_delta=+1.0
-                self._reactToCollision()
-            #self._pos = self._pos + Y_UNIT
-            #while self._cterrain.checkCollision(self._modCols, byref(self._num_collisions), self._collisions):
-            #    self._pos = self._pos + Y_UNIT
-
-    #def checkCols(self, other):
-    #    dist=self.getPerpRelativeDist(other)
-    #    if dist<=self.rad+other.collider.rad:
-    #            if self.children is not None:
-    #                    for collChild in self.children:
-    #                            if collChild.(bot):
-    #                                    return True
-    #            else:
-    #                    return True
-    #    return False
 
     def getPos(self):
         return self._pos
@@ -651,3 +589,81 @@ class Airfoil(Obj):
     def getHeading(self):
         noseVector = self._attitude * Vector3(1.0,0.0,0.0)
         return math.pi * 2 - getAngleForXY(noseVector.x, noseVector.z)
+
+    def collisionForType(self, ident):
+        return mesh.collidedCollider(ident, self.getId())
+        
+        #if object3dLib.checkCollisionCol(otherModCols, self._modCols,
+        #                                 byref(otherCollisionCnt), otherCollisions,
+        #                                 byref(self._num_collisions), self._collisions):
+        #    import pdb; pdb.set_trace()
+        #    return True
+        #else:
+        #    return False
+
+    def _colCheck(self, b):
+        #num_cols=object3dLib.checkCollision(self._modCols, self._collisions)
+        #c=checkColForBot(b)
+        return b.collisionForType(getId())
+
+    def _resetResponses(self):
+        pass
+
+    def checkCols(self, bots, indestructible_types):
+        #print 'check start bots: '+str(bots)
+        if self.TYP in indestructible_types:
+            return
+        self._resetResponses()
+        for b in bots:
+            if b.TYP in indestructible_types:
+                self._colCheck(b)
+            else:
+                myId=self.getId()
+                botId=b.getId()
+                if myId[0]==botId[0]:
+                    #print 'about not to check mine: '+str(myId)+" his "+str(botId)
+                    if myId[1]>botId[1]:
+                        self._colCheck(b)
+                    else:
+                        pass
+                        #print 'not checking'
+                else:
+                    #print 'other guy: '+str(myId)+" his "+str(botId)
+                    self._colCheck(b)
+
+        #print 'using modCols for '+str(self.getId())
+        #print 'checkCollision for terrain '+str(type(self._num_collisions))
+        model=mesh.getCollisionModel(self.getId())
+        if self._cterrain!=None and model is not None:
+            if self._cterrain.checkCollision(model.colliders, byref(model.num_collisions), model.results):
+                self._forced_y_delta=+Y_FORCED
+                self._reactToCollision()
+
+    def _initCols(self):
+	mesh.initCollider(self.TYP, self.getId())
+        self._forced_y_delta=0.0
+        self._locked=False
+
+    def _resetResponses(self):
+        self._forced_y_delta=0.0
+
+    def _collisionRespond(self, bot):
+        bPos=bot.getPos()
+        if self._pos.y<bPos.y:
+            self._forced_y_delta=-Y_FORCED
+        else:
+            self._forced_y_delta=+Y_FORCED
+            
+    def _genDelta(self, timeDiff):
+        delta=self._velocity * timeDiff
+        if self._forced_y_delta!=0.0:
+            if self._forced_y_delta<0.0:
+                if delta.y>self._forced_y_delta:
+                    print 'forcing 1'
+                    delta.y=self._forced_y_delta
+            else:
+                if delta.y<self._forced_y_delta:
+                    print 'forcing 2'
+                    delta.y=self._forced_y_delta
+        return delta
+

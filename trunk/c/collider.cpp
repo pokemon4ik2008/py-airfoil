@@ -191,12 +191,28 @@ bool col_CheckCollider(const obj_transformedCollider *p_col,
 		       uint32 *p_oSize, uint32 oResults[]) {
   ColliderIt it(p_col, p_mySize, myResults);
   ColliderIt oIt(p_other, p_oSize, oResults);
+
+  uint32 i=0, j=0;
+
   while(it.hasNext()) {
     uint32 itIdx=it.next();
     while(oIt.hasNext()) {
-      oIt.result(it.result(col_ColCollisionCheck(p_col, itIdx, p_other, oIt.next())));
+      if(!col_ColCollisionCheck(p_col, itIdx, p_other, oIt.next())) {
+	oIt.result(it.result(false));
+      } else {
+	if(i!=0 || j!=0) {
+	  printf("col_CheckCollider. collided\n");
+	  oIt.result(it.result(true));
+	} else {
+	  printf("col_CheckCollider. collided %u %u\n", i, j);
+	  oIt.result(it.result(false));	    
+	  oIt.allowDeepInspection();
+	}
+      }
+      j++;
     }
     oIt.reset();
+    i++;
   }
   //if one has collided so has the other (as both collided with each other)
   return it.collided();

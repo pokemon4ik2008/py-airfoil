@@ -214,7 +214,6 @@ class Bullet(Obj, ControlledSer):
             print_exc()
 Bullet.positions=[]
 
-Y_FORCED=10.0
 class MyAirfoil(Airfoil, ControlledSer):
     UPDATE_SIZE=Mirrorable.META+12
     [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
@@ -240,41 +239,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__last_fire=manage.now
 	self.frame_rot=None
 	self.__on_target=set()
-	mesh.initCollider(self.TYP, self.getId())
-        self._forced_y_delta=0.0
-        self._locked=False
-
-    def _resetResponses(self):
-	    self._forced_y_delta=0.0
-
-
-    def _collisionRespond(self, bot):
-        print 'collisionRespond'
-        bPos=bot.getPos()
-        if self._pos.y<bPos.y:
-            print 'setting neg y'
-            self._forced_y_delta=-Y_FORCED
-        else:
-            print 'setting pos y'
-            self._forced_y_delta=+Y_FORCED
-            
-    def _genDelta(self, timeDiff):
-	    delta=self._velocity * timeDiff
-	    if self._forced_y_delta!=0.0:
-		    if self._forced_y_delta<0.0:
-			    if delta.y>self._forced_y_delta:
-				    print 'lowering plane'
-				    delta.y=self._forced_y_delta
-			    else:
-				    print 'not lowering: '+str(delta.y)
-		    else:
-			    if delta.y<self._forced_y_delta:
-				    print 'raising plane'
-				    delta.y=self._forced_y_delta
-			    else:
-				    print 'not raising: '+str(delta.y)
-	    return delta
-    
+	self._initCols()
+	
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
 	    self.__lastKnownPos=Vector3(0,0,0)
@@ -407,16 +373,14 @@ class MyAirfoil(Airfoil, ControlledSer):
 		#and not on every frame until it clears the plane
 		return False
 	if b.collisionForType(self.getId()):
-		print 'impact'
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
 			self.__on_target.add(b.getId())
 			impactSlot=SoundSlot("impact"+str(self.getId()), snd=IMPACT_SND, pos=b.getPos())
 			impactSlot.play()
 			self._locked=True
-			print 'bullet impact'
 		else:
-			print 'plane impact'
+			print 'collisions: '+str(mesh.colModels[self.getId()].num_collisions)
 			self._collisionRespond(b);
 			return True
 	else:
@@ -660,9 +624,9 @@ def timeSlice(dt):
 				man.proxy.releaseLock()
 
 			curPlanes=[ plane for plane in planes.itervalues() if plane.alive() ]
-			[ plane.checkCols(bots, [Bullet.TYP]) for plane in curPlanes ]
+			[ plane.checkCols(bots+curPlanes, [Bullet.TYP]) for plane in curPlanes ]
                         #print 'main planes: '+str(curPlanes)
-			[ plane.checkCols(curPlanes, [Bullet.TYP]) for plane in curPlanes ]
+			#[ plane.checkCols(curPlanes, [Bullet.TYP]) for plane in curPlanes ]
 			[ plane.markChanged() for plane in curPlanes ]
 			[ b.markChanged() for b in Bullet.getInFlight() if b.justBornOrDead() ]
 
@@ -804,4 +768,3 @@ def run():
 if __name__ == '__main__':
 	#cProfile.run('run()', 'profile')
 	run()
-        print 'ran'
