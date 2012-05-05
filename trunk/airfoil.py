@@ -62,6 +62,7 @@ class Obj(object):
         self._mesh = None
         self._cterrain = cterrain
         self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
+        self._forced_y_delta=1.0
 
     def collisionForType(self, ident):
         if mesh.collidedCollider(ident, self.getId()):
@@ -83,9 +84,9 @@ class Obj(object):
     def _collisionRespond(self, bot):
         bPos=b.getPos()
         if self._pos.y<bPos.y:
-            self._forced_y_delta-=1.0
+            self._forced_y_delta=-1.0
         else:
-            self._forced_y_delta+=1.0
+            self._forced_y_delta=+1.0
             
     def checkCols(self, bots, indestructible_types):
         #print 'check start bots: '+str(bots)
