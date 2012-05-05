@@ -573,7 +573,6 @@ class CollisionModel:
     def __init__(self, typ):
         self.__typ=typ
         (self._numCols, self._origCols)=manage.lookup_colliders[ typ ]
-        self._forced_y_delta = 0.0
         ArrayType=ctypes.c_uint*self._numCols
         self.results=ArrayType()
         self.num_collisions=ctypes.c_uint();
