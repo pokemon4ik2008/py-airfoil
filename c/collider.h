@@ -69,12 +69,16 @@ public:
     case unstarted:
       return p_collider->numCols>0;
     case 0:
-      if(lastResult==false) {
+      if(!allowDeep && lastResult==false) {
 	return false;
       }
     default:
       return p_collider->numCols>colIdx+1;
     }
+  }
+
+  void allowDeepInspection() {
+    allowDeep=true;
   }
 
   uint32 next() {
@@ -111,6 +115,7 @@ public:
     } else {
       *p_resCnt=0;
     }
+    allowDeep=false;
     colIdx=unstarted;
     lastResult=false;
   }
@@ -136,6 +141,7 @@ private:
   bool lastResult;
   uint32 *p_res;
   bool *p_resIndices;
+  bool allowDeep;
 };
 
 void col_deleteTransCols(obj_transformedCollider *p_col);
