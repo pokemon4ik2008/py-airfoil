@@ -163,6 +163,8 @@ GUN_SND=load('data/gun.wav', streaming=False)
 ENGINE_SND=load('data/spitfire_engine.wav', streaming=False)
 SCREECH_SND=load('data/104026__rutgermuller__Tire_Squeek_www.rutgermuller.wav', streaming=False)
 WIND_SND=load('data/34338__ERH__wind.wav', streaming=False)
+WIZZ_SND=load('data/90782__kmoon__bullet-flyby-2.wav', streaming=False)
+IMPACT_SND=load('data/116645__woodingp__bullets-hit-edit.wav', streaming=False)
 
 def setListener(eye, pos, zen):
     listener.position=(eye.x, eye.y, eye.z)

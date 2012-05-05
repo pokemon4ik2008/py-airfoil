@@ -34,6 +34,8 @@
 #define MAX_Z MAX_FLAG|DIM_Z
 
 #define DIM(a) (sizeof(a)/sizeof(a[0]))
+#define MIN(a,b) (a>b?b:a)
+#define MAX(a,b) (a<b?b:a)
 
 //all objects within this dist from viewer will be plotted.
 //this ensure's that object when looking directly up or down
@@ -51,8 +53,6 @@
 #include <Eigen/Geometry>
 #include <GL/glew.h>
 
-typedef enum {ok, noMemory,invalidPrimitive,emptyObject,nofile, unsupported, glErr, failedAssert} oError;
-typedef unsigned char ubyte;
 typedef enum {line,tri,quad,empty} primitiveType;
 #define PI	(22.0f/7.0f)
 #define sqr(x) ((x)*(x))
@@ -68,6 +68,7 @@ typedef enum {line,tri,quad,empty} primitiveType;
 #endif
 
 #define PATH_LEN 256
+#define TAG_LEN 32
 #define PATH_MATCH "%256s"
 typedef char uint8;
 typedef unsigned int uint32;
@@ -127,14 +128,6 @@ typedef struct {
   uint32 stride;
 } obj_vbo;
 
-class obj_collider {
- public: 
-  Eigen::Vector3d mid;
-  Eigen::Vector3d rotated_mid;
-  float64 rad;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-};
-
 class obj_3dMesh {
  public:
   obj_3dPrimitive *p_prim;
@@ -148,10 +141,12 @@ class obj_3dMesh {
   uint32 *p_tex_flags;
   uint8 **pp_tex_paths;
   uint8 mesh_path[PATH_LEN];
+#define PRIMARY_TAG "primary"
+  uint8 tag[TAG_LEN];
   uint32 num_prims;
 
-  uint32 num_colliders;
-  obj_collider *p_colliders;
+  //uint32 num_colliders;
+  //obj_collider *p_colliders;
 
 #define NO_VBO_GROUP 0xffffffff
 #define NO_VBO_GROUP_EVER 0xfffffffe

@@ -1,4 +1,5 @@
 #include <Eigen/Geometry>
+#include "collider.h"
 #include "cterrain.h"
 #include <GL/glut.h>
 
@@ -39,7 +40,7 @@ extern "C"
 
 	DLL_EXPORT void initDefault()
 	{		
-		init ("strip1.bmp", "map_output.hm2", 4.0f/3.0f, wireframe, map_expansion_const, y_scale_const);
+	  init ("strip1.bmp", "map_output.hm2", 4.0f/3.0f, wireframe, map_expansion_const, y_scale_const);
 	}
 
 	DLL_EXPORT void draw(float povArg[], float aspectRatio)
@@ -91,10 +92,19 @@ extern "C"
 	 
 	}
 
-  DLL_EXPORT int checkCollision(obj_collider *p_cols, uint32 idx)
-	{
-	  return checkSimpleCollision(p_cols, idx);
-	}
+  DLL_EXPORT bool checkCollision(const obj_transformedCollider *p_cols,
+				 uint32 *p_resCnt, uint32 results[])
+  {
+    if(!p_cols || !p_cols->numCols) {
+      return false;
+    }
+    ColliderIt it(p_cols, p_resCnt, results);
+    while(it.hasNext()) {
+      it.result(checkSimpleColl(p_cols, it.next()));
+    }
+    return it.collided();
+    //return checkSimpleCollision(p_cols, results);
+  }
 
 	DLL_EXPORT void getPlaneVectorAtPos(float x, float z, float outputVector[])
 	{
@@ -619,11 +629,13 @@ void terPrecalc_vertex_intensities() {
 				
 }
 
-bool checkSimpleCollision(obj_collider *p_cols, uint32 idx) {
-  float64 x_col=p_cols[idx].rotated_mid.x(), 
-    y_col=p_cols[idx].rotated_mid.y(), 
-    z_col=p_cols[idx].rotated_mid.z(), 
-    radius=p_cols[idx].rad;
+bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
+  obj_sphere *p_sphere=&p_cols->p_sphere[colNum];
+  Eigen::Vector3d colPos=p_sphere->mid;
+  float64 radius=p_sphere->rad;
+  float64 x_col=colPos.x(), 
+    y_col=colPos.y(), 
+    z_col=colPos.z();
   float height = -1.0;
   float side = (mini::S-1)*map_expansion_const;
   if (x_col<0.0 || x_col>=side) height = 0.0;
@@ -648,6 +660,20 @@ bool checkSimpleCollision(obj_collider *p_cols, uint32 idx) {
   return false;
 }
 
+/*
+int checkSimpleCollision(const obj_transformedCollider *p_cols, uint32 *p_resCnt, uint32[] results) {
+  //return col_CollisionCheck(p_cols, checkSimpleColl, results);
+  if(!p_transCol || !p_transCol->numCols) {
+    return 0;
+  }
+  ColliderIt it(p_transCol, p_resSize, results);
+  while(it.hasNext()) {
+    uint32 colIdx=it.next();
+    it.result(checkSimpleColl(p_col, it.next(), point))
+  }
+  return it.collided();
+}
+*/
 void terDrawLandscape(point_of_view &input_pov,float aspect
 					  ,short detail_levels) {
 	vector point[3];//left,right,centre;

@@ -114,6 +114,7 @@ class View(pyglet.event.EventDispatcher):
         self.__opt=opt
         self.__cams=[FollowCam(plane), FixedCam(plane), InternalCam(plane)]
         self.__currentCamera = self.__cams[View.__FIXED]
+        self.v_type=self.__currentCamera.TYPE
         self.__controls=None
         self.__plane_id=plane.getId()
         self.view_id=View.__VIEW_COUNT

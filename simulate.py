@@ -26,6 +26,7 @@ import cProfile
 from euclid import *
 import itertools
 import manage
+from manage import cterrain
 from math import sqrt, atan2
 import mesh
 import optparse
@@ -51,15 +52,13 @@ def loadTerrain():
 	colFileName = ''
 	mapFileName = ''
 	if os.name == 'nt':
-		cterrain = cdll.LoadLibrary("bin\cterrain.dll")
-		colFileName = "data\\strip1.bmp"
-		mapFileName = "data\\map_output.hm2"
+            #cterrain = cdll.LoadLibrary("bin\cterrain.dll")
+            colFileName = "data\\strip1.bmp"
+            mapFileName = "data\\map_output.hm2"
 	else:
-		cterrain = cdll.LoadLibrary("bin/cterrain.so")
-		colFileName = "data/strip1.bmp" 
-		mapFileName = "data/map_output.hm2"
-        cterrain.checkCollision.argtypes=[ c_void_p, c_uint ]
-        cterrain.checkCollision.restype=c_uint
+            #cterrain = cdll.LoadLibrary("bin/cterrain.so")
+            colFileName = "data/strip1.bmp" 
+            mapFileName = "data/map_output.hm2"
 
 	cterrain.init(c_char_p(colFileName), 
 		      c_char_p(mapFileName), 
@@ -91,7 +90,7 @@ class Bullet(Obj, ControlledSer):
     TYP=3
     #LIFE_SPAN is in seconds
     LIFE_SPAN=30
-    OFFSET=Vector3(0, -15, 0)
+    OFFSET=Vector3(0, -35, 0)
     VEL=Vector3(0, -750, 0)
     __IN_FLIGHT=set()
 
@@ -101,6 +100,7 @@ class Bullet(Obj, ControlledSer):
 
     def __init__(self, ident=None, pos = Vector3(0,0,0), attitude = Quaternion(0.5,-0.5,0.5, 0.5), vel = Vector3(0,0,0), proxy=None, parent=None):
         Obj.__init__(self, pos=pos, attitude=attitude, vel=vel)
+        self._oldPos=self._pos.copy()
         self._mass = BULLET_MASS
 	
         self._scales = [0.032, 0.032, 0.005]
@@ -109,6 +109,7 @@ class Bullet(Obj, ControlledSer):
 
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
+            #mesh.initCollider(self.TYP, ident)
 	    self.__played=False
 
     def localInit(self):
@@ -170,6 +171,7 @@ class Bullet(Obj, ControlledSer):
     def estUpdate(self):
         timeDiff=self._getTimeDiff()
 	self._updateVelFromEnv(timeDiff)
+        self._oldPos=self._pos.copy()
         self._updatePos(timeDiff)
   
     def serialise(self):
@@ -178,6 +180,18 @@ class Bullet(Obj, ControlledSer):
 
     def justBornOrDead(self):
         return self._just_born or self._just_dead
+
+    def collisionForType(self, ident):
+        #print "old type: "+str(type(self._oldPos.x))
+        return mesh.collidedPoint(ident, self._oldPos, self._pos)
+        #if man.object3dLib.checkCollisionPoint(
+        #    otherModCols,
+        #    self._oldPos.x, self._oldPos.y, self._oldPos.z,
+        #    self._pos.x, self._pos.y, self._pos.z,
+        #    byref(otherCollisionCnt), otherCollisions):
+        #    return True
+        #else:
+        #    return False
 
     @classmethod
     def drawAll(cls):
@@ -215,9 +229,6 @@ class MyAirfoil(Airfoil, ControlledSer):
 	ControlledSer.__init__(self, MyAirfoil.TYP, ident, proxy)
 	self.setControls(controls)
 
-    def setControls(self, c):
-	self.__controls=c
-
     def localInit(self):
         ControlledSer.localInit(self)
         self.__interesting_events = [Controller.THRUST, Controller.PITCH, Controller.ROLL, Controller.FIRE]
@@ -227,6 +238,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__bullets=[]
         self.__last_fire=manage.now
 	self.frame_rot=None
+	self.__on_target=set()
+	mesh.initCollider(self.TYP, self.getId())
 
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
@@ -235,12 +248,16 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__lastUpdateTime=0.0
 	    self.__played=False
 	    self.__play_tire=False
+            mesh.initCollider(self.TYP, ident)
+
+    def setControls(self, c):
+	self.__controls=c
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
         self.setPos(self.__lastKnownPos+
                     (self.__lastDelta*period))
-        return self
+        mesh.updateCollider(self.getId(), self._pos, self._attitude)
 
     def eventCheck(self):
         if not Controls:
@@ -346,6 +363,26 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__play_tire=play_tire
 	    return self
 
+    def _colCheck(self, b):
+        #num_cols=object3dLib.checkCollision(self._modCols, self._collisions)
+        #c=checkColForBot(b)
+	if b.getId() in self.__on_target:
+		#ensures that the same bullet only hits us once
+		#and not on every frame until it clears the plane
+		return False
+	if b.collisionForType(self.getId()):
+		#import pdb; pdb.set_trace()
+		if b.TYP==Bullet.TYP:
+			self.__on_target.add(b.getId())
+			impactSlot=SoundSlot("impact"+str(self.getId()), snd=IMPACT_SND, pos=b.getPos())
+			impactSlot.play()
+			print 'impact'
+		else:
+			self._collisionRespond(b);
+			return True
+	else:
+            return False
+
 man=manage
 def init():
         #try:
@@ -372,6 +409,12 @@ def init():
         if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
 	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
+
+	scale=3.0
+	colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
+	colliders=[ path for (path, scale) in colliders_map.values() ]
+	mesh.loadColliders( colliders_map )
+
 	if man.opt.server is None:
 		if man.opt.client is None:
 			man.server=Server()
@@ -393,7 +436,40 @@ def init():
 	views = []
         clock = pyglet.clock.Clock()
 	loadTerrain()
-        r = 0.0
+        #r = 0.0
+
+	def genMeshArgs(moving_maps, onlys, scale, group):
+		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
+		all.extend(moving_maps.items())
+
+		movingAndOnly=moving_maps.keys()[:]
+		movingAndOnly.append(onlys)
+
+		return (all, movingAndOnly)
+
+	internal_grp, external_grp=range(2)
+	(all_internal, not_external)=genMeshArgs({
+		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
+		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
+		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
+		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
+		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
+		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
+		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
+		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
+	not_external.extend(colliders)
+	(all_external, not_internal)=genMeshArgs({
+		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
+		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
+		}, "data/models/cockpit/E_*.csv", scale, external_grp)
+	not_internal.extend(colliders)
+
+	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
+	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
+	#do not maintain ordering
+	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, not_external),
+			  (MyAirfoil.TYP, INTERNAL): (all_internal, not_internal)
+			  }, views)
 
 	planes = {}
 	plane_inits=[(Point3(0.0,100.0,0.0), 
@@ -423,45 +499,6 @@ def init():
 		num_players=2
 	else:
 		num_players=1
-	scale=3.0
-
-	def genMeshArgs(moving_maps, onlys, scale, group):
-		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
-		all.extend(moving_maps.items())
-
-		movingAndOnly=moving_maps.keys()[:]
-		movingAndOnly.append(onlys)
-
-		return (all, movingAndOnly)
-
-
-	colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
-	colliders=[ path for (path, scale) in colliders_map.values() ]
-	#colliders= [ ]
-	internal_grp, external_grp=range(2)
-	(all_internal, not_external)=genMeshArgs({
-		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
-		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
-		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
-		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
-		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
-		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
-		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
-		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
-	not_external.extend(colliders)
-	(all_external, not_internal)=genMeshArgs({
-		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
-		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
-		}, "data/models/cockpit/E_*.csv", scale, external_grp)
-	not_internal.extend(colliders)
-
-	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
-	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
-	#do not maintain ordering
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, not_external),
-			  (MyAirfoil.TYP, INTERNAL): (all_internal, not_internal)
-			  }, views)
-	mesh.loadColliders( colliders_map )
 	bots=[]
 	skybox = Skybox()
 	start_time=time.time()
@@ -575,15 +612,19 @@ def timeSlice(dt):
 	try:
 		if man.proxy.alive():
 			man.updateTime()
-			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 			[ b.update() for b in set(Bullet.getInFlight())]
+			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
 
 			if man.proxy.acquireLock():
 				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
 				[ b.estUpdate() for b in bots ]
 				man.proxy.releaseLock()
-			
-			[ plane.markChanged() for plane in planes.itervalues() if plane.alive() ]
+
+			curPlanes=[ plane for plane in planes.itervalues() if plane.alive() ]
+			[ plane.checkCols(bots, [Bullet.TYP]) for plane in curPlanes ]
+                        #print 'main planes: '+str(curPlanes)
+			[ plane.checkCols(curPlanes, [Bullet.TYP]) for plane in curPlanes ]
+			[ plane.markChanged() for plane in curPlanes ]
 			[ b.markChanged() for b in Bullet.getInFlight() if b.justBornOrDead() ]
 
 			if win.has_exit:
@@ -634,8 +675,14 @@ def timeSlice(dt):
 				for bot in bots:
 					if bot.alive():
 						mesh.draw(bot, view)
+
+				#destructible_types=[MyAirfoil.Type]
+				#for destructible in man.proxy.getTypeObjs(destructible_tpes):
+				#	collider=destructible.collider
+				#	[ collider.Check(bot) for bot in bots if bot.TYP is not in destructible_types or bot.id<destructible.id ]
+
 				Bullet.drawAll()
-				
+
 				view.eventCheck()
 				glLoadIdentity()
 				view.drawText()
@@ -648,12 +695,17 @@ def timeSlice(dt):
 					if not bot.alive():
 						if bot.getId() in planes:
 							del planes[bot.getId()]
+						print 'timeSlice. sound cleanUp: '+str(bot.getId())
+						mesh.freeCollider(bot.getId())
 					else:
 						bot.play()
 			else:
 				for bot in bots:
-					if bot.getId() in planes and not bot.alive():
+					if not bot.alive():
+						if bot.getId() in planes:
 							del planes[bot.getId()]
+						print 'timeSlice. no sound cleanUp: '+str(bot.getId())
+						mesh.freeCollider(bot.getId())
 
 			return
 		
@@ -670,13 +722,13 @@ def run():
 	#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
 	pyglet.clock.schedule(timeSlice)
 	while man.proxy.alive():
-		setupWin(num_players, plane_ids, fs=fullscreen)
-		glFinish()
-		mesh.createVBOs(mesh.vbo_meshes)
-		glFinish()
-		ptrOn(mouse_cap)
-		pyglet.app.run()
-		glFinish()
+            setupWin(num_players, plane_ids, fs=fullscreen)
+            glFinish()
+            mesh.createVBOs(mesh.vbo_meshes)
+            glFinish()
+            ptrOn(mouse_cap)
+            pyglet.app.run()
+            glFinish()
 
 	flush_start=time.time()
 	while not man.proxy.attemptSendAll():
@@ -697,6 +749,7 @@ def run():
 	mesh.deleteMeshes()
 	mesh.deleteColliders()
 	print 'quitting main thread'
+	[ mesh.freeCollider(bot.getId()) for bot in man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ])]
         print "fps:  %d" % clock.get_fps()
 	end_time=time.time()
 	if man.proxy:
@@ -712,3 +765,4 @@ def run():
 if __name__ == '__main__':
 	#cProfile.run('run()', 'profile')
 	run()
+        print 'ran'

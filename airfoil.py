@@ -20,7 +20,7 @@
 from euclid import *
 import glob
 import manage
-from mesh import object3dLib
+import mesh
 from pyglet.gl import *
 from pyglet.window import key
 import time
@@ -50,7 +50,7 @@ class Obj(object):
 
     def __init__(self, pos, attitude, vel, cterrain=None):
         self._pos = pos
-        self._attitude = attitude
+        self._attitude=attitude
         self._lastClock = time.time()
         self._velocity = vel
         self.__elevRot=Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
@@ -62,6 +62,74 @@ class Obj(object):
         self._mesh = None
         self._cterrain = cterrain
         self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
+
+    def collisionForType(self, ident):
+        if mesh.collidedCollider(ident, self.getId()):
+            print 'collisionForType. detected'
+        
+        #if object3dLib.checkCollisionCol(otherModCols, self._modCols,
+        #                                 byref(otherCollisionCnt), otherCollisions,
+        #                                 byref(self._num_collisions), self._collisions):
+        #    import pdb; pdb.set_trace()
+        #    return True
+        #else:
+        #    return False
+
+    def _colCheck(self, b):
+        #num_cols=object3dLib.checkCollision(self._modCols, self._collisions)
+        #c=checkColForBot(b)
+        return b.collisionForType(getId())
+
+    def _collisionRespond(self, bot):
+        bPos=b.getPos()
+        if self._pos.y<bPos.y:
+            self._forced_y_delta-=1.0
+        else:
+            self._forced_y_delta+=1.0
+            
+    def checkCols(self, bots, indestructible_types):
+        #print 'check start bots: '+str(bots)
+        if self.TYP in indestructible_types:
+            return
+        
+        for b in bots:
+            if b.TYP in indestructible_types:
+                self._colCheck(b)
+            else:
+                myId=self.getId()
+                botId=b.getId()
+                if myId[0]==botId[0]:
+                    #print 'about not to check mine: '+str(myId)+" his "+str(botId)
+                    if myId[1]>botId[1]:
+                        self._colCheck(b)
+                    else:
+                        pass
+                        #print 'not checking'
+                else:
+                    #print 'other guy: '+str(myId)+" his "+str(botId)
+                    self._colCheck(b)
+
+        #print 'using modCols for '+str(self.getId())
+        #print 'checkCollision for terrain '+str(type(self._num_collisions))
+        model=mesh.getCollisionModel(self.getId())
+        if self._cterrain!=None and model is not None:
+            if self._cterrain.checkCollision(model.colliders, byref(model.num_collisions), model.results):
+                self._forced_y_delta=+1.0
+                self._reactToCollision()
+            #self._pos = self._pos + Y_UNIT
+            #while self._cterrain.checkCollision(self._modCols, byref(self._num_collisions), self._collisions):
+            #    self._pos = self._pos + Y_UNIT
+
+    #def checkCols(self, other):
+    #    dist=self.getPerpRelativeDist(other)
+    #    if dist<=self.rad+other.collider.rad:
+    #            if self.children is not None:
+    #                    for collChild in self.children:
+    #                            if collChild.(bot):
+    #                                    return True
+    #            else:
+    #                    return True
+    #    return False
 
     def getPos(self):
         return self._pos
@@ -245,25 +313,6 @@ class Obj(object):
         # Point the craft along the ground plane
         self._attitude = Quaternion.new_rotate_axis(self.getWindHeading(), Y_UNIT)
 
-    def _collisionDetect(self):
-        if self._cterrain != None:
-            #colArgs = (c_float * 4)()
-            #colArgs[0] = self._pos.x
-            #colArgs[1] = self._pos.y
-            #colArgs[2] = self._pos.z
-            #colArgs[3] = 10.0
-            try:
-                (num_cols, colliders)=manage.lookup_colliders[ self.TYP ]
-                assert num_cols>0
-                object3dLib.rotColliders( colliders, num_cols,
-                        self._pos.x, self._pos.y, self._pos.z,
-                        self._attitude.w, self._attitude.x,
-                        self._attitude.y, self._attitude.z )
-                return self._cterrain.checkCollision(colliders, 0)
-            except:
-                print_exc()
-        return False
-
     def _reactToCollision(self):
         plane= (c_float * 3)()
 
@@ -294,21 +343,32 @@ class Obj(object):
         # Update the angular velocity
 	self._angularVelocity=self._angularVelocity*Quaternion.new_rotate_axis(angle,axis)
 
+    def _die(self):
+        print 'ooh the pain'
+
     def _updatePos(self, timeDiff):
-        oldpos = self._pos
-        self._pos += (self._velocity * timeDiff)
-        if self._collisionDetect(): 
-            self._reactToCollision()
-            self._pos = self._pos + Y_UNIT
-            while self._collisionDetect():
-                self._pos = self._pos + Y_UNIT
+        delta=self._velocity * timeDiff
+        if self.collidable and self._forced_y_delta!=0.0:
+            if self._forced_y_delta<0.0:
+                if delta.y>self._forced_y_delta:
+                    delta.y=self._forced_y_delta
+            else:
+                if delta.y<self._forced_y_delta:
+                    delta.y=self._forced_y_delta
+        self._pos += delta
+        #if self._collisionDetect(): 
+        #    self._reactToCollision()
+        #    self._pos = self._pos + Y_UNIT
+        #    while self._collisionDetect():
+        #        self._pos = self._pos + Y_UNIT
 
     def update(self):
         timeDiff=self._getTimeDiff()
         (zenithVector, noseVector)=self._getVectors()
         self._updateFromEnv(timeDiff, zenithVector, noseVector)
         self._updatePos(timeDiff)
-      
+        mesh.updateCollider(ident, self.getPos(), self.getAttitude())
+
     def getWindHeading(self):        
         return math.pi * 2 - getAngleForXY(self._velocity.x, self._velocity.z)            
 
@@ -357,6 +417,9 @@ class Airfoil(Obj):
         self._S = 22.48 # wing planform area        
         #self._mass = 0.1 # 100g -- a guess
         #self._S = 0.0016 # meters squared? also a guess
+
+    def __repr__(self):
+        return str(self.getId())
 
     @property
     def thrust(self):
@@ -575,6 +638,8 @@ class Airfoil(Obj):
         self._velocity+=self.__getVelThrustDelta(timeDiff, noseVector)
 
     def update(self):
+        #if self.getId()[0]%2==1:
+        #    return
         timeDiff=self._getTimeDiff()
         (zenithVector, noseVector)=self._getVectors()
         self._updateVelFromControls(timeDiff, noseVector)
@@ -582,6 +647,7 @@ class Airfoil(Obj):
         self.__pendingElevatorAdjustment = 0.0 #reset the pending pitch adjustemnt
         self.__pendingAileronAdjustment = 0.0  #reset the pending roll adjustment
         self._updatePos(timeDiff)
+        mesh.updateCollider(self.getId(), self._pos, self._attitude)
         self.printDetails()
         
     def log(self, line):
