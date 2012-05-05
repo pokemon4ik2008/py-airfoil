@@ -89,21 +89,17 @@ public:
   }
 
   bool result(bool pCollided) {
-    if(*p_resCnt>=p_collider->numCols) {
-      printf("hmmm incorrect p_resCnt, %p, %u, %u\n", p_resCnt, *p_resCnt, p_collider->numCols);
-    }
-    assert(p_resCnt && *p_resCnt<p_collider->numCols);
+    assert(p_resCnt);
     assert(colIdx<p_collider->numCols);
-    lastResult=pCollided;
     if(pCollided) {
       if(p_resIndices && p_resCnt) { 
+	lastResult=true;
 	if(!p_resIndices[colIdx]) {
+	  assert(*p_resCnt<p_collider->numCols);
 	  p_resIndices[colIdx]=true;
 	  p_res[(*p_resCnt)++]=p_collider->p_orig->p_flags[colIdx];
 	  //printf("result %u: %u\n", (*p_resCnt)-1, p_res[(*p_resCnt)-1]);
 	}
-      } else {
-	lastResult=false;
       }
     }
     return pCollided;

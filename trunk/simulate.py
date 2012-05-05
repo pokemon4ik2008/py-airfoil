@@ -214,6 +214,7 @@ class Bullet(Obj, ControlledSer):
             print_exc()
 Bullet.positions=[]
 
+Y_FORCED=10.0
 class MyAirfoil(Airfoil, ControlledSer):
     UPDATE_SIZE=Mirrorable.META+12
     [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
@@ -240,7 +241,40 @@ class MyAirfoil(Airfoil, ControlledSer):
 	self.frame_rot=None
 	self.__on_target=set()
 	mesh.initCollider(self.TYP, self.getId())
+        self._forced_y_delta=0.0
+        self._locked=False
 
+    def _resetResponses(self):
+	    self._forced_y_delta=0.0
+
+
+    def _collisionRespond(self, bot):
+        print 'collisionRespond'
+        bPos=bot.getPos()
+        if self._pos.y<bPos.y:
+            print 'setting neg y'
+            self._forced_y_delta=-Y_FORCED
+        else:
+            print 'setting pos y'
+            self._forced_y_delta=+Y_FORCED
+            
+    def _genDelta(self, timeDiff):
+	    delta=self._velocity * timeDiff
+	    if self._forced_y_delta!=0.0:
+		    if self._forced_y_delta<0.0:
+			    if delta.y>self._forced_y_delta:
+				    print 'lowering plane'
+				    delta.y=self._forced_y_delta
+			    else:
+				    print 'not lowering: '+str(delta.y)
+		    else:
+			    if delta.y<self._forced_y_delta:
+				    print 'raising plane'
+				    delta.y=self._forced_y_delta
+			    else:
+				    print 'not raising: '+str(delta.y)
+	    return delta
+    
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
 	    self.__lastKnownPos=Vector3(0,0,0)
@@ -263,7 +297,9 @@ class MyAirfoil(Airfoil, ControlledSer):
         if not Controls:
             raise NotImplementedError
         events = self.__controls.eventCheck(self.__interesting_events)
-
+	if self._locked:
+		events[Controller.THRUST]=1
+		events[Controller.ROLL]=1
         self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
         if events[Controller.PITCH]!=0:
             self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
@@ -371,17 +407,20 @@ class MyAirfoil(Airfoil, ControlledSer):
 		#and not on every frame until it clears the plane
 		return False
 	if b.collisionForType(self.getId()):
+		print 'impact'
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
 			self.__on_target.add(b.getId())
 			impactSlot=SoundSlot("impact"+str(self.getId()), snd=IMPACT_SND, pos=b.getPos())
 			impactSlot.play()
-			print 'impact'
+			self._locked=True
+			print 'bullet impact'
 		else:
+			print 'plane impact'
 			self._collisionRespond(b);
 			return True
 	else:
-            return False
+		return False
 
 man=manage
 def init():

@@ -62,11 +62,9 @@ class Obj(object):
         self._mesh = None
         self._cterrain = cterrain
         self._angularVelocity = Quaternion.new_rotate_axis(0, Vector3(0.0, 0.0, 1.0))
-        self._forced_y_delta=1.0
 
     def collisionForType(self, ident):
-        if mesh.collidedCollider(ident, self.getId()):
-            print 'collisionForType. detected'
+        return mesh.collidedCollider(ident, self.getId())
         
         #if object3dLib.checkCollisionCol(otherModCols, self._modCols,
         #                                 byref(otherCollisionCnt), otherCollisions,
@@ -81,18 +79,14 @@ class Obj(object):
         #c=checkColForBot(b)
         return b.collisionForType(getId())
 
-    def _collisionRespond(self, bot):
-        bPos=b.getPos()
-        if self._pos.y<bPos.y:
-            self._forced_y_delta=-1.0
-        else:
-            self._forced_y_delta=+1.0
-            
+    def _resetResponses(self):
+        pass
+
     def checkCols(self, bots, indestructible_types):
         #print 'check start bots: '+str(bots)
         if self.TYP in indestructible_types:
             return
-        
+        self._resetResponses()
         for b in bots:
             if b.TYP in indestructible_types:
                 self._colCheck(b)
@@ -347,16 +341,11 @@ class Obj(object):
     def _die(self):
         print 'ooh the pain'
 
+    def _genDelta(self, timeDiff):
+        return self._velocity * timeDiff
+
     def _updatePos(self, timeDiff):
-        delta=self._velocity * timeDiff
-        if self.collidable and self._forced_y_delta!=0.0:
-            if self._forced_y_delta<0.0:
-                if delta.y>self._forced_y_delta:
-                    delta.y=self._forced_y_delta
-            else:
-                if delta.y<self._forced_y_delta:
-                    delta.y=self._forced_y_delta
-        self._pos += delta
+        self._pos += self._genDelta(timeDiff)
         #if self._collisionDetect(): 
         #    self._reactToCollision()
         #    self._pos = self._pos + Y_UNIT
