@@ -1,6 +1,7 @@
 import cPickle
 
 from collections import deque
+import ctypes
 from euclid import Quaternion, Vector3
 import manage
 from Queue import LifoQueue
@@ -26,11 +27,12 @@ class Mirrorable:
     _SIZES = [2, 2, 2, 1]
     UPDATE_SIZE=META_SIZE=sum(_SIZES)
     SHIFTS = [sum(_SIZES[:i]) for i in __INDEXES]
-    __InstCount = 0
+    InstCount = 0
     _DEAD_FLAG=0x1
     DROPPABLE_FLAG=0x2
 
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
+        self._client_id=None
         self._proxy=proxy
         try:
             assert typ<=SerialisableFact.getMaxType()
@@ -38,6 +40,7 @@ class Mirrorable:
             print >> sys.stderr, 'Mirrorable.__init__. typ too large: '+str(typ)
         self.__typ=typ
         self._flags=0
+	self.collidable=False
         if ident is None:
             self.__local=True
             self.localInit()
@@ -45,36 +48,53 @@ class Mirrorable:
             self.__local=False
             self.remoteInit(ident)
 
+    def __repr__(self):
+        if self._client_id is not None:
+            return str(self.getId())
+        else:
+            return str((None, self._ident))
+
     def mine(self):
         return self.__local or self._client_id==Sys.ID.getSysId()
+
+    def myBot(self):
+        return not self.__local and self._client_id==Sys.ID.getSysId()
 
     def local(self):
         return self.__local
 
     def localInit(self):
-        self._ident=Mirrorable.__InstCount
-        Mirrorable.__InstCount+=1
+        (self._client_id, self._ident)=(Sys.ID.getSysId(), Mirrorable.InstCount)
+        Mirrorable.InstCount+=1
 
     def remoteInit(self, ident):
+        print 'setting foreign id to: '+str(ident)
         (self._client_id, self._ident)=ident
 
     def isClose(self, obj):
         return False
 
     def estUpdate(self):
-        return self
+        pass
 
     def droppable(self):
         return droppable(self._flags)
 
+    def __lt__(self, o):
+        if o is None:
+            return False
+        (mySysId, myId)=self.getId()
+        (oSysId, oId)=self.getId()
+        if myId<oId:
+            return True
+        if mySysId<oSysId:
+            return True
+        return False
+
     def getId(self):
-        try:
-            assert Sys.ID is not None
-            #must return same type as deSerIdent
-            return (Sys.ID.getSysId(), self._ident)
-        except AssertionError:
-            print >> sys.stderr, 'Mirrorable.getId. System setup incomplete. '+str((self.__typ, self._ident))
-        return (0, self._ident)
+        #must return same type as deSerIdent
+        #return (Sys.ID.getSysId(), self._ident)
+        return (self._client_id, self._ident)
 
     def markChanged(self, full_ser=False):
         try:
@@ -251,6 +271,7 @@ class SerialisableFact:
                 typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYP_IDX)
                 if typ in self.__ctors:
                     obj = self.__ctors[typ](ident=identifier)
+                    print 'new bot: '+str(obj.getId())+' proper id: '+str(identifier)
                     objLookup[identifier] = obj
                     objByType[typ].append(obj)
                 else:
@@ -261,6 +282,7 @@ class SerialisableFact:
             if not obj.alive():
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
+                print 'deserManyTo. deleting: '+str(obj.getId())
         except AssertionError:
             print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
             print_exc()
@@ -335,7 +357,9 @@ class Client(Thread, Mirrorable):
 
      def initSys(self, ident):
          Sys.ID=Sys(ident)
+         self.__readSysId()
          self.markChanged()
+         print 'initSys: id '+str(Sys.ID)
          return Sys.ID
 
      def __init__(self, ident=None, server=getLocalIP(), port=PORT, factory=None):
@@ -344,9 +368,14 @@ class Client(Thread, Mirrorable):
          self.__fact=factory
          Mirrorable.__init__(self, self.TYP, ident, self)
 
+     def __readSysId(self):
+         self._client_id=Sys.ID.getSysId()
+
      def localInit(self):
          Thread.__init__(self)
-         Mirrorable.localInit(self)
+         #Mirrorable.localInit(self)
+         self._ident=Mirrorable.InstCount
+         Mirrorable.InstCount+=1
          self.__fact.update({ Client.TYP: Client, Sys.TYP: self.initSys })
          self.__dead_here=False
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -568,7 +597,6 @@ class Sys(Mirrorable):
                     break
                 proxy.releaseLock()
             sleep(1)
-
 
     def __init__(self, ident=None):
         Mirrorable.__init__(self, Sys.TYP, ident)

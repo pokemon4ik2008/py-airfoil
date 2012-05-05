@@ -16,6 +16,9 @@
 #include <Eigen/Geometry>
 #include "mini/mini.h"
 
+#include "collider.h"
+#include "types.h"
+
 using namespace std;
 using namespace Eigen;
 
@@ -97,20 +100,6 @@ typedef struct {
 	unsigned char* texture;
 } terrain_tile;
 
-typedef char uint8;
-typedef unsigned int uint32;
-typedef float float32;
-typedef double float64;
-
-class obj_collider {
- public:
-  Eigen::Vector3d mid;
-  Eigen::Vector3d rotated_mid;
-  float64 rad;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-};
-
-bool checkSimpleCollision(obj_collider *p_cols, uint32 idx);
 float getAngleForXY(float x, float y);
 int preloadTerrain(char *fname);
 int load_hm_colour_ref(char *fname);
@@ -138,4 +127,6 @@ bool boundsCheck(int x, int z);
 int loadMiniTerrain(terrain_tile *tile);
 ubyte* create_terrain_texture(short *hfield,int size,int *tsize);
 float* precalc_mini_vertex_intensities(short *hfield,int size);
+bool checkSimpleCollision(const obj_collider *p_colsOrig, const obj_transformedCollider *p_cols);
+bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum);
 #endif

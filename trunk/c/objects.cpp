@@ -2,7 +2,9 @@
 #include <Eigen/Geometry>
 #include <GL/glew.h>
 #include <string.h>
+#include "collider.h"
 #include "objects.h"
+#include "types.h"
 
 bool obj_use_gl_lighting=true;
 float obj_cut_off_dist = 100;
@@ -18,12 +20,6 @@ uint32 num_meshes=0;
 
 float rotAngle = 0;
 float *rotAxis = NULL;
-
-inline void memZero(void *p_mem, uint32 bytes) {
-    for(uint32 *p_ptr=(uint32 *)p_mem, *p_end=(uint32 *)(((uint8 *)p_mem)+bytes); p_ptr<p_end; p_ptr++) {
-    *p_ptr=0;
-  }
-}
 
 extern "C" 
 {
@@ -41,22 +37,38 @@ extern "C"
       }
     return obj;
   }
-  
-  DLL_EXPORT void *allocColliders(uint32 num_colliders) {
-    obj_collider *p_cols;
-    p_cols=new obj_collider[num_colliders];
-    return p_cols;
+
+  DLL_EXPORT void deleteTransCols(obj_transformedCollider *p_col) {
+    col_deleteTransCols(p_col);
   }
 
-  DLL_EXPORT void deleteColliders(uint32 num_colliders, obj_collider *p_cols) {
-    if(!p_cols) {
-      return;
-    }
-    delete [] p_cols;
+  DLL_EXPORT void *allocTransCols(obj_collider *p_origCol) {
+    return col_allocTransCols(p_origCol);
+  }
+
+  DLL_EXPORT void *allocColliders(uint32 num_colliders) {
+    return col_allocColliders(num_colliders);
+  }
+
+  DLL_EXPORT void deleteColliders(obj_collider *p_cols) {
+    col_deleteColliders(p_cols);
+  }
+
+  DLL_EXPORT void identifyBigCollider(obj_collider *p_cols) {
+    col_identifyBigCollider(p_cols);
+  }
+  
+  DLL_EXPORT void updateColliders(obj_transformedCollider *p_transCol, uint32 iteration, float64 xPos, float64 yPos, float64 zPos, float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt) {
+    col_updateColliders(p_transCol, iteration, xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt);
   }
 
   DLL_EXPORT uint32 loadCollider(obj_collider *p_cols, uint32 idx, char *filename, float scale) {
     if(!p_cols) {
+      printf("loadCollider. not allocated\n");
+      return noMemory;
+    }
+    if(idx>=p_cols->numCols) {
+      printf("loadCollider. index %u to unallocated sub-collider out of %u\n", idx, p_cols->numCols);
       return noMemory;
     }
     oError err = ok;		
@@ -68,8 +80,15 @@ extern "C"
       printf("ERROR: when loading object: %i\n", err);
       return err;
     }
-    p_cols[idx].mid=p_obj->mid;
-    p_cols[idx].rad=(p_obj->max.x-p_obj->min.x)/2;
+    p_cols->p_sphere[idx].mid=p_obj->mid;
+    float64 rad=MAX(MAX(p_obj->max.x-p_obj->min.x, p_obj->max.x-p_obj->min.x), p_obj->max.z-p_obj->min.z)/2;
+    p_cols->p_sphere[idx].rad=rad;
+    p_cols->p_radSquares[idx]=rad*rad;
+    p_cols->p_flags[idx]=0;
+    if(strcmp(PRIMARY_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]|=PRIMARY_FLAG;
+      printf("loadCollider. primary tag at %u\n", idx);
+    }
     objDelete(&p_obj);
     return ok;
   }
@@ -307,11 +326,6 @@ extern "C"
     setupVBO(p_mesh, 1, &(p_mesh->vbo));
   }
 
-  Eigen::Quaternion<float64> SETUP_ROT(0.5, -0.5, 0.5, 0.5);
-  inline Eigen::Vector3d rotVert(const Eigen::Vector3d &v, const Eigen::Quaternion<float64> &att) {
-    return att*SETUP_ROT*v;
-  }
-
   DLL_EXPORT void drawRotated(float64 xPos, float64 yPos, float64 zPos,
 			      float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt,
 			      float64 wAng, float64 xAng, float64 yAng, float64 zAng,
@@ -328,22 +342,6 @@ extern "C"
 		  rot, p_centre_mesh->mid, rotOrig);
     //draw(p_mesh, alpha);
  }
-
-  void rotColliders(obj_collider *p_cols, uint32 numCols,
-		    float64 xPos, float64 yPos, float64 zPos,
-		    float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt) {
-    using namespace Eigen;
-    if(!p_cols) {
-      return;
-    }
-    Quaternion<float64> att(wAtt, xAtt, yAtt, zAtt);
-    Vector3d pos=Vector3d(xPos, yPos, zPos);
-    for(uint32 i=0; i<numCols; i++) {
-      p_cols[i].rotated_mid=pos+rotVert(p_cols[i].mid, att);
-      //p_cols[i].rotated_mid=pos;
-      //printf("rad: %f\n", p_cols[i].rad);
-    }
-  }
 
   DLL_EXPORT void setupRotation(float64 x, 
 			   float64 y, 
@@ -390,6 +388,27 @@ extern "C"
     setAngleAxisRotation(angleAxis.angle() * (180.0/3.141592653589793), fpos);
     //printf("c: set rot %f axis: %f %f %f\n", angleAxis.angle() * (180.0/3.141592653589793), fpos[0], fpos[1], fpos[2]);
     */
+  }
+
+DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
+				    float64 oldX, float64 oldY, float64 oldZ,
+				    float64 x, float64 y, float64 z,
+				    uint32 *p_resCnt, uint32 results[]) {
+  if(!p_cols || !p_cols->numCols) {
+    return false;
+  }
+  return col_CheckPoint(p_cols, Eigen::Vector3d(oldX, oldY, oldZ), Eigen::Vector3d(x,y,z), p_resCnt, results);
+}
+
+  DLL_EXPORT bool checkCollisionCol(const obj_transformedCollider *p_cols,
+				    const obj_transformedCollider *p_oCols,
+				    uint32 *p_resCnt, uint32 results[],
+				    uint32 *p_oResCnt, uint32 oResults[]) {
+    if(!p_cols || !p_cols->numCols || !p_oCols || !p_oCols->numCols) {
+      return false;
+    }
+    bool res=col_CheckCollider(p_cols, p_oCols, p_resCnt, results, p_oResCnt, oResults);
+    return res;
   }
 }
 
@@ -1066,8 +1085,13 @@ oError objCreate(obj_3dMesh **pp_mesh,
 	while (fgetc(file)!=0x0a);
 
 	//skip objects+1 newlines
-	for (i=0;i<=temp;i++) {
-		while (fgetc(file)!=0x0a);
+	for (i=0;i<temp;i++) {
+	  for(uint32 f=0;f<5;f++) { //skip 5 fields
+	    uint8 c;
+	    while ((c=fgetc(file))!=',');
+	  }
+	  fscanf(file,"%31s",(*pp_mesh)->tag);
+	  while (fgetc(file)!=0x0a);
 	}
 
 	//skip a comma

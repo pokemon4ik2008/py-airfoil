@@ -1,4 +1,4 @@
-# Usage: ./blend data/models/cockpit.blend blend2csv.py 
+# Usage: ./blend ../data/models/cockpit.blend blend2csv.py 
 import bpy
 from mathutils import Color, Vector
 import os
@@ -54,7 +54,11 @@ for obj_i in range(0, len(obs)):
     tri2vert={}
 
     m=o.data
-    out.write(m.name + ', ' + str(v_next) + ', ' + str(len(m.vertices)) + ', ' + str(t_next) + ', ' + str(len(m.faces)*2)+'\n')
+
+    tag="none"
+    if len(o.collider)>0:
+        tag=o.collider
+    out.write(m.name + ', ' + str(v_next) + ', ' + str(len(m.vertices)) + ', ' + str(t_next) + ', ' + str(len(m.faces)*2)+', '+tag +'\n') 
     v_next+=len(m.vertices)
     t_next+=len(m.faces)*2
     for v in m.vertices:

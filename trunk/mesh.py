@@ -5,9 +5,9 @@ import glob
 import itertools
 from math import cos, degrees, sin
 import manage
+from manage import object3dLib
 import pyglet
 from pyglet.gl import *
-import os
 import random
 import sys
 from traceback import print_exc
@@ -15,6 +15,8 @@ from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath
 
 from pyglet import image
 from pyglet.gl import *
+
+PRIMARY_COL_TAG=0x1
 
 all_vbos=[]
 vbos={}
@@ -24,67 +26,6 @@ manage.lookup_colliders={}
 QUART_PI=0.25*math.pi
 HALF_PI=0.5*math.pi
 PI2=2*math.pi
-global object3dLib
-if os.name == 'nt':
-    object3dLib = cdll.LoadLibrary("bin\object3d.dll")
-else:
-    object3dLib = cdll.LoadLibrary("bin/object3d.so")
-
-object3dLib.load.argtypes=[ c_char_p, c_float ]
-object3dLib.load.restype=c_void_p
-
-object3dLib.deleteMesh.argtypes=[ c_void_p ]
-object3dLib.deleteMesh.restype=None
-
-object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
-object3dLib.getUvPath.restype=c_char_p
-
-object3dLib.getMeshPath.argtypes=[ c_void_p ]
-object3dLib.getMeshPath.restype=c_char_p
-
-object3dLib.setupTex.argtypes=[ c_void_p, c_uint, c_uint ]
-object3dLib.setupTex.restype=c_uint
-
-object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
-object3dLib.createTexture.restype=c_uint
-
-object3dLib.createFBO.argtypes=[ c_uint, c_uint, c_uint ]
-object3dLib.createFBO.restype=c_uint
-
-object3dLib.drawToTex.argtypes=[ c_void_p, c_float, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint ]
-object3dLib.drawToTex.restype=None
-
-object3dLib.draw.argtypes=[ c_void_p, c_float ]
-object3dLib.draw.restype=None
-
-object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
-                                     c_double, c_double, c_double, c_double,
-                                     c_double, c_double, c_double,
-                                     c_double, c_double, c_double ]
-object3dLib.setupRotation.restype=None
-
-object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
-                                   c_double, c_double, c_double, c_double,
-                                   c_double, c_double, c_double, c_double,
-                                   c_void_p, c_float, c_void_p ]
-object3dLib.drawRotated.restype=None
-
-object3dLib.rotColliders.argtypes=[ c_void_p, c_uint,
-                                    c_double, c_double, c_double,
-                                    c_double, c_double, c_double, c_double ]
-object3dLib.rotColliders.restype=None
-
-object3dLib.allocColliders.argtypes=[ c_uint ]
-object3dLib.allocColliders.restype=c_void_p
-
-object3dLib.deleteColliders.argtypes=[ c_uint, c_void_p ]
-object3dLib.deleteColliders.restype=None
-
-object3dLib.loadCollider.argtypes=[ c_void_p, c_uint, c_char_p, c_float ]
-object3dLib.loadCollider.restype=None
-
-#object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
-#object3dLib.createVBO.restype=c_int
 
 YZ_SWAP_ROT=Quaternion.new_rotate_axis(HALF_PI, Vector3(1.0, 0.0, 0.0))
 SETUP_ROT=Quaternion(0.5, -0.5, 0.5, 0.5)
@@ -224,12 +165,6 @@ def deleteMeshes():
         object3dLib.deleteMesh(mesh)
     all_meshes=[]
     deleteVBOs()
-
-def deleteColliders():
-    global all_colliders
-    for (num, arr) in manage.lookup_colliders.values():
-        object3dLib.deleteColliders(num, arr)
-    all_colliders=[]
 
 class Mesh(object):
     def __init__(self, mesh, views, mesh_key, group=None):
@@ -553,19 +488,105 @@ def loadColliders( colliders ):
     for (typ, path_list, scale) in paths:
         if typ not in lookup_paths:
             lookup_paths[typ]=[]
-        lookup_paths[typ].extend([ (p, scale) for p in path_list ])
+        lookup_paths[typ].extend([ (getNativePath(p), scale) for p in path_list ])
 
     manage.lookup_colliders={}
     for (typ, path_list, scale) in paths:
-        lookup_paths[typ][:]=[ (getNativePath(p), scale)
-                               for (p, scale) in lookup_paths[typ] ]
+        #lookup_paths[typ][:]=[ (getNativePath(p), scale)
+        #                       for (p, scale) in lookup_paths[typ] ]
         num_paths=len(lookup_paths[typ])
         coll_arr=object3dLib.allocColliders(num_paths)
         #lookup_colliders[typ]=object3dLib.allocColliders(num_paths)
         idx=0
-        print 'loadColliders. in paths: '+str((type, path_list, scale))
+        print 'loadColliders. in paths: '+str((typ, path_list, scale))
         for (path, scale) in lookup_paths[typ]:
             print 'loadColliders. pathScale: '+str((path,scale))
             object3dLib.loadCollider(coll_arr, idx, path, scale)
             idx+=1
+        object3dLib.identifyBigCollider(coll_arr, num_paths)
         manage.lookup_colliders[typ]=(num_paths, coll_arr)
+
+
+colModels={}
+def initCollider(typ, ident):
+    try:
+        assert typ in manage.lookup_colliders
+        if ident not in colModels:
+            colModels[ident]=CollisionModel(typ)
+    except AssertionError:
+        print_exc()
+        print 'no colliders loaded for '+str(typ)+' '+str(manage.lookup_colliders.keys())
+        import pdb; pdb.set_trace()
+
+def freeCollider(ident):
+    global colModels
+    if ident in colModels:
+        mod=colModels[ident]
+        mod.free()
+        del(colModels[ident])
+
+def deleteColliders():
+    #global all_colliders
+    #for (num, arr) in manage.lookup_colliders.values():
+    #    object3dLib.deleteColliders(num, arr)
+    #all_colliders=[]
+    global colModels
+    for ident in colModels:
+        mod=colModels[ident]
+        mod.free()
+    colModels={}
+
+def updateCollider(ident, pos, att):
+    if ident in colModels:
+        colModels[ident].update(pos, att)
+
+def getCollisionModel(ident):
+    if ident in colModels:
+        return colModels[ident]
+    return None
+
+def collidedCollider(id1, id2):
+    try:
+        assert id1 in colModels and id2 in colModels
+        m1=colModels[id1]
+        m2=colModels[id2]
+        return object3dLib.checkCollisionCol(m1.colliders, m2.colliders,
+                                             byref(m1.num_collisions), m1.results,
+                                             byref(m2.num_collisions), m2.results)
+    except AssertionError:
+        print "id1 "+str(id1)+" id2 "+str(id2)+" "+str(colModels.keys())
+        print_exc()
+        return False
+    
+def collidedPoint(id1, oldPt, newPt):
+    try:
+        assert id1 in colModels
+        m1=colModels[id1]
+        return object3dLib.checkCollisionPoint(m1.colliders, oldPt.x, oldPt.y, oldPt.z,
+                                               newPt.x, newPt.y, newPt.z,
+                                               byref(m1.num_collisions), m1.results)
+    except AssertionError:
+        print_exc()
+        return False
+    
+class CollisionModel:
+    def __init__(self, typ):
+        self.__typ=typ
+        (self._numCols, self._origCols)=manage.lookup_colliders[ typ ]
+        self._forced_y_delta = 0.0
+        ArrayType=ctypes.c_uint*self._numCols
+        self.results=ArrayType()
+        self.num_collisions=ctypes.c_uint();
+        self.colliders=manage.object3dLib.allocTransCols(self._origCols)
+
+    def free(self):
+        object3dLib.deleteTransCols(self.colliders)
+
+    def update(self, pos, att):
+        self._forced_y_delta=0.0
+        if self._numCols>0:
+            object3dLib.updateColliders( self.colliders, manage.iteration,
+                                         pos.x, pos.y, pos.z,
+                                         att.w, att.x,
+                                         att.y, att.z )
+
