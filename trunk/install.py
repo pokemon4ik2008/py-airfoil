@@ -20,7 +20,7 @@ else:
 if os.name == 'nt':
         cmd = '"\"%VS80COMNTOOLS%..\IDE\devenv.exe\"" c\cterrain.vcproj /build debug /Out buildlog.txt'
 elif os.name == 'posix':
-	cmd = 'g++ c/cterrain.c c/collider.cpp -Ic -Ic/Eigen -I/usr/X11R6/include -I/usr/local/include -lGL -lGLU -lMini -o bin/cterrain.so -O3 -shared -fPIC'
+	cmd = 'g++ c/cterrain.c c/collider.cpp -Ic -Ic/Eigen -I/usr/X11R6/include -I/usr/local/include -lMini -lGL -lGLU -o bin/cterrain.so -O3 -shared -fPIC'
 
 print "Running build command : \n" + cmd
 retVal = os.system(cmd)
