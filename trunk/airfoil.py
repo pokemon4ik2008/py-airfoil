@@ -606,8 +606,8 @@ class Airfoil(Obj):
         #c=checkColForBot(b)
         return b.collisionForType(getId())
 
-    def _resetResponses(self):
-        pass
+    #def _resetResponses(self):
+    #    pass
 
     def checkCols(self, bots, indestructible_types):
         #print 'check start bots: '+str(bots)
