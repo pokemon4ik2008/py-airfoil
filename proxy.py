@@ -211,7 +211,7 @@ class ControlledSer(Mirrorable):
         diff=(perm_att*temp_att)
         
         #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
-        return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0003
+        return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0001
 
 class SerialisableFact:
     __OBJ_IDX,__TIME_IDX=range(2)
