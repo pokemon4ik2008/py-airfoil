@@ -672,7 +672,7 @@ def timeSlice(dt):
 				view.activate()
 				if view.getPlaneId() in planes:
 					my_plane=planes[view.getPlaneId()]
-					view.printToScreen('pos = ' + str(my_plane.getPos()))
+					#view.printToScreen('pos = ' + str(my_plane.getPos()))
 					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
 					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
 					#view.printToScreen('thrust = ' + str(my_plane.thrust))
