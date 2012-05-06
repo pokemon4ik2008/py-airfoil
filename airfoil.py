@@ -659,11 +659,9 @@ class Airfoil(Obj):
         if self._forced_y_delta!=0.0:
             if self._forced_y_delta<0.0:
                 if delta.y>self._forced_y_delta:
-                    print 'forcing 1'
                     delta.y=self._forced_y_delta
             else:
                 if delta.y<self._forced_y_delta:
-                    print 'forcing 2'
                     delta.y=self._forced_y_delta
         return delta
 
