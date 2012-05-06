@@ -482,13 +482,13 @@ def init():
 			  }, views)
 
 	planes = {}
-	plane_inits=[(Point3(0.0,100.0,0.0), 
-		      Quaternion.new_rotate_axis(0, Y_UNIT), 
-		      Vector3(60,0,0),
+	plane_inits=[(Point3(10600.0,100.0,4200.0), 
+		      Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
+		      Vector3(0,0,60),
 		      0),
-		     (Point3(-100,200.0,0), 
-		      Quaternion.new_rotate_axis(-math.pi/4, Y_UNIT), 
-		      Vector3(0,0,0),
+		     (Point3(10600,200.0,9200), 
+		      Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
+		      Vector3(0,0,-60),
 		      0)]
 
 	plane_ids=[]
@@ -672,7 +672,7 @@ def timeSlice(dt):
 				view.activate()
 				if view.getPlaneId() in planes:
 					my_plane=planes[view.getPlaneId()]
-					#view.printToScreen('pos = ' + str(my_plane.getPos()))
+					view.printToScreen('pos = ' + str(my_plane.getPos()))
 					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
 					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
 					#view.printToScreen('thrust = ' + str(my_plane.thrust))

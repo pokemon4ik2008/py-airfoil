@@ -18,7 +18,11 @@ class obj_collider {
  public: 
   uint32 numCols;
   obj_sphere *p_sphere;
-#define PRIMARY_FLAG 0x1
+#define PRIMARY_COL 0x1
+#define WING_COL 0x2
+#define TAIL_COL 0x3
+#define FUELTANK_COL 0x4
+#define VICINITY_COL 0x5
   uint32 *p_flags;
   float64 *p_radSquares;
   //Eigen::Vector3d *p_mid;

@@ -142,6 +142,10 @@ class obj_3dMesh {
   uint8 **pp_tex_paths;
   uint8 mesh_path[PATH_LEN];
 #define PRIMARY_TAG "primary"
+#define WING_TAG "wing"
+#define TAIL_TAG "tail"
+#define FUELTANK_TAG "fueltank"
+#define VICINITY_TAG "vicinity"
   uint8 tag[TAG_LEN];
   uint32 num_prims;
 

@@ -640,8 +640,8 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
   float side = (mini::S-1)*map_expansion_const;
   if (x_col<0.0 || x_col>=side) height = 0.0;
   if (z_col<0.0 || z_col>side) height = 0.0;
-  float fx = x_col/side;
-  float fz = z_col/side;      
+  float fx = x_col;
+  float fz = z_col;      
   if (height < 0) {
       // pass in coords bound by (x:[0,1.0], z:[0,1.0])
       mini::getheight(fx,fz,&height);
@@ -651,13 +651,11 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
   // Calc height above the ground
   if (dist < radius)
     {
-      printf("checkSimpleColl. collided dist: %f radius: %f\n", dist, radius);
       // collision found
       //printf("checkSimpleCollission dist: %f %f %f rad: %f\n", p_cols[idx].rotated_mid.x(), p_cols[idx].rotated_mid.y(), p_cols[idx].rotated_mid.z(), p_cols[idx].rad);
       //printf("checkSimpleCollission returns true dist: %f radius: %f\n", dist, radius);
       return true;
     }
-  printf("checkSimpleColl. miss dist: %f radius: %f\n", dist, radius);
 
   return false;
 }
