@@ -2,6 +2,7 @@ import cPickle
 
 from collections import deque
 import ctypes
+import errno
 from euclid import Quaternion, Vector3
 import manage
 from Queue import LifoQueue
