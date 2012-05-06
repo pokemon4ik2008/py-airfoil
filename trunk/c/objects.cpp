@@ -86,8 +86,24 @@ extern "C"
     p_cols->p_radSquares[idx]=rad*rad;
     p_cols->p_flags[idx]=0;
     if(strcmp(PRIMARY_TAG, p_obj->tag)==0) {
-      p_cols->p_flags[idx]|=PRIMARY_FLAG;
+      p_cols->p_flags[idx]=PRIMARY_COL;
       printf("loadCollider. primary tag at %u\n", idx);
+    }
+    if(strcmp(WING_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=WING_COL;
+      printf("loadCollider. wing tag at %u\n", idx);
+    }
+    if(strcmp(TAIL_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=TAIL_COL;
+      printf("loadCollider. tail tag at %u\n", idx);
+    }
+    if(strcmp(FUELTANK_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=FUELTANK_COL;
+      printf("loadCollider. fueltank tag at %u\n", idx);
+    }
+    if(strcmp(VICINITY_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=VICINITY_COL;
+      printf("loadCollider. vicinity tag at %u\n", idx);
     }
     objDelete(&p_obj);
     return ok;

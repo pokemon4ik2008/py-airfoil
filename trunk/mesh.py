@@ -16,7 +16,11 @@ from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath
 from pyglet import image
 from pyglet.gl import *
 
-PRIMARY_COL_TAG=0x1
+PRIMARY_COL=0x1
+WING_COL=0x2
+TAIL_COL=0x3
+FUELTANK_COL=0x4
+VICINITY_COL=0x5
 
 all_vbos=[]
 vbos={}
