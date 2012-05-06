@@ -203,15 +203,15 @@ class ControlledSer(Mirrorable):
         
         return Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx,vy,vz))
 
-    def isClose(self, obj):
-        if (self.getPos()-obj.getPos()).magnitude_squared()>=0.22:
-            return False
-        perm_att=self.getAttitude()
-        temp_att=obj.getAttitude().conjugated()
-        diff=(perm_att*temp_att)
+    # def isClose(self, obj):
+    #     if (self.getPos()-obj.getPos()).magnitude_squared()>=0.22:
+    #         return False
+    #     perm_att=self.getAttitude()
+    #     temp_att=obj.getAttitude().conjugated()
+    #     diff=(perm_att*temp_att)
         
-        #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
-        return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0001
+    #     #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
+    #     return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0001
 
 class SerialisableFact:
     __OBJ_IDX,__TIME_IDX=range(2)
@@ -491,13 +491,19 @@ class Client(Thread, Mirrorable):
          #obj_len='%10s' %len(obj_s)
          self.__out+=obj_len
          self.__out+=obj_s
+         sent=0
          try:
              assert len(self.__out)>0
              sent=self.__s.send(self.__out)
-             self.bytes_sent+=sent
-             self.__out=self.__out[sent:]
+             while sent!=0:
+                 self.bytes_sent+=sent
+                 self.__out=self.__out[sent:]
+                 sent=self.__s.send(self.__out)
          except AssertionError:
              print >> sys.stderr, 'tried to send 0 bytes outbox: '+str(len(self.__outbox))
+         except IOError, e:
+             if e.errno != errno.EAGAIN:
+                 print_exc()
 
      def addSerialisables(self, s, obj_len, obj_str):
          #print 'addSerialisables. obj_len: '+str(obj_len)+' '+toHexStr(obj_str[:Mirrorable.META_SIZE])
