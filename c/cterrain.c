@@ -632,7 +632,7 @@ void terPrecalc_vertex_intensities() {
 bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
   obj_sphere *p_sphere=&p_cols->p_sphere[colNum];
   Eigen::Vector3d colPos=p_sphere->mid;
-  float64 radius=p_sphere->rad;
+  float64 radius=p_cols->p_orig->p_sphere[colNum].rad;
   float64 x_col=colPos.x(), 
     y_col=colPos.y(), 
     z_col=colPos.z();
@@ -646,16 +646,18 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
       // pass in coords bound by (x:[0,1.0], z:[0,1.0])
       mini::getheight(fx,fz,&height);
     }
-  float dist = fabs(y_col - height);
+  float64 dist = fabs(y_col - height);
 
   // Calc height above the ground
   if (dist < radius)
     {
+      printf("checkSimpleColl. collided dist: %f radius: %f\n", dist, radius);
       // collision found
       //printf("checkSimpleCollission dist: %f %f %f rad: %f\n", p_cols[idx].rotated_mid.x(), p_cols[idx].rotated_mid.y(), p_cols[idx].rotated_mid.z(), p_cols[idx].rad);
       //printf("checkSimpleCollission returns true dist: %f radius: %f\n", dist, radius);
       return true;
     }
+  printf("checkSimpleColl. miss dist: %f radius: %f\n", dist, radius);
 
   return false;
 }
