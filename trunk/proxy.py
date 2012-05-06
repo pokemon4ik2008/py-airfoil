@@ -68,7 +68,6 @@ class Mirrorable:
         Mirrorable.InstCount+=1
 
     def remoteInit(self, ident):
-        print 'setting foreign id to: '+str(ident)
         (self._client_id, self._ident)=ident
 
     def isClose(self, obj):
@@ -271,7 +270,6 @@ class SerialisableFact:
                 typ=Mirrorable.deSerMeta(serialised, Mirrorable.TYP_IDX)
                 if typ in self.__ctors:
                     obj = self.__ctors[typ](ident=identifier)
-                    print 'new bot: '+str(obj.getId())+' proper id: '+str(identifier)
                     objLookup[identifier] = obj
                     objByType[typ].append(obj)
                 else:
@@ -282,7 +280,6 @@ class SerialisableFact:
             if not obj.alive():
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
-                print 'deserManyTo. deleting: '+str(obj.getId())
         except AssertionError:
             print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
             print_exc()

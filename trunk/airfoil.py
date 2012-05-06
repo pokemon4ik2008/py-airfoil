@@ -44,7 +44,7 @@ from traceback import print_exc
 # constants
 rho = 1.29 # kg/m^3 density of air
 accelDueToGravity = 9.8 # m/s/s
-Y_FORCED=5.0
+Y_FORCED=3.0
 
 class Obj(object):
     in_flight=0

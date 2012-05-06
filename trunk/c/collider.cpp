@@ -201,10 +201,10 @@ bool col_CheckCollider(const obj_transformedCollider *p_col,
 	oIt.result(it.result(false));
       } else {
 	if(i!=0 || j!=0) {
-	  printf("col_CheckCollider. collided\n");
+	  //printf("col_CheckCollider. collided\n");
 	  oIt.result(it.result(true));
 	} else {
-	  printf("col_CheckCollider. collided %u %u\n", i, j);
+	  //printf("col_CheckCollider. collided %u %u\n", i, j);
 	  oIt.result(it.result(false));	    
 	  oIt.allowDeepInspection();
 	}

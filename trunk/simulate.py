@@ -240,6 +240,9 @@ class MyAirfoil(Airfoil, ControlledSer):
 	self.frame_rot=None
 	self.__on_target=set()
 	self._initCols()
+	self.__impactSlot=SoundSlot("impact "+str(self.getId()), snd=IMPACT_SND)
+	self.__whizzSlot=SoundSlot("whizz "+str(self.getId()), snd=WHIZZ_SND)
+	self.__grindSlot=SoundSlot("screech "+str(self.getId()), snd=GRIND_SND)
 	
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
@@ -373,17 +376,21 @@ class MyAirfoil(Airfoil, ControlledSer):
 		#and not on every frame until it clears the plane
 		return False
 	if b.collisionForType(self.getId()):
+		print 'count '+str(mesh.colModels[self.getId()].num_collisions)
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
 			self.__on_target.add(b.getId())
-			impactSlot=SoundSlot("impact"+str(self.getId()), snd=IMPACT_SND, pos=b.getPos())
-			impactSlot.play()
+			self.__impactSlot.play(pos=b.getPos())
 			self._locked=True
 		else:
 			print 'collisions: '+str(mesh.colModels[self.getId()].num_collisions)
+			self.__grindSlot.play(pos=b.getPos())
 			self._collisionRespond(b);
 			return True
 	else:
+		if b.TYP==Bullet.TYP and mesh.colModels[self.getId()].num_collisions.value==1: 
+			self.__whizzSlot.play(pos=b.getPos())
+
 		return False
 
 man=manage
@@ -698,7 +705,6 @@ def timeSlice(dt):
 					if not bot.alive():
 						if bot.getId() in planes:
 							del planes[bot.getId()]
-						print 'timeSlice. sound cleanUp: '+str(bot.getId())
 						mesh.freeCollider(bot.getId())
 					else:
 						bot.play()
@@ -707,7 +713,6 @@ def timeSlice(dt):
 					if not bot.alive():
 						if bot.getId() in planes:
 							del planes[bot.getId()]
-						print 'timeSlice. no sound cleanUp: '+str(bot.getId())
 						mesh.freeCollider(bot.getId())
 
 			return
