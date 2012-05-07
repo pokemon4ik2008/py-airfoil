@@ -1,5 +1,8 @@
 import pyglet
-pyglet.options['audio'] = ('directsound', 'openal', 'alsa', 'silent')
+#unable to reuse Players when alsa is the selected driver on Paul's samsung laptop
+#so alsa is disabled for now
+#pyglet.options['audio'] = ('directsound', 'openal', 'alsa', 'silent')
+pyglet.options['audio'] = ('directsound', 'openal', 'silent')
 
 from collections import deque
 from euclid import *
