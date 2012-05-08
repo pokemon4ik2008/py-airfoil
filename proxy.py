@@ -323,12 +323,6 @@ class SerialisableFact:
             objs.extend(self.getTypeObjs(t, native, foreign))
         return objs
 
-    def native(self, mirrorable):
-        return mirrorable in self.__mine[mirrorable.getId()]
-
-    def foreign(self, mirrorable):
-        return mirrorable in self.__notMine[mirrorable.getId()]
-
 def read(s, rec, addSend, finalise):
     start=0
     cur_len_in=0
@@ -449,7 +443,9 @@ class Client(Thread, Mirrorable):
                  self.__pushSend(uniq, ser)
                  if manage.fast_path:
                      self.__fact.deserLocal(uniq, ser)
-                 mirrorable.flags|=Mirrorable.DROPPABLE_FLAG
+                 #print 'flags: '+str(mirrorable.flags)
+                 #if not mirrorable.droppable():
+                 #    mirrorable.flags|=Mirrorable.DROPPABLE_FLAG
              else:
                  self.__fact.deserLocal(uniq, ser, estimated=True)
              self.attemptSendAll()
@@ -462,19 +458,13 @@ class Client(Thread, Mirrorable):
      def releaseLock(self):
          self.__lock.release()
 
-     def native(self, mirrorable):
-         return self.__fact.native(mirrorable)
-
-     def foreign(self, mirrorable):
-         return self.__fact.foreign(mirrorable)
-
      def __contains__(self, ident):
          return ident in self.__fact
 
      def getObj(self, ident):
          return self.__fact.getObj(ident)
 
-     def getTypeObjs(self, typ):
+     def getTypeObjs(self, typ, native=True, foreign=True):
          return self.__fact.getTypeObjs(typ)
 
      def getTypesObjs(self, types):
@@ -611,7 +601,7 @@ class Sys(Mirrorable):
 
     def remoteInit(self, ident):
         Mirrorable.remoteInit(self, ident)
-        ID=self
+        #ID=self
 
     def getSysId(self):
         return self._ident
