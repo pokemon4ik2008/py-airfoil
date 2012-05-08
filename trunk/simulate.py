@@ -238,11 +238,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__bullets=[]
         self.__last_fire=manage.now
 	self.frame_rot=None
-	self.__on_target=set()
 	self._initCols()
-	self.__impactSlot=SoundSlot("impact "+str(self.getId()), snd=IMPACT_SND)
-	self.__whizzSlot=SoundSlot("whizz "+str(self.getId()), snd=WHIZZ_SND)
-	self.__grindSlot=SoundSlot("screech "+str(self.getId()), snd=GRIND_SND)
 	
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
@@ -251,6 +247,12 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__lastUpdateTime=0.0
 	    self.__played=False
 	    self.__play_tire=False
+
+	    self.__on_target=set()
+	    self.locked=False
+	    self.__impactSlot=SoundSlot("impact "+str(self.getId()), snd=IMPACT_SND)
+	    self.__whizzSlot=SoundSlot("whizz "+str(self.getId()), snd=WHIZZ_SND)
+	    self.__grindSlot=SoundSlot("screech "+str(self.getId()), snd=GRIND_SND)
             mesh.initCollider(self.TYP, ident)
 
     def setControls(self, c):
@@ -266,7 +268,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         if not Controls:
             raise NotImplementedError
         events = self.__controls.eventCheck(self.__interesting_events)
-	if self._locked:
+	if self.getId() in man.proxy and man.proxy.getObj(self.getId()).locked:
 		events[Controller.THRUST]=1
 		events[Controller.ROLL]=1
         self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
@@ -379,11 +381,12 @@ class MyAirfoil(Airfoil, ControlledSer):
 		print 'count '+str(mesh.colModels[self.getId()].num_collisions)
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
+			print 'bullet collisions: '+str(mesh.colModels[self.getId()].num_collisions)
 			self.__on_target.add(b.getId())
 			self.__impactSlot.play(pos=b.getPos())
-			self._locked=True
+			self.locked=True
 		else:
-			print 'collisions: '+str(mesh.colModels[self.getId()].num_collisions)
+			print 'typ: '+str(b.TYP)+' collisions: '+str(mesh.colModels[self.getId()].num_collisions)
 			self.__grindSlot.play(pos=b.getPos())
 			self._collisionRespond(b);
 			return True
@@ -631,7 +634,8 @@ def timeSlice(dt):
 				man.proxy.releaseLock()
 
 			curPlanes=[ plane for plane in planes.itervalues() if plane.alive() ]
-			[ plane.checkCols(bots+curPlanes, [Bullet.TYP]) for plane in curPlanes ]
+			myPlaneBots=[plane for plane in man.proxy.getTypeObjs(MyAirfoil.TYP, True, False)]
+			[ plane.checkCols(bots+myPlaneBots, [Bullet.TYP]) for plane in myPlaneBots ]
                         #print 'main planes: '+str(curPlanes)
 			#[ plane.checkCols(curPlanes, [Bullet.TYP]) for plane in curPlanes ]
 			[ plane.markChanged() for plane in curPlanes ]
