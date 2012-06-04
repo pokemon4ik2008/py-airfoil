@@ -16,6 +16,8 @@ from time import sleep, time
 from traceback import print_exc
 from util import getLocalIP, int2Bytes, bytes2Int, toHexStr
 
+from async import Scheduler
+
 PORT=8124
 LEN_LEN=4
 
@@ -33,7 +35,7 @@ class Mirrorable:
     DROPPABLE_FLAG=0x2
 
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
-        self._client_id=None
+        self._client_id=0
         self._proxy=proxy
         try:
             assert typ<=SerialisableFact.getMaxType()
@@ -50,22 +52,22 @@ class Mirrorable:
             self.remoteInit(ident)
 
     def __repr__(self):
-        if self._client_id is not None:
+        if self._client_id != 0:
             return str(self.getId())
         else:
             return str((None, self._ident))
 
     def mine(self):
-        return self.__local or self._client_id==Sys.ID.getSysId()
+        return self.__local or self._client_id==Client.PROXY.getSysId()
 
     def myBot(self):
-        return not self.__local and self._client_id==Sys.ID.getSysId()
+        return not self.__local and self._client_id==Client.PROXY.getSysId()
 
     def local(self):
         return self.__local
 
     def localInit(self):
-        (self._client_id, self._ident)=(Sys.ID.getSysId(), Mirrorable.InstCount)
+        (self._client_id, self._ident)=(Client.PROXY.getSysId(), Mirrorable.InstCount)
         Mirrorable.InstCount+=1
 
     def remoteInit(self, ident):
@@ -128,7 +130,7 @@ class Mirrorable:
         self._flags=value
 
     def serialise(self):
-        return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.__typ, self._ident, Sys.ID.getSysId(), self._flags], self._SIZES)])]
+        return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.__typ, self._ident, Client.PROXY.getSysId(), self._flags], self._SIZES)])]
 
     @staticmethod
     def deSerGivenMeta(meta, idx):
@@ -344,31 +346,44 @@ def read(s, rec, addSend, finalise):
     return rec[start:]
 
 class Client(Thread, Mirrorable):
+     PROXY=None
      TYP=1
      __TOP_UP_LEN=32
 
      def initSys(self, ident):
-         Sys.ID=Sys(ident)
-         self.__readSysId()
-         self.markChanged()
-         print 'initSys: id '+str(Sys.ID)
-         return Sys.ID
+         print 'initSys. after deserialising '+str(self._client_id)+' new: '+str(ident)
+         #Sys.ID=Sys(ident)
+         #self.__readSysId()
+         if self._client_id==0:
+             (self._client_id, filler)=ident
+             Client.PROXY=self
+             self.markChanged()
+         print 'initSys: id '+str(Client.PROXY)
+         return self
 
      def __init__(self, ident=None, server=getLocalIP(), port=PORT, factory=None):
+         print 'Client.__init__. ident: '+str(ident)
          self.__server=server
          self.__port=port
          self.__fact=factory
          Mirrorable.__init__(self, self.TYP, ident, self)
 
-     def __readSysId(self):
-         self._client_id=Sys.ID.getSysId()
+     #def __readSysId(self):
+     #    self._client_id=Sys.ID.getSysId()
+
+     #overriding as default implementation requires that Client.PROXY is already set
+     def serialise(self):
+         return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, self._client_id, self._flags], self._SIZES)])]
+
+     def getSysId(self):
+         return self._client_id
 
      def localInit(self):
          Thread.__init__(self)
          #Mirrorable.localInit(self)
          self._ident=Mirrorable.InstCount
          Mirrorable.InstCount+=1
-         self.__fact.update({ Client.TYP: Client, Sys.TYP: self.initSys })
+         self.__fact.update({ Client.TYP: self.initSys })
          self.__dead_here=False
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
@@ -396,7 +411,7 @@ class Client(Thread, Mirrorable):
          self.start()
 
      def attemptSendAll(self):
-         if self.acquireLock() and Sys.ID is not None:
+         if self.acquireLock() and Client.PROXY is not None:
              if not self.alive():
                  print 'sending tail: '+str(len(self.__ids))
              while len(self.__ids)>0:
@@ -430,7 +445,7 @@ class Client(Thread, Mirrorable):
      def addUpdated(self, mirrorable, full_ser):
          try:
              #can't get any obj id if we don't have a sys id
-             assert Sys.ID is not None
+             assert Client.PROXY is not None
              assert mirrorable.local()
 
              uniq=mirrorable.getId()
@@ -519,6 +534,7 @@ class Client(Thread, Mirrorable):
          start=0
          read_len=0
          rec=''
+         worker=Scheduler(block=True, receive=False)
          
          try:
              while(self.__open):
@@ -531,42 +547,46 @@ class Client(Thread, Mirrorable):
                      #writers=[self.__s]
                      #print 'proxy is dead. add writer to select'
                  reads, writes, errs = select.select([self.__s], writers, [], 1.5)
-                 if self.__s in reads:
-                     if self.acquireLock():
-                         read_now=self.__s.recv(4096)
-                         self.bytes_read+=len(read_now)
-                         if read_now=='':
-                             self.markDead()
-                             self.releaseLock()
-                             self.__open=False
-                             break
-                         #print 'Client.run: len read: '+str(len(rec))
-                         rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
-                         self.__fact.deserRemotes(self.__sers)
-                         self.__sers={}
-                         if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
-                             print 'Client.run. closing socket'
-                             self.releaseLock()
-                             self.__open=False
-                             break
-                         self.releaseLock()
-                     else:
-                         sleep_needed=True
-                 if self.__s in writes:
-                     if not self.alive():
-                         print 'after select. proxy is dead and socket is writeable'
-                     if self.acquireLock():
-                         if not self.alive():
-                             print 'after select. proxy is dead and socket is writeable and we have the lock'
-                         if len(self.__outbox)>0:
+                 if self.acquireLock(True):
+                     try:
+                         if self.__s in reads:
+                             #if self.acquireLock(True):
+                                 read_now=self.__s.recv(4096)
+                                 self.bytes_read+=len(read_now)
+                                 if read_now=='':
+                                     self.markDead()
+                                     self.releaseLock()
+                                     self.__open=False
+                                     break
+                                 #print 'Client.run: len read: '+str(len(rec))
+                                 rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
+                                 self.__fact.deserRemotes(self.__sers)
+                                 self.__sers={}
+                                 if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
+                                     print 'Client.run. closing socket'
+                                     self.releaseLock()
+                                     self.__open=False
+                                     break
+                                 #self.releaseLock()
+                             #else:
+                             #    sleep_needed=True
+                         if self.__s in writes:
                              if not self.alive():
-                                 print 'after select. proxy is dead and socket is writeable and we have the lock and we have something to send'
-                             self.send()
-                         else:
-                             sleep_needed=True
+                                 print 'after select. proxy is dead and socket is writeable'
+                             #if self.acquireLock():
+                             if not self.alive():
+                                 print 'after select. proxy is dead and socket is writeable and we have the lock'
+                             if len(self.__outbox)>0:
+                                 if not self.alive():
+                                     print 'after select. proxy is dead and socket is writeable and we have the lock and we have something to send'
+                                 self.send()
+                             else:
+                                 sleep_needed=True
+                             #self.releaseLock()
+                             #else:
+                             #    sleep_needed=True
+                     finally:
                          self.releaseLock()
-                     else:
-                         sleep_needed=True
                  if sleep_needed:
                      sleep(0)
          except:
@@ -578,41 +598,33 @@ class Client(Thread, Mirrorable):
          print 'Exiting Client.run'
 
 class Sys(Mirrorable):
-    ID=None
     TYP=2
-    __NextInst=1
-
-    @staticmethod
-    def init(proxy):
-        while manage.proxy.alive():
-            if proxy.acquireLock():
-                if Sys.ID is not None:
+    
+    def __init__(self, ident=None, proxy=None):
+        print 'Sys: ident: '+str(ident)+' '+str(proxy)
+        self.__sysId=0
+        if proxy is not None:
+            while proxy.alive():
+                if proxy.acquireLock():
+                    if Client.PROXY is not None:
+                        proxy.releaseLock()
+                        break
                     proxy.releaseLock()
-                    break
-                proxy.releaseLock()
-            sleep(1)
-
-    def __init__(self, ident=None):
+                sleep(1)
+            (self.__sysId, client_inst)=proxy.getId()
         Mirrorable.__init__(self, Sys.TYP, ident)
 
-    def localInit(self):
-        self._ident=Sys.__NextInst
-        Sys.__NextInst+=1
-
-    def remoteInit(self, ident):
-        Mirrorable.remoteInit(self, ident)
-        #ID=self
-
     def getSysId(self):
-        return self._ident
+        return self.__sysId
 
     def markChanged(self):
         raise NotImplementedError
 
-    def serialise(self):
-        return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._flags], self._SIZES)])]
+    #def serialise(self):
+    #    return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._flags], self._SIZES)])]
 
 class Server(Thread):
+
     def __init__(self, server=getLocalIP(), port=PORT, own_thread=True):
          Thread.__init__(self)
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -626,6 +638,7 @@ class Server(Thread):
          self.__stopped=False
          self.__outQs={}
          self.__outs={}
+         self.__nextInst=1
          self.bytes_read=0
          self.bytes_sent=0
          self.daemon=True
@@ -713,21 +726,22 @@ class Server(Thread):
                     for r in reads:
                         try:
                             if r is self.__s:
-                                (client, address) = r.accept()
+                                (sock, address) = r.accept()
                                 print 'accepted from '+str(address)
-                                assert client not in self.__readers
-                                self.__readers.append(client)
-                                assert client not in self.__serialisables
-                                assert client not in self.__writers
-                                self.__serialisables[client]=''
-                                system=Sys().serialise()
-                                print 'system: '+str(system)
-                                system_s=system[Mirrorable.META]+cPickle.dumps(system[Mirrorable.META+1:])
-                                #print 'system: serialised. '+toHexStr(system_s)
-                                self.qWrite(client, int2Bytes(len(system_s), LEN_LEN)+system_s)
-                                #print 'server.run. len '+str(len(system_s))+' '+toHexStr(int2Bytes(len(system_s), LEN_LEN))
-                                #self.qWrite(client, '%10s' %len(system_s)+system_s)
-                                self.__in[client]=''
+                                assert sock not in self.__readers
+                                self.__readers.append(sock)
+                                assert sock not in self.__serialisables
+                                assert sock not in self.__writers
+                                self.__serialisables[sock]=''
+                                client=Client((self.__nextInst,0)).serialise()
+                                self.__nextInst+=1
+                                print 'client: '+str(client)
+                                client_s=client[Mirrorable.META]+cPickle.dumps(client[Mirrorable.META+1:])
+                                #print 'client: serialised. '+toHexStr(client_s)
+                                self.qWrite(sock, int2Bytes(len(client_s), LEN_LEN)+client_s)
+                                #print 'server.run. len '+str(len(client_s))+' '+toHexStr(int2Bytes(len(client_s), LEN_LEN))
+                                #self.qWrite(client, '%10s' %len(client_s)+client_s)
+                                self.__in[sock]=''
                                 self.__accepted_clients=True
                             else:
                                 self.__outQs[r]=[]

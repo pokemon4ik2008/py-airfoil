@@ -1,6 +1,10 @@
 import os
 from ctypes import *
 
+from async import Scheduler
+
+global worker
+worker=Scheduler(block=False)
 global proxy
 proxy=None
 global server

@@ -239,6 +239,11 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__last_fire=manage.now
 	self.frame_rot=None
 	self._initCols()
+
+    def __setupSlots(self):
+	    self.__impactSlot=SoundSlot("impact "+str(self.getId()), snd=IMPACT_SND)
+	    self.__whizzSlot=SoundSlot("whizz "+str(self.getId()), snd=WHIZZ_SND)
+	    self.__grindSlot=SoundSlot("screech "+str(self.getId()), snd=GRIND_SND)
 	
     def remoteInit(self, ident):
 	    ControlledSer.remoteInit(self, ident)
@@ -250,9 +255,8 @@ class MyAirfoil(Airfoil, ControlledSer):
 
 	    self.__on_target=set()
 	    self.locked=False
-	    self.__impactSlot=SoundSlot("impact "+str(self.getId()), snd=IMPACT_SND)
-	    self.__whizzSlot=SoundSlot("whizz "+str(self.getId()), snd=WHIZZ_SND)
-	    self.__grindSlot=SoundSlot("screech "+str(self.getId()), snd=GRIND_SND)
+
+	    man.worker.postTask(self.__setupSlots)
             mesh.initCollider(self.TYP, ident)
 
     def setControls(self, c):
@@ -381,12 +385,12 @@ class MyAirfoil(Airfoil, ControlledSer):
 		print 'count '+str(mesh.colModels[self.getId()].num_collisions)
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
-			print 'bullet collisions: '+str(mesh.colModels[self.getId()].num_collisions)
+			#print 'bullet collisions: '+str(mesh.colModels[self.getId()].num_collisions)
 			self.__on_target.add(b.getId())
 			self.__impactSlot.play(pos=b.getPos())
 			self.locked=True
 		else:
-			print 'typ: '+str(b.TYP)+' collisions: '+str(mesh.colModels[self.getId()].num_collisions)
+			#print 'typ: '+str(b.TYP)+' collisions: '+str(mesh.colModels[self.getId()].num_collisions)
 			self.__grindSlot.play(pos=b.getPos())
 			self._collisionRespond(b);
 			return True
@@ -441,7 +445,7 @@ def init():
 		else:
 			man.server=Server(server=man.opt.server)
 			man.proxy=Client(server=man.opt.client, factory=factory)
-	Sys.init(man.proxy)
+	Sys(proxy=man.proxy)
 
 	global mouse_cap, fullscreen, views, planes, bots, skybox
 	mouse_cap=True
@@ -627,7 +631,8 @@ def timeSlice(dt):
 			man.updateTime()
 			[ b.update() for b in set(Bullet.getInFlight())]
 			[ plane.update() for plane in planes.itervalues() if plane.alive() ]
-
+			man.worker.flush()
+			man.worker.run()
 			if man.proxy.acquireLock():
 				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
 				[ b.estUpdate() for b in bots ]
