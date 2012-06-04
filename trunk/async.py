@@ -24,12 +24,10 @@ class Scheduler:
                 self.__receiveLock=None
             Scheduler.SCHEDS[tid]=self
 
-    def acquire(self, sched=None):
+    def acquire(self, block):
         try:
             assert self.__receiveLock is not None
-            if sched==None:
-                sched=self
-            return self.__receiveLock.acquire(sched.__block)
+            return self.__receiveLock.acquire(block)
         except:
             print_stack()
             
@@ -50,7 +48,7 @@ class Scheduler:
             try:
                 assert tid in SCHEDS
                 receiver=SCHEDS[tid]
-                receiver.acquire(self)
+                receiver.acquire(self.__block)
                 try:
                     (tasks, requests)=self.pending[tid]
                     receiver.tasks.extend(tasks)
@@ -67,7 +65,7 @@ class Scheduler:
         except:
             print_stack()
         #receives tasks / requests
-        if self.acquire():
+        if self.acquire(self.__block):
             try:
                 #run on receiver thread
                 for t in self.tasks:
@@ -93,7 +91,7 @@ class Scheduler:
         try:
             assert tid in Scheduler.SCHEDS
             sender=Scheduler.SCHEDS[tid]
-            if self.acquire(sched=sender):
+            if self.acquire(sender.__block):
                 try:
                     #sends tasks/requests, bypassing pending dict
                     dest_list.append(item)

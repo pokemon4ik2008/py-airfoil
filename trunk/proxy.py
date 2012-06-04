@@ -624,7 +624,6 @@ class Sys(Mirrorable):
     #    return [ ''.join([int2Bytes(field, size) for (field, size) in zip([self.TYP, self._ident, 0, self._flags], self._SIZES)])]
 
 class Server(Thread):
-
     def __init__(self, server=getLocalIP(), port=PORT, own_thread=True):
          Thread.__init__(self)
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
