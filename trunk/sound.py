@@ -7,7 +7,7 @@ pyglet.options['audio'] = ('directsound', 'openal', 'silent')
 from collections import deque
 from euclid import *
 from pyglet.media import *
-import threading
+import thread
 from traceback import print_exc
 import manage
 
@@ -20,11 +20,11 @@ class SoundSlot(object):
     @staticmethod
     def checkTid():
         if SoundSlot.__TID is None:
-            SoundSlot.__TID=threading.currentThread().ident
+            SoundSlot.__TID=thread.get_ident()
             return True
         else:
-            if threading.currentThread().ident!=SoundSlot.__TID:
-                print 'checkTid. current: '+str(threading.currentThread().ident)+' '+str(SoundSlot.__TID)+' '+str(threading.currentThread())
+            if thread.get_ident()!=SoundSlot.__TID:
+                print 'checkTid. current: '+str(thread.get_ident())+' '+str(SoundSlot.__TID)+' '+str(thread.get_ident())
                 return False
             else:
                 return True
