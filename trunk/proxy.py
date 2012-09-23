@@ -388,7 +388,7 @@ class Client(Thread, Mirrorable):
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
          try:
-             print 'Client. connecting'
+             print 'Client. connecting to '+str(self.__server)+":"+str(self.__port)
              self.__s.connect((self.__server, self.__port))
          except socket.error as (errNo, errStr):
              if errNo==115:
@@ -551,23 +551,23 @@ class Client(Thread, Mirrorable):
                      try:
                          if self.__s in reads:
                              #if self.acquireLock(True):
-                                 read_now=self.__s.recv(4096)
-                                 self.bytes_read+=len(read_now)
-                                 if read_now=='':
-                                     self.markDead()
-                                     self.releaseLock()
-                                     self.__open=False
-                                     break
-                                 #print 'Client.run: len read: '+str(len(rec))
-                                 rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
-                                 self.__fact.deserRemotes(self.__sers)
-                                 self.__sers={}
-                                 if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
-                                     print 'Client.run. closing socket'
-                                     self.releaseLock()
-                                     self.__open=False
-                                     break
-                                 #self.releaseLock()
+                             read_now=self.__s.recv(4096)
+                             self.bytes_read+=len(read_now)
+                             if read_now=='':
+                                 self.markDead()
+                                 self.releaseLock()
+                                 self.__open=False
+                                 break
+                             #print 'Client.run: len read: '+str(len(rec))
+                             rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
+                             self.__fact.deserRemotes(self.__sers)
+                             self.__sers={}
+                             if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
+                                 print 'Client.run. closing socket'
+                                 self.releaseLock()
+                                 self.__open=False
+                                 break
+                             #self.releaseLock()
                              #else:
                              #    sleep_needed=True
                          if self.__s in writes:
@@ -585,6 +585,9 @@ class Client(Thread, Mirrorable):
                              #self.releaseLock()
                              #else:
                              #    sleep_needed=True
+                     except:
+                         print_stack()
+                         print_exc()
                      finally:
                          self.releaseLock()
                  if sleep_needed:
@@ -627,9 +630,9 @@ class Server(Thread):
     def __init__(self, server=getLocalIP(), port=PORT, own_thread=True):
          Thread.__init__(self)
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-         self.__s.setblocking(0)
          #self.__s.bind((gethostname(), port))
          self.__s.bind((server, port))
+         self.__s.setblocking(0)
          self.__s.listen(5)
          self.__readers, self.__writers = ([], [])
          self.__in={}
@@ -640,12 +643,13 @@ class Server(Thread):
          self.__nextInst=1
          self.bytes_read=0
          self.bytes_sent=0
-         self.daemon=True
          self.__accepted_clients=False
-         if own_thread:
-             self.start()
-         else:
-             self.run()
+         self.daemon=True
+         #if own_thread:
+         #    self.daemon=False
+         #else:
+         #    self.daemon=True
+         self.start()
 
     def recWrites(self, s, obj_len, obj_str):
         fields=[ Mirrorable.deSerGivenMeta(obj_str, field) for field in [Mirrorable.SYS, Mirrorable.IDENT, Mirrorable.FLAGS]]
@@ -818,8 +822,8 @@ class Server(Thread):
                     except self.error:
                         self.__serialisables[eSock]=''
                         self.__writers.remove(eSock)
-        except KeyboardInterrupt:
-            pass
+        #except KeyboardInterrupt:
+        #    pass
         except:
             print_exc()
         self.quit()

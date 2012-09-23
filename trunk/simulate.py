@@ -44,6 +44,7 @@ import sys
 from threading import Condition
 from time import sleep
 import traceback
+from traceback import print_exc, print_stack
 from util import X_UNIT, Y_UNIT, Z_UNIT
 from view import EXTERNAL, INTERNAL, View
 
@@ -246,21 +247,21 @@ class MyAirfoil(Airfoil, ControlledSer):
 	    self.__grindSlot=SoundSlot("screech "+str(self.getId()), snd=GRIND_SND)
 	
     def remoteInit(self, ident):
-	    ControlledSer.remoteInit(self, ident)
-	    self.__lastKnownPos=Vector3(0,0,0)
-	    self.__lastDelta=Vector3(0,0,0)
-	    self.__lastUpdateTime=0.0
-	    self.__played=False
-	    self.__play_tire=False
+        ControlledSer.remoteInit(self, ident)
+        self.__lastKnownPos=Vector3(0,0,0)
+        self.__lastDelta=Vector3(0,0,0)
+        self.__lastUpdateTime=0.0
+        self.__played=False
+        self.__play_tire=False
 
-	    self.__on_target=set()
-	    self.locked=False
+        self.__on_target=set()
+        self.locked=False
 
-	    man.worker.postTask(self.__setupSlots)
-            mesh.initCollider(self.TYP, ident)
-
+        man.worker.postTask(self.__setupSlots)
+        mesh.initCollider(self.TYP, ident)
+        
     def setControls(self, c):
-	self.__controls=c
+        self.__controls=c
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
@@ -432,6 +433,8 @@ def init():
 	colliders=[ path for (path, scale) in colliders_map.values() ]
 	mesh.loadColliders( colliders_map )
 
+	global interactive
+	interactive=True
 	if man.opt.server is None:
 		if man.opt.client is None:
 			man.server=Server()
@@ -440,13 +443,18 @@ def init():
 			man.proxy=Client(server=man.opt.client, factory=factory)
 	else:
 		if man.opt.client is None:
-			man.server=Server(server=man.opt.server, own_thread=False)
-			exit(0)
+			interactive=False
+			man.server=Server(server=man.opt.server, own_thread=True)
+			man.proxy=Client(server=man.opt.server, factory=factory)
 		else:
 			man.server=Server(server=man.opt.server)
 			man.proxy=Client(server=man.opt.client, factory=factory)
+			
 	Sys(proxy=man.proxy)
 
+	if not interactive:
+		return (0, [], time.time())
+	
 	global mouse_cap, fullscreen, views, planes, bots, skybox
 	mouse_cap=True
 	fullscreen=False
@@ -736,23 +744,24 @@ def timeSlice(dt):
 
 def run():
 	num_players, plane_ids, start_time=init()
-	#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
-	pyglet.clock.schedule(timeSlice)
-	while man.proxy.alive():
-            setupWin(num_players, plane_ids, fs=fullscreen)
-            glFinish()
-            mesh.createVBOs(mesh.vbo_meshes)
-            glFinish()
-            ptrOn(mouse_cap)
-            pyglet.app.run()
-            glFinish()
-
-	flush_start=time.time()
-	while not man.proxy.attemptSendAll():
-		if time()-flush_start>3:
-			break
-		sleep(0)
-	man.proxy.join(3)
+	if num_players>0:
+		#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
+		pyglet.clock.schedule(timeSlice)
+		while man.proxy.alive():
+		    setupWin(num_players, plane_ids, fs=fullscreen)
+		    glFinish()
+		    mesh.createVBOs(mesh.vbo_meshes)
+		    glFinish()
+		    ptrOn(mouse_cap)
+		    pyglet.app.run()
+		    glFinish()
+	
+		flush_start=time.time()
+		while not man.proxy.attemptSendAll():
+			if time()-flush_start>3:
+				break
+			sleep(0)
+	man.proxy.join()
 	try:
 		assert not man.proxy.isAlive()
 	except:
