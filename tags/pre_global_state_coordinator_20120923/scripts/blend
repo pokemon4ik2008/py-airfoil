@@ -1,0 +1,5 @@
+#!/bin/bash
+
+BLEND_FILE=$1
+shift
+~kieran/bin/blender --background $BLEND_FILE --factory-startup --python $@
