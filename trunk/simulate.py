@@ -85,6 +85,64 @@ def drawTerrain(view):
 	pointOfView[8] = cameraZenith[2]
 	cterrain.draw(pointOfView, c_float(view.getAspectRatio()))
 
+class PlanePositionQuery(Query):
+        TYP=2
+        POS=0
+        MAX_POS=2
+        NEXT_IDX=Query.NEXT_IDX+1
+        [ __POS_IDX ]= range(Query.NEXT_IDX, NEXT_IDX)
+        PLANE_INITS=[(Point3(10600.0,100.0,4200.0), 
+              Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
+              Vector3(0,0,60),
+              0),
+             (Point3(10600,200.0,9200), 
+              Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
+              Vector3(0,0,-60),
+              0)]
+
+        def __init__(self, ident=None, proxy=None, uniq=None):
+                print 'PlanePositionQuery.__init__'
+                assert len(PlanePositionQuery.PLANE_INITS)==PlanePositionQuery.MAX_POS
+                Query.__init__(self, typ=PlanePositionQuery.TYP, ident=ident, proxy=proxy, uniq=uniq)
+                self.__pos=-1
+
+        def setPos(self, pos):
+                print 'PlanePositionQuery.setPos: '+str(pos)
+                self.__pos=pos
+                return self
+
+        def getPosInitialisation(self):
+                if self.__pos==-1:
+                        print 'getPosInitialisation. pos is -1'
+                        return None
+                else:
+                        return PlanePositionQuery.PLANE_INITS[self.__pos]
+        
+        def execute(self, ser):
+                print 'PlanePositionQuery.execute: '+str(PlanePositionQuery.POS)
+                Query.execute(self, ser)
+                self.__pos=PlanePositionQuery.POS
+                PlanePositionQuery.POS+=1
+                PlanePositionQuery.POS%=PlanePositionQuery.MAX_POS
+            
+        def serialise(self):
+                print 'PlanePositionQuery.serialise. sys id: '+str(self._client_id)+' pos: '+str(self.__pos)
+                ser=Query.serialise(self)
+                ser.append(self.__pos)
+                return ser
+
+        def peekInside(self, ser):
+                print 'PlanePositionQuery.peekInside: sys id: '+str(self._client_id)+' ser: '+str(ser)
+                Query.peekInside(self, ser).setPos(ser[self.__POS_IDX])
+                return self
+
+class MyServer(Server):
+        def __init__(self, server=getLocalIP(), own_thread=True):
+                Server.__init__(self, server=server, own_thread=own_thread) 
+                self._ctors={ PlanePositionQuery.TYP: PlanePositionQuery }                
+        def getConstructors(self):
+                return self._ctors
+         
 BULLET_MASS=1.0
 BULLET_DRAG_COEFF=0.05/BULLET_MASS
 class Bullet(Obj, ControlledSer):
@@ -127,17 +185,17 @@ class Bullet(Obj, ControlledSer):
 	    return obj
     
     def serNonDroppable(self):
-	    self._flags &= ~self.DROPPABLE_FLAG
-	    return [ self.__parent ]
+        self._flags &= ~self.DROPPABLE_FLAG
+        return [ self.__parent ]
 
     def deserNonDroppable(self, parent):
-	    self.__parent=parent
-	    return self
+        self.__parent=parent
+        return self
 
     def play(self):
-	    if not self.__played and self.__parent is not None and self.__parent in manage.proxy and not self.local():
-		    self.__played=True
-		    manage.proxy.getObj(self.__parent).gunSlot.play(pos=self.getPos())
+        if not self.__played and self.__parent is not None and self.__parent in manage.proxy and not self.local():
+                self.__played=True
+                manage.proxy.getObj(self.__parent).gunSlot.play(pos=self.getPos())
 
     def markDead(self):
 	    ControlledSer.markDead(self)
@@ -411,124 +469,128 @@ def init():
         #else:
 	#	print "running psyco\n"
         #        psyco.full()
+        try:
+                parser = optparse.OptionParser()
+                option = parser.add_option
+                option('-z', '--width', dest='width', type='int', default=3000,
+                        help='Overall width of the generated terrain')
 
-        parser = optparse.OptionParser()
-        option = parser.add_option
-        option('-z', '--width', dest='width', type='int', default=3000,
-                help='Overall width of the generated terrain')
+                option('-2', '--two', dest='two_player', action='store_true', default=False,
+                        help='Two player split screen action')
+                option('-S', '--server', dest='server', type='str', default=None,
+                        help='Create a server using at this IP / domain')
+                option('-C', '--client', dest='client', type='str', default=None,
+                        help='Create a client connection this a server at this IP / domain')
+                man.opt, args = parser.parse_args()
+                if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
-        option('-2', '--two', dest='two_player', action='store_true', default=False,
-                help='Two player split screen action')
-        option('-S', '--server', dest='server', type='str', default=None,
-                help='Create a server using at this IP / domain')
-        option('-C', '--client', dest='client', type='str', default=None,
-                help='Create a client connection this a server at this IP / domain')
-        man.opt, args = parser.parse_args()
-        if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
+                factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet, PlanePositionQuery.TYP: PlanePositionQuery })
 
-	factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet })
+                scale=3.0
+                colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
+                colliders=[ path for (path, scale) in colliders_map.values() ]
+                mesh.loadColliders( colliders_map )
 
-	scale=3.0
-	colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
-	colliders=[ path for (path, scale) in colliders_map.values() ]
-	mesh.loadColliders( colliders_map )
+                global interactive
+                interactive=True
+                if man.opt.server is None:
+                        if man.opt.client is None:
+                                man.server=MyServer()
+                                man.proxy=Client(factory=factory)
+                        else:
+                                man.proxy=Client(server=man.opt.client, factory=factory)
+                else:
+                        if man.opt.client is None:
+                                interactive=False
+                                man.server=MyServer(server=man.opt.server, own_thread=True)
+                                man.proxy=Client(server=man.opt.server, factory=factory)
+                        else:
+                                man.server=MyServer(server=man.opt.server)
+                                man.proxy=Client(server=man.opt.client, factory=factory)
 
-	global interactive
-	interactive=True
-	if man.opt.server is None:
-		if man.opt.client is None:
-			man.server=Server()
-			man.proxy=Client(factory=factory)
-		else:
-			man.proxy=Client(server=man.opt.client, factory=factory)
-	else:
-		if man.opt.client is None:
-			interactive=False
-			man.server=Server(server=man.opt.server, own_thread=True)
-			man.proxy=Client(server=man.opt.server, factory=factory)
-		else:
-			man.server=Server(server=man.opt.server)
-			man.proxy=Client(server=man.opt.client, factory=factory)
-			
-	Sys(proxy=man.proxy)
+                waitForClient(man.proxy)
 
-	if not interactive:
-		return (0, [], time.time())
-	
-	global mouse_cap, fullscreen, views, planes, bots, skybox
-	mouse_cap=True
-	fullscreen=False
-	views = []
-        clock = pyglet.clock.Clock()
-	loadTerrain()
-        #r = 0.0
+                if not interactive:
+                        return (0, [], time.time())
 
-	def genMeshArgs(moving_maps, onlys, scale, group):
-		all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
-		all.extend(moving_maps.items())
+                global mouse_cap, fullscreen, views, planes, bots, skybox
+                mouse_cap=True
+                fullscreen=False
+                views = []
+                clock = pyglet.clock.Clock()
+                loadTerrain()
+                #r = 0.0
 
-		movingAndOnly=moving_maps.keys()[:]
-		movingAndOnly.append(onlys)
+                def genMeshArgs(moving_maps, onlys, scale, group):
+                        all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
+                        all.extend(moving_maps.items())
 
-		return (all, movingAndOnly)
+                        movingAndOnly=moving_maps.keys()[:]
+                        movingAndOnly.append(onlys)
 
-	internal_grp, external_grp=range(2)
-	(all_internal, not_external)=genMeshArgs({
-		"data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
-		"data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
-		"data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
-		"data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
-		"data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
-		"data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
-		"data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
-		}, "data/models/cockpit/I_*.csv", scale, internal_grp)
-	not_external.extend(colliders)
-	(all_external, not_internal)=genMeshArgs({
-		"data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
-		"data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
-		}, "data/models/cockpit/E_*.csv", scale, external_grp)
-	not_internal.extend(colliders)
+                        return (all, movingAndOnly)
 
-	#must use an association list to map glob paths to (mesh, scale) couples instead of a dict
-	#as earlier mappings are superceded by later mappings --- so the order is important. dicts
-	#do not maintain ordering
-	mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, not_external),
-			  (MyAirfoil.TYP, INTERNAL): (all_internal, not_internal)
-			  }, views)
+                internal_grp, external_grp=range(2)
+                (all_internal, not_external)=genMeshArgs({
+                        "data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
+                        "data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
+                        "data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
+                        "data/models/cockpit/Plane.011.csv": (mesh.RPMMesh, scale, None), 
+                        "data/models/cockpit/Plane.006.csv": (mesh.AirSpeedMesh, scale, None),
+                        "data/models/cockpit/Circle.007.csv": (mesh.WingAirSpeedMesh, scale, None),
+                        "data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
+                        }, "data/models/cockpit/I_*.csv", scale, internal_grp)
+                not_external.extend(colliders)
+                (all_external, not_internal)=genMeshArgs({
+                        "data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
+                        "data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
+                        }, "data/models/cockpit/E_*.csv", scale, external_grp)
+                not_internal.extend(colliders)
 
-	planes = {}
-	plane_inits=[(Point3(10600.0,100.0,4200.0), 
-		      Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
-		      Vector3(0,0,60),
-		      0),
-		     (Point3(10600,200.0,9200), 
-		      Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
-		      Vector3(0,0,-60),
-		      0)]
+                #must use an association list to map glob paths to (mesh, scale) couples instead of a dict
+                #as earlier mappings are superceded by later mappings --- so the order is important. dicts
+                #do not maintain ordering
+                mesh.loadMeshes({ (MyAirfoil.TYP, EXTERNAL): (all_external, not_external),
+                                  (MyAirfoil.TYP, INTERNAL): (all_internal, not_internal)
+                                  }, views)
 
-	plane_ids=[]
-	if man.opt.two_player==True:
-		num_players=2
-	else:
-		num_players=1
-	for i in range(num_players):
-		(pos, att, vel, thrust)=plane_inits[i]
-		print 'att: '+str(att)
-		plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, proxy=man.proxy)
-		plane_ids.append(plane.getId())
-		planes[plane.getId()]=plane
-		view = View(plane, num_players, man.opt)
-		views.append(view)
+                planes = {}
+                plane_ids=[]
+                if man.opt.two_player==True:
+                        num_players=2
+                else:
+                        num_players=1
+                assert num_players<=PlanePositionQuery.MAX_POS
+                        
+                plane_inits=[]
+                posQuery=PlanePositionQuery(proxy=man.proxy)
+                for query in range(0, num_players):
+                        posQuery.post(lambda q: plane_inits.append(q.getPosInitialisation()))
+                Query.waitForReplies(man.proxy)
+                print 'plane_inits: '+str(plane_inits)
+                
+                for i in range(num_players):
+                        (pos, att, vel, thrust)=plane_inits[i]
+                        print 'att: '+str(att)
+                        plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, proxy=man.proxy)
+                        plane_ids.append(plane.getId())
+                        planes[plane.getId()]=plane
+                        view = View(plane, num_players, man.opt)
+                        views.append(view)
 
-	if man.opt.two_player==True:
-		num_players=2
-	else:
-		num_players=1
-	bots=[]
-	skybox = Skybox()
-	start_time=time.time()
-	print 'startup current ctx: '+str(glx.glXGetCurrentContext())
-	return num_players, plane_ids, start_time
+                if man.opt.two_player==True:
+                        num_players=2
+                else:
+                        num_players=1
+                bots=[]
+                skybox = Skybox()
+                start_time=time.time()
+                print 'startup current ctx: '+str(glx.glXGetCurrentContext())
+                return num_players, plane_ids, start_time
+        except:
+                print_exc()
+                start_time=time.time()
+                return 0, [], start_time
 
 def ptrOn(st=True):
 	# kw. set_exclusive_mouse called twice due to Pyglet bug in X windows.
@@ -743,29 +805,34 @@ def timeSlice(dt):
 #	main_iter.next()
 
 def run():
-	num_players, plane_ids, start_time=init()
-	if num_players>0:
-		#pyglet.clock.schedule_interval(timeSlice, 1/60.0)
-		pyglet.clock.schedule(timeSlice)
-		while man.proxy.alive():
-		    setupWin(num_players, plane_ids, fs=fullscreen)
-		    glFinish()
-		    mesh.createVBOs(mesh.vbo_meshes)
-		    glFinish()
-		    ptrOn(mouse_cap)
-		    pyglet.app.run()
-		    glFinish()
-	
-		flush_start=time.time()
-		while not man.proxy.attemptSendAll():
-			if time()-flush_start>3:
-				break
-			sleep(0)
-	man.proxy.join()
-	try:
-		assert not man.proxy.isAlive()
-	except:
-		print_exc()
+        num_players=0
+        try:
+                num_players, plane_ids, start_time=init()
+                if num_players>0:
+                        #pyglet.clock.schedule_interval(timeSlice, 1/60.0)
+                        pyglet.clock.schedule(timeSlice)
+                        while man.proxy.alive():
+                            setupWin(num_players, plane_ids, fs=fullscreen)
+                            glFinish()
+                            mesh.createVBOs(mesh.vbo_meshes)
+                            glFinish()
+                            ptrOn(mouse_cap)
+                            pyglet.app.run()
+                            glFinish()
+
+                        flush_start=time.time()
+                        while not man.proxy.attemptSendAll():
+                                if time()-flush_start>3:
+                                        break
+                                sleep(0)
+        except KeyboardInterrupt:
+                print_exc()
+        if man.proxy:
+                man.proxy.join()
+                try:
+                        assert not man.proxy.isAlive()
+                except:
+                        print_exc()
 	if man.server:
 		man.server.join(3)
 		try:
@@ -775,10 +842,10 @@ def run():
 	mesh.deleteMeshes()
 	mesh.deleteColliders()
 	print 'quitting main thread'
-	[ mesh.freeCollider(bot.getId()) for bot in man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ])]
         print "fps:  %d" % clock.get_fps()
 	end_time=time.time()
 	if man.proxy:
+                [ mesh.freeCollider(bot.getId()) for bot in man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ])]
 		print "client: kb/s read: "+str((man.proxy.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.proxy.bytes_sent/1024)/(end_time-start_time))
 	if man.server:
 		print "server: kb/s read: "+str((man.server.bytes_read/1024)/(end_time-start_time))+' sent: '+str((man.server.bytes_sent/1024)/(end_time-start_time))
