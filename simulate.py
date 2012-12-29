@@ -503,15 +503,17 @@ def init():
                         if man.opt.client is None:
                                 interactive=False
                                 man.server=MyServer(server=man.opt.server, own_thread=True)
-                                man.proxy=Client(server=man.opt.server, factory=factory)
+                                #man.proxy=Client(server=man.opt.server, factory=factory)
+                                man.proxy=None
                         else:
                                 man.server=MyServer(server=man.opt.server)
                                 man.proxy=Client(server=man.opt.client, factory=factory)
 
-                waitForClient(man.proxy)
-
                 if not interactive:
+                        print 'init. not interactive'
                         return (0, [], time.time())
+
+                waitForClient(man.proxy)
 
                 global mouse_cap, fullscreen, views, planes, bots, skybox
                 mouse_cap=True
@@ -795,7 +797,8 @@ def timeSlice(dt):
 						mesh.freeCollider(bot.getId())
 
 			return
-		
+		else:
+                        pyglet.app.exit()
 	except Exception:
 		traceback.print_exc()
 		man.proxy.markDead()
@@ -806,37 +809,40 @@ def timeSlice(dt):
 
 def run():
         num_players=0
-        try:
-                num_players, plane_ids, start_time=init()
-                if num_players>0:
-                        #pyglet.clock.schedule_interval(timeSlice, 1/60.0)
-                        pyglet.clock.schedule(timeSlice)
-                        while man.proxy.alive():
-                            setupWin(num_players, plane_ids, fs=fullscreen)
-                            glFinish()
-                            mesh.createVBOs(mesh.vbo_meshes)
-                            glFinish()
-                            ptrOn(mouse_cap)
-                            pyglet.app.run()
-                            glFinish()
+        num_players, plane_ids, start_time=init()
+        if num_players>0:
+                #pyglet.clock.schedule_interval(timeSlice, 1/60.0)
+                pyglet.clock.schedule(timeSlice)
+                while man.proxy.alive():
+                    setupWin(num_players, plane_ids, fs=fullscreen)
+                    glFinish()
+                    mesh.createVBOs(mesh.vbo_meshes)
+                    glFinish()
+                    ptrOn(mouse_cap)
+                    pyglet.app.run()
+                    glFinish()
 
-                        flush_start=time.time()
-                        while not man.proxy.attemptSendAll():
-                                if time()-flush_start>3:
-                                        break
-                                sleep(0)
-        except KeyboardInterrupt:
-                print_exc()
+                flush_start=time.time()
+                while not man.proxy.attemptSendAll():
+                        if time()-flush_start>3:
+                                break
+                        sleep(0)
+                        
         if man.proxy:
-                man.proxy.join()
                 try:
+                        man.proxy.join()
                         assert not man.proxy.isAlive()
                 except:
                         print_exc()
+                man.server.quit()
 	if man.server:
-		man.server.join(3)
 		try:
+                        while man.server.isAlive():
+                                man.server.join(2)
 			assert not man.server.isAlive()
+                except KeyboardInterrupt, SystemExit:
+                        man.server.quit()
+                        man.server.join(4)
 		except:
 			print_exc()
 	mesh.deleteMeshes()
