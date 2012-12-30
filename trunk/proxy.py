@@ -846,7 +846,7 @@ class Server(Thread):
         client_s=client[Mirrorable.META]+cPickle.dumps(client[Mirrorable.NEXT_IDX:])
         self.qWrite(sock, int2Bytes(len(client_s), LEN_LEN)+client_s)
 
-    def __record(self, r, onIter, onFinalise):
+    def record(self, r):
         self.__outQs[r]=[]
         self.__outs[r]={}
         read_now=r.recv(4096)
@@ -854,11 +854,8 @@ class Server(Thread):
         if read_now=='':
             self.__remove_sock(r)
         else:
-            self.__in[r]=read(r, self.__in[r]+read_now, onIter, onFinalise)
+            self.__in[r]=read(r, self.__in[r]+read_now, self.recWrites, self.qWrites)
         
-    def record(self, r):
-        self.__record(r, self.recWrites, self.qWrites)
-
     def send(self, w):
         if w not in self.__serialisables:
             #can happen just after closing a connection

@@ -834,8 +834,11 @@ def run():
                         assert not man.proxy.isAlive()
                 except:
                         print_exc()
-                man.server.quit()
+
 	if man.server:
+                if man.proxy:
+                        man.server.quit()
+                        
 		try:
                         while man.server.isAlive():
                                 man.server.join(2)
