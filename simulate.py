@@ -47,6 +47,7 @@ import traceback
 from traceback import print_exc, print_stack
 from util import X_UNIT, Y_UNIT, Z_UNIT
 from view import EXTERNAL, INTERNAL, View
+import wrapper
 
 def loadTerrain():
 	global cterrain
@@ -519,7 +520,6 @@ def init():
                 mouse_cap=True
                 fullscreen=False
                 views = []
-                clock = pyglet.clock.Clock()
                 loadTerrain()
                 #r = 0.0
 
@@ -777,7 +777,6 @@ def timeSlice(dt):
 				view.eventCheck()
 				glLoadIdentity()
 				view.drawText()
-				#dt=clock.tick()
 
 			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
 
@@ -811,15 +810,14 @@ def run():
         num_players=0
         num_players, plane_ids, start_time=init()
         if num_players>0:
-                #pyglet.clock.schedule_interval(timeSlice, 1/60.0)
-                pyglet.clock.schedule(timeSlice)
+                wrapper.schedule(timeSlice)
                 while man.proxy.alive():
                     setupWin(num_players, plane_ids, fs=fullscreen)
                     glFinish()
                     mesh.createVBOs(mesh.vbo_meshes)
                     glFinish()
                     ptrOn(mouse_cap)
-                    pyglet.app.run()
+                    wrapper.run()
                     glFinish()
 
                 flush_start=time.time()
@@ -851,7 +849,6 @@ def run():
 	mesh.deleteMeshes()
 	mesh.deleteColliders()
 	print 'quitting main thread'
-        print "fps:  %d" % clock.get_fps()
 	end_time=time.time()
 	if man.proxy:
                 [ mesh.freeCollider(bot.getId()) for bot in man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ])]
