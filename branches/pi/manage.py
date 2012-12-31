@@ -25,8 +25,8 @@ if os.name == 'nt':
     object3dLib = cdll.LoadLibrary("bin\object3d.dll")
     cterrain = cdll.LoadLibrary("bin\cterrain.dll")
 else:
-    object3dLib = cdll.LoadLibrary("bin/object3d.so")
-    cterrain = cdll.LoadLibrary("bin/cterrain.so")
+    object3dLib = cdll.LoadLibrary("bin/libobject3d.so")
+    cterrain = cdll.LoadLibrary("bin/libcterrain.so")
 
 cterrain.checkCollision.argtypes=[ c_void_p, c_void_p, POINTER(c_uint) ]
 cterrain.checkCollision.restype=c_bool
