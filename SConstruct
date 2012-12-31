@@ -1,0 +1,11 @@
+objEnv = Environment()
+objEnv.Append(CCFLAGS='-O3')
+objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
+objEnv.Append(LIBS = ['GLEW','GLU', 'GL'])
+collider=objEnv.SharedObject(target = 'bin/collider', source = ["c/collider.cpp"])
+object3d=objEnv.SharedLibrary(target = 'bin/object3d', source = ["c/objects.cpp", collider])
+
+terrEnv = objEnv.Clone()
+terrEnv.Append(CPPPATH = ['c', 'c/Eigen', '/usr/X11R6/include', '/usr/local/include'])
+terrEnv.Append(LIBS = ['Mini','GL', 'GLU'])
+cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp", collider])
