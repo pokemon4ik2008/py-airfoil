@@ -22,19 +22,22 @@ if not conf.CheckPKGConfig('0.15.0'):
      print 'pkg-config >= 0.26.0 not found.'
      Exit(1)
 
+
+graphics=True
 libChecks=[('glew', '1.6.0'), ('glu', '8.0.5'), ('gl', '8.0.5')]
 for (lib, ver) in libChecks:
         comparison=lib+' >= '+ver
         if not conf.CheckPKG(comparison):
-                print comparison+' not found'
-                Exit(1)
+                print comparison+' not found. graphics disabled'
+                graphics=False
 
 
 objEnv.Append(CCFLAGS='-O3')
 objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
-objEnv.ParseConfig('pkg-config --cflags --libs glew')
-objEnv.ParseConfig('pkg-config --cflags --libs glu')
-objEnv.ParseConfig('pkg-config --cflags --libs gl')
+if graphics:
+     objEnv.ParseConfig('pkg-config --cflags --libs glew')
+     objEnv.ParseConfig('pkg-config --cflags --libs glu')
+     objEnv.ParseConfig('pkg-config --cflags --libs gl')
 collider=objEnv.SharedObject(target = 'bin/collider', source = ["c/collider.cpp"])
 object3d=objEnv.SharedLibrary(target = 'bin/object3d', source = ["c/objects.cpp", collider])
 
