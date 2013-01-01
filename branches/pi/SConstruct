@@ -31,13 +31,15 @@ for (lib, ver) in libChecks:
                 print comparison+' not found. graphics disabled'
                 graphics=False
 
-
-objEnv.Append(CCFLAGS='-O3')
 objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
 if graphics:
-     objEnv.ParseConfig('pkg-config --cflags --libs glew')
-     objEnv.ParseConfig('pkg-config --cflags --libs glu')
-     objEnv.ParseConfig('pkg-config --cflags --libs gl')
+        objEnv.Append(CCFLAGS='-O3 -DOPEN_GL')
+        objEnv.ParseConfig('pkg-config --cflags --libs glew')
+        objEnv.ParseConfig('pkg-config --cflags --libs glu')
+        objEnv.ParseConfig('pkg-config --cflags --libs gl')
+else:
+        objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
+        
 collider=objEnv.SharedObject(target = 'bin/collider', source = ["c/collider.cpp"])
 object3d=objEnv.SharedLibrary(target = 'bin/object3d', source = ["c/objects.cpp", collider])
 
