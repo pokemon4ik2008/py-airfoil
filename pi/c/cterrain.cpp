@@ -45,6 +45,7 @@ extern "C"
 
 	DLL_EXPORT void draw(float povArg[], float aspectRatio)
 	{
+#ifdef OPEN_GL
 		float shift=-(terrain_size-1)/2.0f*map_expansion_const;
 		point_of_view pov;		
 		float viewVector[3];
@@ -89,7 +90,7 @@ extern "C"
 				    fovy,aspectRatio,
 				    nearp,farp);
 		glPopMatrix();
-	 
+#endif
 	}
 
   DLL_EXPORT bool checkCollision(const obj_transformedCollider *p_cols,
@@ -156,6 +157,7 @@ extern "C"
 	}
 }
 
+#ifdef OPEN_GL
 int loadMiniTerrain(terrain_tile *tile) {
 	int width=tile->width,height=tile->height;
 	tile->scale=y_scale_const;
@@ -173,7 +175,7 @@ int loadMiniTerrain(terrain_tile *tile) {
 
 	return true;
 }
-
+#endif
 ubyte* create_terrain_texture(short *hfield,int size,int *tsize) {
 	int i,j;
 	ubyte* texture;
@@ -427,7 +429,10 @@ int preloadTerrain(char *fname) {
 	hmap_tile.dim=map_expansion_const;
 	hmap_tile.size=size;
 	hmap_tile.hfield=hfield;
+
+#ifdef OPEN_GL
 	loadMiniTerrain(&hmap_tile);
+#endif
 
 	terLoadTerrain(hfield,size,map_expansion_const,y_scale_const);
 	fclose(fptr);
@@ -630,6 +635,12 @@ void terPrecalc_vertex_intensities() {
 }
 
 bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
+#ifdef NO_GRAPHICS
+  //TODO rewrite without libMini dependency
+  return false;
+#endif
+
+#ifdef OPEN_GL
   obj_sphere *p_sphere=&p_cols->p_sphere[colNum];
   Eigen::Vector3d colPos=p_sphere->mid;
   float64 radius=p_cols->p_orig->p_sphere[colNum].rad;
@@ -637,7 +648,9 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
     y_col=colPos.y(), 
     z_col=colPos.z();
   float height = -1.0;
-  float side = (mini::S-1)*map_expansion_const;
+  float side;
+  side = (mini::S-1)*map_expansion_const;
+  printf("checkSimpleColl. side: %f\n", side);
   if (x_col<0.0 || x_col>=side) height = 0.0;
   if (z_col<0.0 || z_col>side) height = 0.0;
   float fx = x_col;
@@ -658,6 +671,7 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
     }
 
   return false;
+#endif 
 }
 
 /*
