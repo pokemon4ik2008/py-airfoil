@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include <Eigen/Geometry>
+#include "objects.h"
 #include "rtu.h"
 #include "types.h"
 
@@ -148,6 +149,7 @@ private:
   bool allowDeep;
 };
 
+oError	col_objCreate(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags, uint32 vbo_group);
 void col_deleteTransCols(obj_transformedCollider *p_col);
 void *col_allocTransCols(obj_collider *p_origCol);
 void *col_allocColliders(uint32 num_colliders);

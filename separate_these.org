@@ -1,0 +1,32 @@
+* Create new c module that we always compile
+** object3dLib
+*** TODO allocColliders
+*** TODO loadCollider
+**** ObjCreate
+*** TODO identifyBigCollider
+*** TODO col_CheckCollisionCol
+*** TODO col_CheckCollisionPoint
+*** TODO col_allocTransCols
+*** TODO col_deleteTransCols
+*** TODO col_updateColliders
+* Create wrapper functions or stubs (depending on api) in wrapper.py
+** object3dLib
+*** drawVBO
+*** load
+*** createVBO
+*** deleteVBO
+*** deleteMesh
+*** getMeshPath
+*** getUvPath
+*** setupTex
+*** getMid
+*** setupRotation
+*** drawToTex
+*** draw
+*** drawRotated
+* Undecided
+** object3dLib
+*** setPosition
+**** sets pos.x, pos.y, pos.z
+*** setAngleAxisRotation
+**** sets rotAngle and rotAxis

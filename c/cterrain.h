@@ -10,11 +10,14 @@
 #include <math.h>
 #include <string.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include "../Eigen/Dense"
 #include <sstream>
 #include <Eigen/Geometry>
+
+#ifdef OPEN_GL
+#include <GL/glu.h>
 #include "mini/mini.h"
+#endif
 
 #include "collider.h"
 #include "types.h"

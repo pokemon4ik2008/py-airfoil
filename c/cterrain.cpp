@@ -1,7 +1,10 @@
 #include <Eigen/Geometry>
 #include "collider.h"
 #include "cterrain.h"
+
+#ifdef OPEN_GL
 #include <GL/glut.h>
+#endif
 
 int terrain_max_x=0;	//max size of terrain map data array in x direction
 int terrain_max_z=0;	//max size of terrain map data array in z direction

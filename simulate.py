@@ -685,7 +685,7 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
 	lightPosition = fourfv(0.0,1000.0,1.0,1.0)
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)	
-	mesh.object3dLib.setLightPosition(lightPosition)
+	wrapper.setLightPosition(lightPosition)
 	glEnable(GL_DEPTH_TEST)
 	glEnable(GL_CULL_FACE)
 	glDepthFunc(GL_LEQUAL)
