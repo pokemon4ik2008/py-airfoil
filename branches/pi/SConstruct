@@ -30,6 +30,7 @@ for (lib, ver) in libChecks:
         if not conf.CheckPKG(comparison):
                 print comparison+' not found. graphics disabled'
                 graphics=False
+		break
 
 objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
 if graphics:
@@ -39,11 +40,15 @@ if graphics:
         objEnv.ParseConfig('pkg-config --cflags --libs gl')
 else:
         objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
+        objEnv.ParseConfig('pkg-config --cflags --libs gl')
         
 collider=objEnv.SharedObject(target = 'bin/collider', source = ["c/collider.cpp"])
 object3d=objEnv.SharedLibrary(target = 'bin/object3d', source = ["c/objects.cpp", collider])
 
 terrEnv = objEnv.Clone()
 terrEnv.Append(CPPPATH = ['c', 'c/Eigen', '/usr/X11R6/include', '/usr/local/include'])
-terrEnv.Append(LIBS = ['Mini'])
+
+if graphics:
+     terrEnv.Append(LIBS = ['Mini'])
+
 cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp", collider])

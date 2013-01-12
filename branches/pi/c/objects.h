@@ -51,7 +51,9 @@
 #include <iostream>
 #include <math.h>
 #include <Eigen/Geometry>
+#ifdef OPEN_GL
 #include <GL/glew.h>
+#endif
 
 typedef enum {line,tri,quad,empty} primitiveType;
 #define PI	(22.0f/7.0f)
@@ -199,7 +201,6 @@ void	objSetViewAngle		(float ax, float ay, float az);
 void	objSetPointOfView	(float x, float y, float z, float ax, float ay, float az);
 
 void	objSetVertexNormal	(obj_vector unit_vector_norm,unsigned int flags);
-oError	objCreate			(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags, uint32 vbo_group);
 
 void	objDelete			(obj_3dMesh **pp_mesh);
 oError	objPlot				(obj_3dMesh *p_mesh, float32 alpha);
