@@ -56,6 +56,7 @@
 ** DONE proxy.py
    CLOSED: [2013-01-13 Sun 18:50]
 ** TODO simulate.py
-** TODO sound.py
+** DONE sound.py
+   CLOSED: [2013-01-13 Sun 22:54]
 ** DONE view.py
    CLOSED: [2013-01-13 Sun 20:47]

@@ -21,8 +21,6 @@ from euclid import *
 import glob
 import manage
 import mesh
-from pyglet.gl import *
-from pyglet.window import key
 import time
 from util import *
 from math import *

@@ -6,7 +6,6 @@ import itertools
 from math import cos, degrees, sin
 import manage
 from manage import collider
-from pyglet.gl import *
 import random
 import sys
 from traceback import print_exc

@@ -1,7 +1,7 @@
 from control import Controller
 from euclid import *
-from pyglet.gl import *
 from util import X_UNIT, Y_UNIT, Z_UNIT
+from wrapper import *
 
 class ViewType:
     def __init__(self, name):
@@ -104,7 +104,7 @@ class InternalCam(FixedCam):
         if self._xrot<-10:
             self._xrot=-10
             
-class View(pyglet.event.EventDispatcher):
+class View(EventDispatcher):
     __FOLLOW=0
     __FIXED=1
     __INTERNAL=2
@@ -140,7 +140,7 @@ class View(pyglet.event.EventDispatcher):
         else:
             f_size=24
             width_offset=self.__win.width*0.75
-        self.__label = pyglet.text.Label('bla',
+        self.__label = Label('bla',
                           font_name='Times New Roman',
                           font_size=f_size,
                           x= - width_offset, y=self.__win.height/2.0,
