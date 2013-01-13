@@ -38,6 +38,14 @@ if api=='pyglet':
 	glLoadIdentity=gl.glLoadIdentity
 	glDisable=gl.glDisable
 	glBegin=gl.glBegin
+	glDisable=gl.glDisable
+	glColor3f=gl.glColor3f
+	glVertex3f=gl.glVertex3f
+	glEnd=gl.glEnd
+	glEnable=gl.glEnable
+	glDepthMask=gl.glDepthMask
+	glTranslatef=gl.glTranslatef
+	glColor4f=gl.glColor4f
 else:
         print 'qt installed'
         app=QtGui.QApplication(sys.argv)
@@ -72,3 +80,11 @@ else:
 	glLoadIdentity=lambda : None
 	glDisable=lambda flag: None
 	glBegin=lambda prim: None
+	glDisable=lambda flags: None
+	glColor3f=lambda r, g, b: None
+	glVertex3f=lambda x, y, z: None
+	glEnd=lambda : None
+	glEnable=lambda flags : None
+	glDepthMask=lambda enable : None
+	glTranslatef=lambda x, y, z : None
+	glColor4f=lambda r, g, b, a : None
