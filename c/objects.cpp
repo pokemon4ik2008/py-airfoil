@@ -14,7 +14,6 @@ bool obj_use_gl_lighting=true;
 float obj_cut_off_dist = 100;
 float obj_cut_off_angle = 20;
 float obj_ambient_light=0.5f;
-obj_plot_position pos={0};
 obj_plot_position origin_offset={0};
 obj_plot_position pov={0};
 obj_light_source objlight={0,0,0,1.0f};
@@ -22,63 +21,12 @@ obj_light_source objlight={0,0,0,1.0f};
 obj_3dMesh *p_meshes[128];
 uint32 num_meshes=0;
 
-float rotAngle = 0;
-float *rotAxis = NULL;
-
 extern "C" 
 {
   DLL_EXPORT void deleteColliders(obj_collider *p_cols) {
     col_deleteColliders(p_cols);
   }
 
-  DLL_EXPORT uint32 loadCollider(obj_collider *p_cols, uint32 idx, char *filename, float scale) {
-    if(!p_cols) {
-      printf("loadCollider. not allocated\n");
-      return noMemory;
-    }
-    if(idx>=p_cols->numCols) {
-      printf("loadCollider. index %u to unallocated sub-collider out of %u\n", idx, p_cols->numCols);
-      return noMemory;
-    }
-    oError err = ok;		
-    unsigned int objectflags=0;
-    obj_3dMesh *p_obj = NULL;
-    objectflags|=OBJ_NORMAL_POSITIVE;
-    err = col_objCreate(&p_obj, filename, scale, objectflags, NO_VBO_GROUP_EVER);
-    if (err != ok) {
-      printf("ERROR: when loading object: %i\n", err);
-      return err;
-    }
-    p_cols->p_sphere[idx].mid=p_obj->mid;
-    float64 rad=MAX(MAX(p_obj->max.x-p_obj->min.x, p_obj->max.y-p_obj->min.y),
- p_obj->max.z-p_obj->min.z)/2;
-    p_cols->p_sphere[idx].rad=rad;
-    p_cols->p_radSquares[idx]=rad*rad;
-    p_cols->p_flags[idx]=0;
-    if(strcmp(PRIMARY_TAG, p_obj->tag)==0) {
-      p_cols->p_flags[idx]=PRIMARY_COL;
-      printf("loadCollider. primary tag at %u\n", idx);
-    }
-    if(strcmp(WING_TAG, p_obj->tag)==0) {
-      p_cols->p_flags[idx]=WING_COL;
-      printf("loadCollider. wing tag at %u\n", idx);
-    }
-    if(strcmp(TAIL_TAG, p_obj->tag)==0) {
-      p_cols->p_flags[idx]=TAIL_COL;
-      printf("loadCollider. tail tag at %u\n", idx);
-    }
-    if(strcmp(FUELTANK_TAG, p_obj->tag)==0) {
-      p_cols->p_flags[idx]=FUELTANK_COL;
-      printf("loadCollider. fueltank tag at %u\n", idx);
-    }
-    if(strcmp(VICINITY_TAG, p_obj->tag)==0) {
-      p_cols->p_flags[idx]=VICINITY_COL;
-      printf("loadCollider. vicinity tag at %u\n", idx);
-    }
-    objDelete(&p_obj);
-    return ok;
-  }
-  
   DLL_EXPORT void getMid(void *p_meshToPlot, float mid[])
   {
     obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
@@ -180,17 +128,6 @@ extern "C"
     return fboId;
   }
 
-	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
-	{
-		rotAngle = angle;
-		rotAxis = axis;
-	}
-
-	DLL_EXPORT void setPosition(float plotPos[])
-	{
-		objSetPlotPos(plotPos[0], plotPos[1], plotPos[2]);
-	}
-	
 	DLL_EXPORT void setLightPosition(float lightPos[])
 	{
 		objlight.x = lightPos[0];
@@ -266,7 +203,7 @@ extern "C"
 	{	
 		obj_3dMesh *p_mesh = static_cast<obj_3dMesh *>(meshToDelete);
 		deleteVBOBuffers(&(p_mesh->vbo));
-		objDelete(&p_mesh);			
+		col_objDelete(&p_mesh);			
 	}
   
 	DLL_EXPORT void deleteVBO(void *vboToDelete)
@@ -418,12 +355,6 @@ void	objSetCutOff		(float dist, float angle) {
 }
 
 
-
-void objSetPlotPos(float x, float y, float z) {
-	pos.x=x;
-	pos.y=y;
-	pos.z=z;
-}
 
 void objRotZ(obj_vector *unit_vector_norm,float az) {
 	obj_vector unit_vector_norm2;
@@ -1003,27 +934,3 @@ oError vboPlot(obj_vbo *p_vbo) {
   return error;
 }
 
-void objDelete(obj_3dMesh **pp_mesh) {
-  obj_3dPrimitive *obj=(*pp_mesh)->p_prim;
-  glDeleteTextures((*pp_mesh)->num_uv_maps, (*pp_mesh)->p_tex_ids);
-  obj_3dPrimitive *next;
-  delete obj->vertex_list;
-  while (obj!=NULL) {
-    next=obj->next_ref;
-    delete obj; 
-    obj=next;
-  }
-  obj=NULL;
-  for (uint32 i=0;i<(*pp_mesh)->num_uv_maps;i++) {
-    if((*pp_mesh)->pp_tex_paths[i]) {
-      delete [] (*pp_mesh)->pp_tex_paths[i];
-    } else {
-      break;
-    }
-  }
-  delete [] (*pp_mesh)->pp_tex_paths;
-  delete [] (*pp_mesh)->p_tex_flags;
-  delete [] (*pp_mesh)->p_tex_ids;
-  delete *pp_mesh;
-  *pp_mesh=NULL;
-}
