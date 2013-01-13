@@ -33,6 +33,11 @@ if api=='pyglet':
 	draw=object3dLib.draw
 	drawRotated=object3dLib.drawRotated
 	imageLoad=image.load
+	sndLoad=pyglet.media.load
+
+	EventDispatcher=pyglet.event.EventDispatcher
+	Label=pyglet.text.Label
+	Player=pyglet.media.Player
 
 	glBegin=gl.glBegin
 	glBindTexture=gl.glBindTexture
@@ -98,6 +103,43 @@ else:
 	draw=lambda mesh, alpha: None
 	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha, p_mesh: None
 	imageLoad=lambda path: None
+	sndLoad=lambda path, streaming : None
+
+	class EventDispatcher:
+		    def event(self, *args):
+			    return args[0]
+
+	class Label:
+		def __init__(self, txt, font_name, font_size, x, y, anchor_x, anchor_y):
+			self.color=(0, 0, 0, 0)
+			self.text=''
+
+		def draw(self):
+			pass
+
+	class Player(EventDispatcher):
+		EOS_LOOP=0
+		EOS_PAUSE=1
+
+		def __init__(self):
+			self.volume=0.0
+			self.pitch=0.0
+			self.playing=False
+			self.position=(0.0, 0.0, 0.0)
+			self.eos_action
+			self.min_distance=0
+
+		def next(self):
+			pass
+
+		def pause(self):
+			pass
+
+		def play(self):
+			pass
+
+		def queue(self, snd):
+			pass
 
 	glBegin=lambda prim: None
 	glBindTexture=lambda target, id : None

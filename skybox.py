@@ -1,4 +1,3 @@
-from pyglet import image
 from wrapper import *
 
 class Skybox:
