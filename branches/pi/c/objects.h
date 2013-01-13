@@ -54,8 +54,8 @@
 #ifdef OPEN_GL
 #include <GL/glew.h>
 #endif
+#include "collider.h"
 
-typedef enum {line,tri,quad,empty} primitiveType;
 #define PI	(22.0f/7.0f)
 #define sqr(x) ((x)*(x))
 #define deg_to_rad (PI/180.0f)
@@ -90,78 +90,6 @@ typedef struct {
 	float				x,y,z;
 	float				ax,ay,az;
 } obj_plot_position;
-
-typedef struct {
-	float				x,y,z;
-} obj_vector;
-
-typedef struct {
-  float32				x,y,z;
-  float32				u,v;
-  obj_vector			norm;		//vertex normal
-  ubyte				shared;		//holds number of primitives sharing this vertex
-  uint32 id;
-} obj_vertex;
-
-typedef struct OBJ_3DPRIMITIVE
-{
-  obj_vertex			*vertex_list;
-  obj_vertex			*vert[4];
-  float				r,g,b;			//primitives colour
-  struct OBJ_3DPRIMITIVE	*next_ref;	//pointer to the next node
-  //points to NULL if last in obj
-  primitiveType		type;		//describes the type of the data held
-  unsigned int		flags;		//holds details about normals/shiny surface etc.		
-  //float scale;
-  uint32 uv_id;
-  uint32 id;
-} obj_3dPrimitive;
-
-typedef struct {
-#define NO_VBO 0xffffffff
-  GLuint vbo;
-#define NO_IBO 0xffffffff
-  GLuint ibo;
-  uint32 num_prims;
-  GLuint num_indices;
-  uint32 num_vert_components;
-  uint32 num_col_components;
-  uint32 num_norm_components;
-  uint32 stride;
-} obj_vbo;
-
-class obj_3dMesh {
- public:
-  obj_3dPrimitive *p_prim;
-  Eigen::Vector3d mid;
-  obj_vertex min;
-  obj_vertex max;
-  uint32 num_uv_maps;
-  uint32 *p_tex_ids;
-  uint32 *p_tex_widths;
-  uint32 *p_tex_heights;
-  uint32 *p_tex_flags;
-  uint8 **pp_tex_paths;
-  uint8 mesh_path[PATH_LEN];
-#define PRIMARY_TAG "primary"
-#define WING_TAG "wing"
-#define TAIL_TAG "tail"
-#define FUELTANK_TAG "fueltank"
-#define VICINITY_TAG "vicinity"
-  uint8 tag[TAG_LEN];
-  uint32 num_prims;
-
-  //uint32 num_colliders;
-  //obj_collider *p_colliders;
-
-#define NO_VBO_GROUP 0xffffffff
-#define NO_VBO_GROUP_EVER 0xfffffffe
-  uint32 vbo_group;
-  obj_vbo vbo;
-  void *p_vert_start;
-  void *p_vert_end;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-};
 
 typedef struct {
 	// incident light source position and intensity

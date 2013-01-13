@@ -3,6 +3,11 @@
 #include "objects.h"
 #include "types.h"
 
+obj_plot_position pos={0};
+
+float rotAngle = 0;
+float *rotAxis = NULL;
+
 extern "C" {
   DLL_EXPORT void *load(char *filename, float scale, uint32 vbo_group)
   {
@@ -60,6 +65,67 @@ DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
     col_deleteTransCols(p_col);
   }
 
+	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
+	{
+		rotAngle = angle;
+		rotAxis = axis;
+	}
+
+	DLL_EXPORT void setPosition(float plotPos[])
+	{
+	  pos.x=x;
+	  pos.y=y;
+	  pos.z=z;
+	}
+
+  DLL_EXPORT uint32 loadCollider(obj_collider *p_cols, uint32 idx, char *filename, float scale) {
+    if(!p_cols) {
+      printf("loadCollider. not allocated\n");
+      return noMemory;
+    }
+    if(idx>=p_cols->numCols) {
+      printf("loadCollider. index %u to unallocated sub-collider out of %u\n", idx, p_cols->numCols);
+      return noMemory;
+    }
+    oError err = ok;		
+    unsigned int objectflags=0;
+    obj_3dMesh *p_obj = NULL;
+    objectflags|=OBJ_NORMAL_POSITIVE;
+    err = col_objCreate(&p_obj, filename, scale, objectflags, NO_VBO_GROUP_EVER);
+    if (err != ok) {
+      printf("ERROR: when loading object: %i\n", err);
+      return err;
+    }
+    p_cols->p_sphere[idx].mid=p_obj->mid;
+    float64 rad=MAX(MAX(p_obj->max.x-p_obj->min.x, p_obj->max.y-p_obj->min.y),
+ p_obj->max.z-p_obj->min.z)/2;
+    p_cols->p_sphere[idx].rad=rad;
+    p_cols->p_radSquares[idx]=rad*rad;
+    p_cols->p_flags[idx]=0;
+    if(strcmp(PRIMARY_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=PRIMARY_COL;
+      printf("loadCollider. primary tag at %u\n", idx);
+    }
+    if(strcmp(WING_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=WING_COL;
+      printf("loadCollider. wing tag at %u\n", idx);
+    }
+    if(strcmp(TAIL_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=TAIL_COL;
+      printf("loadCollider. tail tag at %u\n", idx);
+    }
+    if(strcmp(FUELTANK_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=FUELTANK_COL;
+      printf("loadCollider. fueltank tag at %u\n", idx);
+    }
+    if(strcmp(VICINITY_TAG, p_obj->tag)==0) {
+      p_cols->p_flags[idx]=VICINITY_COL;
+      printf("loadCollider. vicinity tag at %u\n", idx);
+    }
+    col_objDelete(&p_obj);
+    return ok;
+  }
+  
 }
 
 //Pre: call to objSetLoadPos.. angle not yet supported
@@ -436,6 +502,31 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
  noInverts:
 	delete *pp_mesh;
 	return noMemory;
+}
+
+void col_objDelete(obj_3dMesh **pp_mesh) {
+  obj_3dPrimitive *obj=(*pp_mesh)->p_prim;
+  glDeleteTextures((*pp_mesh)->num_uv_maps, (*pp_mesh)->p_tex_ids);
+  obj_3dPrimitive *next;
+  delete obj->vertex_list;
+  while (obj!=NULL) {
+    next=obj->next_ref;
+    delete obj; 
+    obj=next;
+  }
+  obj=NULL;
+  for (uint32 i=0;i<(*pp_mesh)->num_uv_maps;i++) {
+    if((*pp_mesh)->pp_tex_paths[i]) {
+      delete [] (*pp_mesh)->pp_tex_paths[i];
+    } else {
+      break;
+    }
+  }
+  delete [] (*pp_mesh)->pp_tex_paths;
+  delete [] (*pp_mesh)->p_tex_flags;
+  delete [] (*pp_mesh)->p_tex_ids;
+  delete *pp_mesh;
+  *pp_mesh=NULL;
 }
 
   void col_deleteTransCols(obj_transformedCollider *p_col) {
