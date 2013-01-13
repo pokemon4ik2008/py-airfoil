@@ -47,7 +47,8 @@
 ** DONE manage.py
    CLOSED: [2013-01-13 Sun 18:38]
 ** TODO control.py
-** TODO skybox.py
+** DONE skybox.py
+   CLOSED: [2013-01-13 Sun 19:27]
 ** DONE util.py
    CLOSED: [2013-01-13 Sun 18:42]
 ** DONE async.py

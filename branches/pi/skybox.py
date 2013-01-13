@@ -1,17 +1,17 @@
-from pyglet.gl import *
 from pyglet import image
+from wrapper import *
 
 class Skybox:
 	FOG_GREY=0.8
 
 	def __init__(self):
 		textureDir = 'data/textures/'
-		print image.load(textureDir + 'top.bmp')
-		self.top = image.load(textureDir + 'top.bmp').get_texture()
-		self.left = image.load(textureDir + 'lt.bmp').get_texture()
-		self.right = image.load(textureDir + 'rt.bmp').get_texture()
-		self.back = image.load(textureDir + 'bk.bmp').get_texture()
-		self.front = image.load(textureDir + 'ft.bmp').get_texture()
+		print imageLoad(textureDir + 'top.bmp')
+		self.top = imageLoad(textureDir + 'top.bmp').get_texture()
+		self.left = imageLoad(textureDir + 'lt.bmp').get_texture()
+		self.right = imageLoad(textureDir + 'rt.bmp').get_texture()
+		self.back = imageLoad(textureDir + 'bk.bmp').get_texture()
+		self.front = imageLoad(textureDir + 'ft.bmp').get_texture()
 		print self.top.tex_coords
 
         def setTexParams(self):                

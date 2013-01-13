@@ -33,6 +33,7 @@ if api=='pyglet':
 	draw=object3dLib.draw
 	drawRotated=object3dLib.drawRotated
 	imageLoad=image.load
+
 	glPushMatrix=gl.glPushMatrix
 	glPopMatrix=gl.PopMatrix
 	glLoadIdentity=gl.glLoadIdentity
@@ -46,6 +47,24 @@ if api=='pyglet':
 	glDepthMask=gl.glDepthMask
 	glTranslatef=gl.glTranslatef
 	glColor4f=gl.glColor4f
+	glTexParameteri=gl.glTexParameteri
+	glBindTexture=gl.glBindTexture
+	glTexCoord2f=gl.glTexCoord2f
+
+	GL_CLAMP_TO_EDGE=gl.GL_CLAMP_TO_EDGE
+	GL_CULL_FACE=gl.GL_CULL_FACE
+	GL_DEPTH_TEST=gl.GL_DEPTH_TEST
+	GL_FOG=gl.GL_FOG
+	GL_LIGHTING=gl.GL_LIGHTING
+	GL_LINEAR=gl.GL_LINEAR
+	GL_LINES=gl.GL_LINES
+	GL_QUADS=gl.GL_QUADS
+	GL_TEXTURE_WRAP_S=gl.GL_TEXTURE_WRAP_S
+	GL_TEXTURE_WRAP_T=gl.GL_TEXTURE_WRAP_T
+	GL_TEXTURE_WRAP_R=gl.GL_TEXTURE_WRAP_R
+	GL_TEXTURE_MAG_FILTER=gl.GL_TEXTURE_MAG_FILTER
+	GL_TEXTURE_MIN_FILTER=gl.GL_TEXTURE_MIN_FILTER
+	GL_TRIANGLES=gl.GL_TRIANGLES
 else:
         print 'qt installed'
         app=QtGui.QApplication(sys.argv)
@@ -75,6 +94,7 @@ else:
 	draw=lambda mesh, alpha: None
 	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha, p_mesh: None
 	imageLoad=lambda path: None
+
 	glPushMatrix=lambda : None
 	glPopMatrix=lambda : None
 	glLoadIdentity=lambda : None
@@ -88,3 +108,21 @@ else:
 	glDepthMask=lambda enable : None
 	glTranslatef=lambda x, y, z : None
 	glColor4f=lambda r, g, b, a : None
+	glTexParameteri=lambda target, flags, map_flags : None
+	glBindTexture=lambda target, id : None
+	glTexCoord2f=lambda x, y : None
+	
+	GL_CLAMP_TO_EDGE=0
+	GL_CULL_FACE=0
+	GL_DEPTH_TEST=0
+	GL_FOG=0
+	GL_LINEAR=0
+	GL_LINES=0
+	GL_LIGHTING=0
+	GL_QUADS=0
+	GL_TEXTURE_MAG_FILTER=0
+	GL_TEXTURE_MIN_FILTER=0
+	GL_TEXTURE_WRAP_R=0
+	GL_TEXTURE_WRAP_S=0
+	GL_TEXTURE_WRAP_T=0
+	GL_TRIANGLES=0
