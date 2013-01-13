@@ -34,22 +34,22 @@ if api=='pyglet':
 	drawRotated=object3dLib.drawRotated
 	imageLoad=image.load
 
-	glPushMatrix=gl.glPushMatrix
-	glPopMatrix=gl.PopMatrix
-	glLoadIdentity=gl.glLoadIdentity
-	glDisable=gl.glDisable
 	glBegin=gl.glBegin
-	glDisable=gl.glDisable
-	glColor3f=gl.glColor3f
-	glVertex3f=gl.glVertex3f
-	glEnd=gl.glEnd
-	glEnable=gl.glEnable
-	glDepthMask=gl.glDepthMask
-	glTranslatef=gl.glTranslatef
-	glColor4f=gl.glColor4f
-	glTexParameteri=gl.glTexParameteri
 	glBindTexture=gl.glBindTexture
+	glColor3f=gl.glColor3f
+	glColor4f=gl.glColor4f
+	glDepthMask=gl.glDepthMask
+	glDisable=gl.glDisable
+	glEnable=gl.glEnable
+	glEnd=gl.glEnd
+	glLoadIdentity=gl.glLoadIdentity
+	glMatrixMode=gl.glMatrixMode
+	glPopMatrix=gl.PopMatrix
+	glPushMatrix=gl.glPushMatrix
 	glTexCoord2f=gl.glTexCoord2f
+	glTexParameteri=gl.glTexParameteri
+	glTranslatef=gl.glTranslatef
+	glVertex3f=gl.glVertex3f
 
 	GL_CLAMP_TO_EDGE=gl.GL_CLAMP_TO_EDGE
 	GL_CULL_FACE=gl.GL_CULL_FACE
@@ -58,6 +58,8 @@ if api=='pyglet':
 	GL_LIGHTING=gl.GL_LIGHTING
 	GL_LINEAR=gl.GL_LINEAR
 	GL_LINES=gl.GL_LINES
+	GL_MODELVIEW=gl.GL_MODELVIEW
+	GL_PROJECTION=gl.GL_PROJECTION
 	GL_QUADS=gl.GL_QUADS
 	GL_TEXTURE_WRAP_S=gl.GL_TEXTURE_WRAP_S
 	GL_TEXTURE_WRAP_T=gl.GL_TEXTURE_WRAP_T
@@ -65,6 +67,8 @@ if api=='pyglet':
 	GL_TEXTURE_MAG_FILTER=gl.GL_TEXTURE_MAG_FILTER
 	GL_TEXTURE_MIN_FILTER=gl.GL_TEXTURE_MIN_FILTER
 	GL_TRIANGLES=gl.GL_TRIANGLES
+
+	gluPerspective=glu.gluPerspective
 else:
         print 'qt installed'
         app=QtGui.QApplication(sys.argv)
@@ -95,22 +99,22 @@ else:
 	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha, p_mesh: None
 	imageLoad=lambda path: None
 
-	glPushMatrix=lambda : None
-	glPopMatrix=lambda : None
-	glLoadIdentity=lambda : None
-	glDisable=lambda flag: None
 	glBegin=lambda prim: None
-	glDisable=lambda flags: None
-	glColor3f=lambda r, g, b: None
-	glVertex3f=lambda x, y, z: None
-	glEnd=lambda : None
-	glEnable=lambda flags : None
-	glDepthMask=lambda enable : None
-	glTranslatef=lambda x, y, z : None
-	glColor4f=lambda r, g, b, a : None
-	glTexParameteri=lambda target, flags, map_flags : None
 	glBindTexture=lambda target, id : None
+	glColor3f=lambda r, g, b: None
+	glColor4f=lambda r, g, b, a : None
+	glDepthMask=lambda enable : None
+	glDisable=lambda flag: None
+	glEnable=lambda flags : None
+	glEnd=lambda : None
+	glLoadIdentity=lambda : None
+	glMatrixMode=lambda mode : None
+	glPopMatrix=lambda : None
+	glPushMatrix=lambda : None
 	glTexCoord2f=lambda x, y : None
+	glTexParameteri=lambda target, flags, map_flags : None
+	glTranslatef=lambda x, y, z : None
+	glVertex3f=lambda x, y, z: None
 	
 	GL_CLAMP_TO_EDGE=0
 	GL_CULL_FACE=0
@@ -119,6 +123,8 @@ else:
 	GL_LINEAR=0
 	GL_LINES=0
 	GL_LIGHTING=0
+	GL_MODELVIEW=gl.GL_MODELVIEW
+	GL_PROJECTION=0
 	GL_QUADS=0
 	GL_TEXTURE_MAG_FILTER=0
 	GL_TEXTURE_MIN_FILTER=0
@@ -126,3 +132,5 @@ else:
 	GL_TEXTURE_WRAP_S=0
 	GL_TEXTURE_WRAP_T=0
 	GL_TRIANGLES=0
+
+	gluPerspective=lambda fov_y, aspect, z_near, z_far : None

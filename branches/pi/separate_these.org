@@ -57,4 +57,5 @@
    CLOSED: [2013-01-13 Sun 18:50]
 ** TODO simulate.py
 ** TODO sound.py
-** TODO view.py
+** DONE view.py
+   CLOSED: [2013-01-13 Sun 20:47]
