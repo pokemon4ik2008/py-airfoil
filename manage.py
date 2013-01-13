@@ -37,16 +37,16 @@ object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
                                      c_double, c_double, c_double ]
 object3dLib.setupRotation.restype=None
 
-object3dLib.checkCollisionCol.argtypes=[ c_void_p, c_void_p,
+collider.checkCollisionCol.argtypes=[ c_void_p, c_void_p,
                                          c_void_p, POINTER(c_uint),
                                          c_void_p, POINTER(c_uint)]
-object3dLib.checkCollisionCol.restype=c_bool
+collider.checkCollisionCol.restype=c_bool
 
-object3dLib.checkCollisionPoint.argtypes=[ c_void_p,
+collider.checkCollisionPoint.argtypes=[ c_void_p,
                                            c_double, c_double, c_double,
                                            c_double, c_double, c_double,
                                            c_void_p, POINTER(c_uint) ]
-object3dLib.checkCollisionPoint.restype=c_bool
+collider.checkCollisionPoint.restype=c_bool
 
 object3dLib.allocTransCols.argtypes=[ c_void_p ]
 object3dLib.allocTransCols.restype=c_void_p
@@ -84,29 +84,29 @@ object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
                                    c_void_p, c_float, c_void_p ]
 object3dLib.drawRotated.restype=None
 
-object3dLib.updateColliders.argtypes=[ c_void_p,
+collider.updateColliders.argtypes=[ c_void_p,
                                        c_uint,
                                        c_double, c_double, c_double,
                                        c_double, c_double, c_double, c_double ]
-object3dLib.updateColliders.restype=None
+collider.updateColliders.restype=None
 
-object3dLib.allocColliders.argtypes=[ c_uint ]
-object3dLib.allocColliders.restype=c_void_p
+collider.allocColliders.argtypes=[ c_uint ]
+collider.allocColliders.restype=c_void_p
 
-object3dLib.allocTransCols.argtypes=[ c_void_p ]
-object3dLib.allocTransCols.restype=c_void_p
+collider.allocTransCols.argtypes=[ c_void_p ]
+collider.allocTransCols.restype=c_void_p
 
 object3dLib.deleteColliders.argtypes=[ c_void_p ]
 object3dLib.deleteColliders.restype=None
 
-object3dLib.deleteTransCols.argtypes=[ c_void_p ]
-object3dLib.deleteTransCols.restype=None
+collider.deleteTransCols.argtypes=[ c_void_p ]
+collider.deleteTransCols.restype=None
 
-object3dLib.loadCollider.argtypes=[ c_void_p, c_uint, c_char_p, c_float ]
-object3dLib.loadCollider.restype=None
+collider.loadCollider.argtypes=[ c_void_p, c_uint, c_char_p, c_float ]
+collider.loadCollider.restype=None
 
-object3dLib.identifyBigCollider.argtypes=[ c_void_p ]
-object3dLib.identifyBigCollider.restype=None
+collider.identifyBigCollider.argtypes=[ c_void_p ]
+collider.identifyBigCollider.restype=None
 
 #object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
 #object3dLib.createVBO.restype=c_int

@@ -13,6 +13,7 @@ from traceback import print_exc
 from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath
 
 import wrapper
+from wrapper import *
 
 PRIMARY_COL=0x1
 WING_COL=0x2
@@ -69,13 +70,13 @@ def transformBot(bot):
     fpos[0] = bot._pos.x
     fpos[1] = bot._pos.y
     fpos[2] = bot._pos.z
-    object3dLib.setPosition(fpos)
+    collider.setPosition(fpos)
     
     fpos[0] = axis.x
     fpos[1] = axis.y
     fpos[2] = axis.z
     
-    object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+    collider.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
 
 def draw(bot, view):
     bot.frame_rot=bot._attitude*SETUP_ROT
@@ -261,13 +262,13 @@ class Mesh(object):
         fpos[0] = offset.x
         fpos[1] = offset.y
         fpos[2] = offset.z
-        object3dLib.setPosition(fpos)
+        collider.setPosition(fpos)
         #print 'python. set pos: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
         fpos[0] = axis.x
         fpos[1] = axis.y
         fpos[2] = axis.z
         
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        collider.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
         #print 'python. set rot: '+str(degrees(angleAxis[0]))+' axis: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
 
     def drawRotatedToTexAlpha(self, bot, angle_quat, centre_mesh, fbo, width, height, bg, alpha, boundPlane, top):
@@ -289,13 +290,13 @@ class Mesh(object):
         fpos[0] = 0.0
         fpos[1] = 0.0
         fpos[2] = 0.0
-        object3dLib.setPosition(fpos)
+        collider.setPosition(fpos)
         setup_angle_axis=NULL_ROT.get_angle_axis()
         setup_axis=setup_angle_axis[1].normalized()
         fpos[0] = setup_axis.x
         fpos[1] = setup_axis.y
         fpos[2] = setup_axis.z
-        object3dLib.setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
+        collider.setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
         wrapper.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
 
     def draw(self, bot, view_id):
@@ -503,7 +504,7 @@ def loadColliders( colliders ):
         print 'loadColliders. in paths: '+str((typ, path_list, scale))
         for (path, scale) in lookup_paths[typ]:
             print 'loadColliders. pathScale: '+str((path,scale))
-            object3dLib.loadCollider(coll_arr, idx, path, scale)
+            collider.loadCollider(coll_arr, idx, path, scale)
             idx+=1
         collider.identifyBigCollider(coll_arr, num_paths)
         manage.lookup_colliders[typ]=(num_paths, coll_arr)

@@ -1,14 +1,27 @@
 * Create new c module that we always compile
 ** object3dLib
-*** TODO allocColliders
+*** DONE allocColliders
+    CLOSED: [2013-01-13 Sun 16:45]
 *** TODO loadCollider
 **** ObjCreate
-*** TODO identifyBigCollider
-*** TODO col_CheckCollisionCol
-*** TODO col_CheckCollisionPoint
-*** TODO col_allocTransCols
-*** TODO col_deleteTransCols
-*** TODO col_updateColliders
+*** DONE identifyBigCollider
+    CLOSED: [2013-01-13 Sun 16:45]
+*** DONE col_CheckCollisionCol
+    CLOSED: [2013-01-13 Sun 16:46]
+*** DONE col_CheckCollisionPoint
+    CLOSED: [2013-01-13 Sun 16:46]
+*** DONE col_allocTransCols
+    CLOSED: [2013-01-13 Sun 16:46]
+*** DONE col_deleteTransCols
+    CLOSED: [2013-01-13 Sun 16:46]
+*** DONE col_updateColliders
+    CLOSED: [2013-01-13 Sun 16:46]
+*** DONE setPosition
+    CLOSED: [2013-01-13 Sun 16:47]
+**** sets pos.x, pos.y, pos.z
+*** DONE setAngleAxisRotation
+    CLOSED: [2013-01-13 Sun 16:47]
+**** sets rotAngle and rotAxis
 * Create wrapper functions or stubs (depending on api) in wrapper.py
 ** object3dLib
 *** drawVBO
@@ -26,7 +39,21 @@
 *** drawRotated
 * Undecided
 ** object3dLib
-*** setPosition
-**** sets pos.x, pos.y, pos.z
-*** setAngleAxisRotation
-**** sets rotAngle and rotAxis
+* Completed file
+** DONE mesh.py
+   CLOSED: [2013-01-13 Sun 18:38]
+** DONE airfoil.py
+   CLOSED: [2013-01-13 Sun 18:38]
+** DONE manage.py
+   CLOSED: [2013-01-13 Sun 18:38]
+** TODO control.py
+** TODO skybox.py
+** DONE util.py
+   CLOSED: [2013-01-13 Sun 18:42]
+** DONE async.py
+   CLOSED: [2013-01-13 Sun 18:41]
+** DONE proxy.py
+   CLOSED: [2013-01-13 Sun 18:50]
+** TODO simulate.py
+** TODO sound.py
+** TODO view.py
