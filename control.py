@@ -1,4 +1,7 @@
-from pyglet.window import key, mouse
+from wrapper import airfoil_key
+key=airfoil_key
+
+from pyglet.window import mouse
 from time import time
 from util import repeat
 
@@ -131,10 +134,10 @@ class Controller:
 
     def __init__(self, controls, win):
 	if not win in Controller.__WINS:
-            @win.event
-            def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
-                for c in Controller.__INSTANCES:
-                    c.__accum_mouse_motion(dx, dy, 0)
+            #@win.event
+            #def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
+            #    for c in Controller.__INSTANCES:
+            #        c.__accum_mouse_motion(dx, dy, 0)
 
             @win.event
             def on_mouse_motion(x, y, dx, dy):
