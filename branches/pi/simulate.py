@@ -36,7 +36,7 @@ from proxy import *
 import pyglet
 from pyglet.gl import *
 from pyglet import window, font, clock # for pyglet 1.0
-from pyglet.window import key
+from wrapper import key
 import random
 from skybox import *
 from sound import *
