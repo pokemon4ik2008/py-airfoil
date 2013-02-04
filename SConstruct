@@ -42,7 +42,7 @@ else:
         objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
         objEnv.ParseConfig('pkg-config --cflags --libs gl')
         
-collider=objEnv.SharedObject(target = 'bin/collider', source = ["c/collider.cpp"])
+collider=objEnv.SharedLibrary(target = 'bin/collider', source = ["c/collider.cpp"])
 object3d=objEnv.SharedLibrary(target = 'bin/object3d', source = ["c/objects.cpp", collider])
 
 terrEnv = objEnv.Clone()

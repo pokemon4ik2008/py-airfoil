@@ -1,9 +1,14 @@
 try:
+        from ctypes import *
+        from pyglet import *
+        from pyglet.gl import glu
+        import os
+
         import pyglet
         from pyglet import gl
         from pyglet import window, font, clock # for pyglet 1.0
-        from pyglet.window import key
 	import mesh
+
 	if os.name == 'nt':
 	    object3dLib = cdll.LoadLibrary("bin\object3d.dll")
 	else:
@@ -20,22 +25,68 @@ except ImportError:
 if api=='pyglet':
         print 'pyglet installed'
         from pyglet.window import key
+        from pyglet.window import mouse
+
         schedule=pyglet.clock.schedule
         run=pyglet.app.run
 	setLightPosition=object3dLib.setLightPosition
 	drawVBO=object3dLib.drawVBO
-	load=object3dLib.load
+	#load=object3dLib.load
+
+        object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
+        object3dLib.createVBO.restype=c_int
 	createVBO=object3dLib.createVBO
-	deleteVBO=object3dLib.deleteVBO
+
+        deleteVBO=object3dLib.deleteVBO
+
+        object3dLib.deleteMesh.argtypes=[ c_void_p ]
+        object3dLib.deleteMesh.restype=None
 	deleteMesh=object3dLib.deleteMesh
+
+        object3dLib.getMeshPath.argtypes=[ c_void_p ]
+        object3dLib.getMeshPath.restype=c_char_p
 	getMeshPath=object3dLib.getMeshPath
+
+        object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
+        object3dLib.getUvPath.restype=c_char_p
 	getUvPath=object3dLib.getUvPath
+
+        object3dLib.setupTex.argtypes=[ c_void_p, c_uint, c_uint ]
+        object3dLib.setupTex.restype=c_uint
 	setupTex=object3dLib.setupTex
 	getMid=object3dLib.getMid
+
+        object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
+                                             c_double, c_double, c_double, c_double,
+                                             c_double, c_double, c_double,
+                                             c_double, c_double, c_double ]
+        object3dLib.setupRotation.restype=None
 	setupRotation=object3dLib.setupRotation
+
+        object3dLib.drawToTex.argtypes=[ c_void_p, c_float, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint ]
+        object3dLib.drawToTex.restype=None
 	drawToTex=object3dLib.drawToTex
+
+        object3dLib.draw.argtypes=[ c_void_p, c_float ]
+        object3dLib.draw.restype=None
 	draw=object3dLib.draw
-	drawRotated=object3dLib.drawRotated
+
+        object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
+                                   c_double, c_double, c_double, c_double,
+                                   c_double, c_double, c_double, c_double,
+                                   c_void_p, c_float, c_void_p ]
+        object3dLib.drawRotated.restype=None
+        drawRotated=object3dLib.drawRotated
+
+        object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
+        object3dLib.createTexture.restype=c_uint
+        createTexture=object3dLib.createTexture
+
+        object3dLib.createFBO.argtypes=[ c_uint, c_uint, c_uint ]
+        object3dLib.createFBO.restype=c_uint
+        createFBO=object3dLib.createFBO
+        setAngleAxisRotation=object3dLib.setAngleAxisRotation
+        listener=media.listener
 	imageLoad=image.load
 	sndLoad=pyglet.media.load
 
@@ -53,8 +104,9 @@ if api=='pyglet':
 	glEnable=gl.glEnable
 	glEnd=gl.glEnd
 	glLoadIdentity=gl.glLoadIdentity
+        glViewport=gl.glViewport
 	glMatrixMode=gl.glMatrixMode
-	glPopMatrix=gl.PopMatrix
+	glPopMatrix=gl.glPopMatrix
 	glPushMatrix=gl.glPushMatrix
 	glTexCoord2f=gl.glTexCoord2f
 	glTexParameteri=gl.glTexParameteri
@@ -79,9 +131,11 @@ if api=='pyglet':
 	GL_TRIANGLES=gl.GL_TRIANGLES
 
 	gluPerspective=glu.gluPerspective
+        gluLookAt=glu.gluLookAt
 else:
         print 'pygame installed'
-
+        import mouse
+        
         __pygame2PygletKeyList=[
                 (k.K_A, key.A),
                 (k.K_C, key.C),
@@ -95,7 +149,7 @@ else:
                 (k.K_N, key.N),
                 (k.K_O, key.O),
                 (k.K_P, key.P),
-                (k.K_Q, key.Q).
+                (k.K_Q, key.Q),
                 (k.K_R, key.R),
                 (k.K_S, key.S),
                 (k.K_V, key.V),
@@ -146,7 +200,7 @@ else:
                 
 	setLightPosition = lambda lightPos : None
 	drawVBO=lambda v: None
-	load=lambda path, scale, group: None
+	#load=lambda path, scale, group: None
 	createVBO=lambda group: None
 	deleteVBO=lambda vbo: None
 	deleteMesh=lambda mesh: None
@@ -158,6 +212,13 @@ else:
 	drawToTex=lambda mesh, alpha, fbo, width, height, bg, boundPlane, top: None
 	draw=lambda mesh, alpha: None
 	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha, p_mesh: None
+        createTexture=lambda mesh, uv_id, data, width, height, form: 0
+        createFBO=lambda texId, width, height: 0
+        class Listener:
+                def __init__(self):
+                        pass
+        listener=Listener()
+        setAngleAxisRotation=lambda angle, fpos: None
 	imageLoad=lambda path: None
 	sndLoad=lambda path, streaming : None
 
@@ -198,8 +259,9 @@ else:
 			pass
 
         class Window(EventDispatcher):
-                def __init__(self, fullscreen, config, width, height, resizable, config):
-
+                def __init__(self, fullscreen, config, width, height, resizable):
+                        pass
+                        
                         def parseMotionEvent(event):
                                 (x, y)=event.pos
                                 (dx, dy)=event.rel
@@ -256,6 +318,7 @@ else:
 	glEnable=lambda flags : None
 	glEnd=lambda : None
 	glLoadIdentity=lambda : None
+        glViewport=lambda xOrig, yOrig, width, height: None 
 	glMatrixMode=lambda mode : None
 	glPopMatrix=lambda : None
 	glPushMatrix=lambda : None
@@ -282,3 +345,4 @@ else:
 	GL_TRIANGLES=0
 
 	gluPerspective=lambda fov_y, aspect, z_near, z_far : None
+        gluLookAt=lambda eyeX, eyeY, eyeZ, posX, posY, posZ, zenX, zenY, zenZ: None

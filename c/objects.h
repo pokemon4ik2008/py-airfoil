@@ -69,8 +69,6 @@
 #define DLL_EXPORT 
 #endif
 
-#define PATH_LEN 256
-#define TAG_LEN 32
 #define PATH_MATCH "%256s"
 typedef char uint8;
 typedef unsigned int uint32;
@@ -79,17 +77,8 @@ typedef double float64;
 //uint8** uvMap2Texture;
 //uint32* uvMap2Id;
 
-uint32 top_order_x[MAX_ORDER]={0};
-uint32 top_order_y[MAX_ORDER]={0};
-uint32 top_order_z[MAX_ORDER]={0};
-
 #define UNTEXTURED 0xffffffff
 //#define TEXTURED_FLAG 0xf
-
-typedef struct {
-	float				x,y,z;
-	float				ax,ay,az;
-} obj_plot_position;
 
 typedef struct {
 	// incident light source position and intensity
