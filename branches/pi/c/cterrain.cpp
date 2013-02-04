@@ -653,7 +653,7 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
   float height = -1.0;
   float side;
   side = (mini::S-1)*map_expansion_const;
-  printf("checkSimpleColl. side: %f\n", side);
+  //printf("checkSimpleColl. side: %f\n", side);
   if (x_col<0.0 || x_col>=side) height = 0.0;
   if (z_col<0.0 || z_col>side) height = 0.0;
   float fx = x_col;

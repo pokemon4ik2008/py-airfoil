@@ -5,17 +5,23 @@
 
 obj_plot_position pos={0};
 
-float rotAngle = 0;
-float *rotAxis = NULL;
+obj_3dMesh *p_meshes[128];
+uint32 num_meshes=0;
+obj_plot_position origin_offset={0};
+uint8 match_mesh[]="data/models/cockpit/E_Prop.csv";
 
 extern "C" {
+  DLL_EXPORT void deleteColliders(obj_collider *p_cols) {
+    col_deleteColliders(p_cols);
+  }
+
   DLL_EXPORT void *load(char *filename, float scale, uint32 vbo_group)
   {
     oError err = ok;		
     unsigned int objectflags=0;
     obj_3dMesh *obj = NULL;
     objectflags|=OBJ_NORMAL_POSITIVE;
-    err = objCreate(&obj, filename, scale, objectflags, vbo_group);
+    err = col_objCreate(&obj, filename, scale, objectflags, vbo_group);
 		
     if (err != ok)
       {
@@ -65,17 +71,11 @@ DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
     col_deleteTransCols(p_col);
   }
 
-	DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
-	{
-		rotAngle = angle;
-		rotAxis = axis;
-	}
-
 	DLL_EXPORT void setPosition(float plotPos[])
 	{
-	  pos.x=x;
-	  pos.y=y;
-	  pos.z=z;
+	  pos.x=plotPos[0];
+	  pos.y=plotPos[1];
+	  pos.z=plotPos[2];
 	}
 
   DLL_EXPORT uint32 loadCollider(obj_collider *p_cols, uint32 idx, char *filename, float scale) {
@@ -126,6 +126,53 @@ DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
     return ok;
   }
   
+}
+
+void col_setPosition(float plotPos[])
+{
+  pos.x=plotPos[0];
+  pos.y=plotPos[1];
+  pos.z=plotPos[2];
+}
+
+obj_3dMesh** col_getMeshes() {
+  return p_meshes;
+}
+
+uint32 col_numMeshes() {
+  return num_meshes;
+}
+
+const obj_plot_position& col_getPos() {
+  return pos;
+}
+
+void checkRange(obj_3dMesh *p_mesh, void *p_addr, bool within) {
+  if(within) {
+    if(p_addr<p_mesh->p_vert_start) {
+      printf("checkRange too low 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
+      assert(false);
+    }
+    if(p_addr>=p_mesh->p_vert_end) {
+      printf("checkRange too low 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
+      assert(false);
+    }
+  } else {
+    if(p_addr>=p_mesh->p_vert_start && p_addr<p_mesh->p_vert_end) {
+      printf("within range 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
+      assert(false);
+    }
+  }
+}
+
+void checkRange(obj_3dMesh *p_mesh, void *p_addr) {
+  checkRange(p_mesh, p_addr, true);
+}
+
+void checkAllRanges(void *p_addr) {
+  for(uint32 i=0; i<col_numMeshes(); i++) {
+    checkRange(col_getMeshes()[i], p_addr, false);
+  }
 }
 
 //Pre: call to objSetLoadPos.. angle not yet supported

@@ -1,6 +1,4 @@
-from wrapper import airfoil_key
-key=airfoil_key
-
+from wrapper import key
 from pyglet.window import mouse
 from time import time
 from util import repeat

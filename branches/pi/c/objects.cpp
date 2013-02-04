@@ -10,21 +10,25 @@
 #include "objects.h"
 #include "types.h"
 
+extern uint32 top_order_x[MAX_ORDER]={0};
+extern uint32 top_order_y[MAX_ORDER]={0};
+extern uint32 top_order_z[MAX_ORDER]={0};
+
+float rotAngle = 0;
+float *rotAxis = NULL;
+
 bool obj_use_gl_lighting=true;
 float obj_cut_off_dist = 100;
 float obj_cut_off_angle = 20;
 float obj_ambient_light=0.5f;
-obj_plot_position origin_offset={0};
-obj_plot_position pov={0};
 obj_light_source objlight={0,0,0,1.0f};
-
-obj_3dMesh *p_meshes[128];
-uint32 num_meshes=0;
 
 extern "C" 
 {
-  DLL_EXPORT void deleteColliders(obj_collider *p_cols) {
-    col_deleteColliders(p_cols);
+  DLL_EXPORT void setAngleAxisRotation(float angle, float axis[]) 
+  {
+    rotAngle = angle;
+    rotAxis = axis;
   }
 
   DLL_EXPORT void getMid(void *p_meshToPlot, float mid[])
@@ -148,7 +152,7 @@ extern "C"
   DLL_EXPORT void draw(obj_3dMesh *p_meshToPlot, float32 alpha)
 	{
 		oError err = ok;
-		glTranslatef(pos.x ,pos.y ,pos.z );
+		glTranslatef(col_getPos().x , col_getPos().y, col_getPos().z );
 		glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
 		if (rotAxis) {
 		  glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
@@ -164,7 +168,7 @@ extern "C"
   DLL_EXPORT void drawVBO(void *p_vboToPlot)
 	{
 		oError err = ok;
-		glTranslatef(pos.x ,pos.y ,pos.z );
+		glTranslatef(col_getPos().x, col_getPos().y, col_getPos().z );
 		glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
 		if (rotAxis) {
 		  glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);		// Rotate On The X Axis
@@ -217,8 +221,8 @@ extern "C"
   {
     assert(vbo_group!=NO_VBO_GROUP_EVER && vbo_group!=NO_VBO_GROUP);
     uint32 group_size=0;
-    for(uint32 i=0; i<num_meshes; i++) {
-      obj_3dMesh *p_mesh=p_meshes[i];
+    for(uint32 i=0; i<col_numMeshes(); i++) {
+      obj_3dMesh *p_mesh=col_getMeshes()[i];
       assert(p_mesh->vbo_group!=NO_VBO_GROUP_EVER);
       if(p_mesh->vbo_group!=NO_VBO_GROUP && p_mesh->vbo_group==vbo_group) {
 	group_size++;
@@ -227,8 +231,8 @@ extern "C"
     obj_3dMesh *p_group_meshes=(obj_3dMesh *)malloc(sizeof(obj_3dMesh)*group_size);
     if(p_group_meshes) {
       uint32 group_idx=0;
-      for(uint32 i=0; i<num_meshes; i++) {
-	obj_3dMesh *p_mesh=p_meshes[i];
+      for(uint32 i=0; i<col_numMeshes(); i++) {
+	obj_3dMesh *p_mesh=col_getMeshes()[i];
 	if(p_mesh->vbo_group!=NO_VBO_GROUP && p_mesh->vbo_group==vbo_group) {
 	  p_group_meshes[group_idx]=*p_mesh;
 	  group_idx++;
@@ -338,7 +342,7 @@ extern "C"
     fpos[0]=offset.x();
     fpos[1]=offset.y();
     fpos[2]=offset.z();
-    setPosition(fpos);
+    col_setPosition(fpos);
     //printf("c: set pos %f %f %f\n", fpos[0], fpos[1], fpos[2]);
 
     fpos[0]=axis.x();
@@ -399,9 +403,9 @@ void objRotX(obj_vector *unit_vector_norm,float ax) {
 }
 
 void objSetVertexNormal(obj_vector unit_vector_norm,unsigned int flags) {
-	float ax=-deg_to_rad*pos.ax;
-	float ay=-deg_to_rad*pos.ay;
-	float az=-deg_to_rad*pos.az;
+	float ax=-deg_to_rad*col_getPos().ax;
+	float ay=-deg_to_rad*col_getPos().ay;
+	float az=-deg_to_rad*col_getPos().az;
 
 	//Must rotate normal now same as objs rotation
 	objRotZ(&unit_vector_norm,az);
@@ -415,34 +419,6 @@ void objSetVertexNormal(obj_vector unit_vector_norm,unsigned int flags) {
 	}
 
 	glNormal3f( -unit_vector_norm.x, -unit_vector_norm.y, -unit_vector_norm.z);
-}
-
-uint8 match_mesh[]="data/models/cockpit/E_Prop.csv";
-
-void checkRange(obj_3dMesh *p_mesh, void *p_addr, bool within) {
-  if(within) {
-    if(p_addr<p_mesh->p_vert_start) {
-      printf("checkRange too low 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
-      assert(false);
-    }
-    if(p_addr>=p_mesh->p_vert_end) {
-      printf("checkRange too low 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
-      assert(false);
-    }
-  } else {
-    if(p_addr>=p_mesh->p_vert_start && p_addr<p_mesh->p_vert_end) {
-      printf("within range 0x%p start 0x%p end 0x%p\n", p_addr, p_mesh->p_vert_start, p_mesh->p_vert_end);
-      assert(false);
-    }
-  }
-}
-void checkRange(obj_3dMesh *p_mesh, void *p_addr) {
-  checkRange(p_mesh, p_addr, true);
-}
-void checkAllRanges(void *p_addr) {
-  for(uint32 i=0; i<num_meshes; i++) {
-    checkRange(p_meshes[i], p_addr, false);
-  }
 }
 
 GLuint rboId=0xffffffff;
@@ -685,7 +661,7 @@ oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize,
   glEnd();
   */  
   
-  glTranslatef(pos.x ,pos.y ,pos.z );
+  glTranslatef(col_getPos().x, col_getPos().y, col_getPos().z );
   if(rotAxis) {
     glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);
   }

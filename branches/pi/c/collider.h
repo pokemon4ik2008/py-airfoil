@@ -4,9 +4,17 @@
 #include <stdio.h>
 
 #include <Eigen/Geometry>
-#include "objects.h"
 #include "rtu.h"
 #include "types.h"
+#ifdef OPEN_GL
+#include <GL/glew.h>
+#include <GL/glu.h>
+#else
+#include "nogl.h"
+#endif
+
+#define PATH_LEN 256
+#define TAG_LEN 32
 
 typedef enum {line,tri,quad,empty} primitiveType;
 
@@ -21,6 +29,11 @@ typedef struct {
   ubyte				shared;		//holds number of primitives sharing this vertex
   uint32 id;
 } obj_vertex;
+
+typedef struct {
+	float				x,y,z;
+	float				ax,ay,az;
+} obj_plot_position;
 
 typedef struct OBJ_3DPRIMITIVE
 {
@@ -223,6 +236,9 @@ private:
   bool allowDeep;
 };
 
+obj_3dMesh** col_getMeshes();
+uint32 col_numMeshes();
+
 oError	col_objCreate(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags, uint32 vbo_group);
 void col_deleteTransCols(obj_transformedCollider *p_col);
 void *col_allocTransCols(obj_collider *p_origCol);
@@ -245,5 +261,9 @@ bool col_CheckCollider(const obj_transformedCollider *p_col,
 		       uint32 *p_oSize, uint32 oResults[]);
 inline bool col_PtCollisionCheck(const obj_transformedCollider *p_col, uint32 idx, const Eigen::Vector3d &oldPoint, const Eigen::Vector3d &point);
 inline bool col_ColCollisionCheck(const obj_transformedCollider *p_me, uint32 meIdx, 
-				  const obj_transformedCollider *p_other, uint32 oIdx)void col_objDelete(obj_3dMesh **pp_mesh);
+				  const obj_transformedCollider *p_other, uint32 oIdx);
+void col_objDelete(obj_3dMesh **pp_mesh);
+const obj_plot_position & col_getPos();
+void col_setPosition(float plotPos[]);
+
 #endif

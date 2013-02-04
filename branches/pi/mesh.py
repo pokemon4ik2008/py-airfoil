@@ -75,7 +75,7 @@ def transformBot(bot):
     fpos[1] = axis.y
     fpos[2] = axis.z
     
-    collider.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+    setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
 
 def draw(bot, view):
     bot.frame_rot=bot._attitude*SETUP_ROT
@@ -122,7 +122,7 @@ def loadMeshes(mesh_paths, views):
             return group
 
     for key in mesh_paths:
-        meshes[key]=[ cls(wrapper.load(path, scale, c_ifyGroup(group)),
+        meshes[key]=[ cls(collider.load(path, scale, c_ifyGroup(group)),
                           views, key, group)
                            for (path, (cls, scale, group)) in paths[key]]
 
