@@ -31,13 +31,11 @@ from math import sqrt, atan2
 import mesh
 import optparse
 import os
-#import view
 from proxy import *
-import pyglet
-from pyglet.gl import *
-from pyglet import window, font, clock # for pyglet 1.0
+#import pyglet
+#from pyglet.gl import *
+#from pyglet import window, font, clock # for pyglet 1.0
 import time
-from wrapper import key
 import random
 from skybox import *
 from sound import *
@@ -49,6 +47,7 @@ from traceback import print_exc, print_stack
 from util import X_UNIT, Y_UNIT, Z_UNIT
 from view import EXTERNAL, INTERNAL, View
 import wrapper
+from wrapper import *
 
 def loadTerrain():
 	global cterrain
@@ -588,7 +587,6 @@ def init():
                 bots=[]
                 skybox = Skybox()
                 start_time=time.time()
-                print 'startup current ctx: '+str(glx.glXGetCurrentContext())
                 return num_players, plane_ids, start_time
         except:
                 print_exc()
@@ -613,7 +611,7 @@ def resize(width, height):
 	return pyglet.event.EVENT_HANDLED
 
 def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
-	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
+	config_template=Config(double_buffer=True, depth_size=24)
 	global win
 	if fs:
 		win = wrapper.Window(fullscreen=True, config=config_template)
@@ -799,7 +797,7 @@ def timeSlice(dt):
 
 			return
 		else:
-                        pyglet.app.exit()
+                        appExit()
 	except Exception:
 		traceback.print_exc()
 		man.proxy.markDead()
@@ -819,9 +817,12 @@ def run():
                     mesh.createVBOs(mesh.vbo_meshes)
                     glFinish()
                     ptrOn(mouse_cap)
+                    print 'run. before wrapper.run'
                     wrapper.run()
+                    print 'run. after wrapper.run'
                     glFinish()
 
+                print 'run. done'
                 flush_start=time.time()
                 while not man.proxy.attemptSendAll():
                         if time()-flush_start>3:

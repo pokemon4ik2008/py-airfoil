@@ -92,40 +92,69 @@ if api=='pyglet':
         listener=media.listener
 	imageLoad=image.load
 	sndLoad=pyglet.media.load
+        appExit=pyglet.app.exit
 
 	EventDispatcher=pyglet.event.EventDispatcher
 	Label=pyglet.text.Label
 	Player=pyglet.media.Player
         Window=pyglet.window.Window
+        Config=pyglet.gl.Config
         
 	glBegin=gl.glBegin
 	glBindTexture=gl.glBindTexture
+        glBlendFunc=gl.glBlendFunc
+        glClear=gl.glClear
+	glClearColor=gl.glClearColor
+	glClearDepth=gl.glClearDepth
 	glColor3f=gl.glColor3f
 	glColor4f=gl.glColor4f
+	glColorMaterial=gl.glColorMaterial
+        glDepthFunc=gl.glDepthFunc
 	glDepthMask=gl.glDepthMask
 	glDisable=gl.glDisable
 	glEnable=gl.glEnable
 	glEnd=gl.glEnd
+        glFinish=gl.glFinish
+        glLightfv=gl.glLightfv
 	glLoadIdentity=gl.glLoadIdentity
-        glViewport=gl.glViewport
 	glMatrixMode=gl.glMatrixMode
-	glPopMatrix=gl.glPopMatrix
+        glPointSize=gl.glPointSize
+        glPopMatrix=gl.glPopMatrix
 	glPushMatrix=gl.glPushMatrix
+        glShadeModel=gl.glShadeModel
 	glTexCoord2f=gl.glTexCoord2f
 	glTexParameteri=gl.glTexParameteri
 	glTranslatef=gl.glTranslatef
 	glVertex3f=gl.glVertex3f
+        glViewport=gl.glViewport
 
-	GL_CLAMP_TO_EDGE=gl.GL_CLAMP_TO_EDGE
+        GL_AMBIENT=gl.GL_AMBIENT
+        GL_AMBIENT_AND_DIFFUSE=gl.GL_AMBIENT_AND_DIFFUSE
+        GL_BLEND=gl.GL_BLEND
+        GL_CLAMP_TO_EDGE=gl.GL_CLAMP_TO_EDGE
+        GL_COLOR_BUFFER_BIT=gl.GL_COLOR_BUFFER_BIT
+        GL_COLOR_MATERIAL=gl.GL_COLOR_MATERIAL
 	GL_CULL_FACE=gl.GL_CULL_FACE
+        GL_DEPTH_BUFFER_BIT=gl.GL_DEPTH_BUFFER_BIT
 	GL_DEPTH_TEST=gl.GL_DEPTH_TEST
-	GL_FOG=gl.GL_FOG
+        GL_DIFFUSE=gl.GL_DIFFUSE
+        GL_FOG=gl.GL_FOG
+        GL_FRONT=gl.GL_FRONT
+        GL_LEQUAL=gl.GL_LEQUAL
+        GL_LIGHT0=gl.GL_LIGHT0
 	GL_LIGHTING=gl.GL_LIGHTING
+        GL_POINT_SMOOTH=gl.GL_POINT_SMOOTH
 	GL_LINEAR=gl.GL_LINEAR
 	GL_LINES=gl.GL_LINES
+        GL_POINTS=gl.GL_POINTS
 	GL_MODELVIEW=gl.GL_MODELVIEW
+        GL_ONE_MINUS_SRC_ALPHA=gl.GL_ONE_MINUS_SRC_ALPHA
+        GL_POSITION=gl.GL_POSITION
 	GL_PROJECTION=gl.GL_PROJECTION
 	GL_QUADS=gl.GL_QUADS
+        GL_SMOOTH=gl.GL_SMOOTH
+        GL_SPECULAR=gl.GL_SPECULAR
+        GL_SRC_ALPHA=gl.GL_SRC_ALPHA
 	GL_TEXTURE_WRAP_S=gl.GL_TEXTURE_WRAP_S
 	GL_TEXTURE_WRAP_T=gl.GL_TEXTURE_WRAP_T
 	GL_TEXTURE_WRAP_R=gl.GL_TEXTURE_WRAP_R
@@ -137,6 +166,7 @@ if api=='pyglet':
         gluLookAt=glu.gluLookAt
 else:
         print 'pygame installed'
+        from control import MouseButAction
         import mouse
         
         pygame2PygletKeyList=[
@@ -177,7 +207,8 @@ else:
         pygame.mouse.set_visible(False)
         pygame.event.set_grab(1)
 
-        QUITTING=False
+        global alive
+        alive=True
         eventActions={}
         TIMER=pygame.USEREVENT
         
@@ -188,9 +219,10 @@ else:
         schedule=pygameSchedule
 
         def pygameRun():
+                print 'pygameRun. start'
                 event=pygame.QUIT
                 try:
-                        while True:
+                        while alive:
                                 for event in pygame.event.get():
                                         if event.type!=pygame.USEREVENT:
                                                 print 'pygameRun. event: '+str(event)
@@ -202,6 +234,7 @@ else:
                         except AssertionError:
                                 print 'event: '+str(event)
                                 print_exc()
+                print 'pygameRun. end'
                 return
         run=pygameRun
         
@@ -243,6 +276,11 @@ else:
                         
 	imageLoad=lambda path: Image()
 	sndLoad=lambda path, streaming : None
+        def appExit():
+                global alive
+                if alive==True:
+                        print 'quitting'
+                alive=False
 
 	class EventDispatcher:
                 def event(self, *args):
@@ -288,7 +326,7 @@ else:
 			pass
 
         class Window(EventDispatcher):
-                has_exit=False
+                any_exit=False
                 
                 def __init__(self, config, width, height, resizable, fullscreen=False):
                         print 'Window.__init__. start'
@@ -313,10 +351,10 @@ else:
                                       lambda x, y, mods: self.on_mouse_release(x, y, MouseButAction.MID, mods), 
                                       lambda x, y, mods: self.on_mouse_release(x, y, MouseButAction.RIGHT, mods), 
                                       ]
-                        def deMultiPlexMouseButtonPress(event, mouseButtons):
+                        def deMultiPlexMouseButton(event, mouseButtons):
                                 (x, y)=event.pos
                                 yScroll=0
-                                if event.button>=len(mousePressButtons):
+                                if event.button>=len(mouseButtons):
                                         return
                                 mouseButtons[event.button](x, y, 0)
                         eventActions[pygame.MOUSEBUTTONDOWN]=lambda event: deMultiPlexMouseButton(event, mousePressButtons)
@@ -332,11 +370,11 @@ else:
 
                 @property
                 def has_exit(self):
-                        return Window.has_exit
+                        return Window.any_exit
 
                 @has_exit.setter
                 def has_exit(self, value):
-                        Window.has_exit=value
+                        Window.any_exit=value
                         
                 def finish(self):
                         print 'finish. calling Window.close'
@@ -368,37 +406,68 @@ else:
                         
                 @classmethod
                 def close(cls):
-                        print 'Window.close. setting win.has_exit.'
-                        Window.has_exit=True
+                        print 'Window.close. setting win.any_exit.'
+                        Window.any_exit=True
                 
-	glBegin=lambda prim: None
+        class Config:
+                def __init__(self, double_buffer, depth_size):
+                        pass
+                        
+        glBegin=lambda prim: None
 	glBindTexture=lambda target, id : None
+        glBlendFunc=lambda src, action : None
+        glClear=lambda buf : None
+	glClearColor=lambda r, g, b, a: None
+	glClearDepth=lambda val: None
 	glColor3f=lambda r, g, b: None
 	glColor4f=lambda r, g, b, a : None
+	glColorMaterial=lambda side, lighting: None
+        glDepthFunc=lambda f : None
 	glDepthMask=lambda enable : None
 	glDisable=lambda flag: None
 	glEnable=lambda flags : None
 	glEnd=lambda : None
+        glFinish=lambda : None
+        glLightfv=lambda source, ligthing, val: None
 	glLoadIdentity=lambda : None
-        glViewport=lambda xOrig, yOrig, width, height: None 
 	glMatrixMode=lambda mode : None
+        glPointSize=lambda size : None
 	glPopMatrix=lambda : None
 	glPushMatrix=lambda : None
+        glShadeModel=lambda shader : None
 	glTexCoord2f=lambda x, y : None
 	glTexParameteri=lambda target, flags, map_flags : None
 	glTranslatef=lambda x, y, z : None
 	glVertex3f=lambda x, y, z: None
-	
+        glViewport=lambda xOrig, yOrig, width, height: None 
+
+        GL_AMBIENT=0
+        GL_AMBIENT_AND_DIFFUSE=0
+        GL_BLEND=0
 	GL_CLAMP_TO_EDGE=0
+        GL_COLOR_BUFFER_BIT=0
+        GL_COLOR_MATERIAL=0
 	GL_CULL_FACE=0
+        GL_DEPTH_BUFFER_BIT=0
 	GL_DEPTH_TEST=0
-	GL_FOG=0
+        GL_DIFFUSE=0
+        GL_FOG=0
+        GL_FRONT=0
+        GL_LEQUAL=0
+        GL_LIGHT0=0
 	GL_LINEAR=0
 	GL_LINES=0
 	GL_LIGHTING=0
-	GL_MODELVIEW=gl.GL_MODELVIEW
-	GL_PROJECTION=0
+        GL_POINTS=0
+        GL_POINT_SMOOTH=0
+	GL_MODELVIEW=0
+        GL_ONE_MINUS_SRC_ALPHA=0
+        GL_POSITION=0
+        GL_PROJECTION=0
 	GL_QUADS=0
+        GL_SMOOTH=0
+        GL_SPECULAR=0
+        GL_SRC_ALPHA=0
 	GL_TEXTURE_MAG_FILTER=0
 	GL_TEXTURE_MIN_FILTER=0
 	GL_TEXTURE_WRAP_R=0
