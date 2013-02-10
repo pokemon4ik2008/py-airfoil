@@ -23,7 +23,7 @@ if not conf.CheckPKGConfig('0.15.0'):
      Exit(1)
 
 
-graphics=True
+graphics=False
 libChecks=[('glew', '1.6.0'), ('glu', '8.0.5'), ('gl', '8.0.5')]
 for (lib, ver) in libChecks:
         comparison=lib+' >= '+ver
@@ -43,7 +43,10 @@ else:
         objEnv.ParseConfig('pkg-config --cflags --libs gl')
         
 collider=objEnv.SharedLibrary(target = 'bin/collider', source = ["c/collider.cpp"])
-object3d=objEnv.SharedLibrary(target = 'bin/object3d', source = ["c/objects.cpp", collider])
+
+if graphics:
+        object3d=objEnv.SharedLibrary(target = 'bin/object3d', 
+                                      source = ["c/objects.cpp", collider])
 
 terrEnv = objEnv.Clone()
 terrEnv.Append(CPPPATH = ['c', 'c/Eigen', '/usr/X11R6/include', '/usr/local/include'])

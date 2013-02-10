@@ -30,6 +30,12 @@ extern "C" {
     return obj;
   }
 
+  DLL_EXPORT uint8* getMeshPath(void *p_meshToPlot)
+  {
+    obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
+    return p_mesh->mesh_path;
+  }
+
   DLL_EXPORT void *allocTransCols(obj_collider *p_origCol) {
     return col_allocTransCols(p_origCol);
   }
@@ -553,7 +559,9 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
 
 void col_objDelete(obj_3dMesh **pp_mesh) {
   obj_3dPrimitive *obj=(*pp_mesh)->p_prim;
+#ifdef OPEN_GL
   glDeleteTextures((*pp_mesh)->num_uv_maps, (*pp_mesh)->p_tex_ids);
+#endif
   obj_3dPrimitive *next;
   delete obj->vertex_list;
   while (obj!=NULL) {

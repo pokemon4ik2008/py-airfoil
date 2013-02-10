@@ -73,6 +73,9 @@ collider.loadCollider.restype=None
 collider.identifyBigCollider.argtypes=[ c_void_p ]
 collider.identifyBigCollider.restype=None
 
+collider.getMeshPath.argtypes=[ c_void_p ]
+collider.getMeshPath.restype=c_char_p
+
 def updateTime():
     global now, delta, iteration
     n=time()

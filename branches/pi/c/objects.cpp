@@ -39,12 +39,6 @@ extern "C"
     mid[2]=static_cast<obj_3dMesh *>(p_mesh)->mid.z();
   }
 
-  DLL_EXPORT uint8* getMeshPath(void *p_meshToPlot)
-  {
-    obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
-    return p_mesh->mesh_path;
-  }
-
   DLL_EXPORT uint8* getUvPath(void *p_meshToPlot, uint32 uv_id)
   {
     obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
