@@ -23,7 +23,7 @@ if not conf.CheckPKGConfig('0.15.0'):
      Exit(1)
 
 
-graphics=False
+graphics=True
 libChecks=[('glew', '1.6.0'), ('glu', '8.0.5'), ('gl', '8.0.5')]
 for (lib, ver) in libChecks:
         comparison=lib+' >= '+ver
