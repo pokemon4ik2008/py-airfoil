@@ -616,9 +616,10 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
 	global win
 	if fs:
-		win = pyglet.window.Window(fullscreen=True, config=config_template)
+		win = wrapper.Window(fullscreen=True, config=config_template)
 	else:
-		win = pyglet.window.Window(width=w, height=h, resizable=False, config=config_template)
+		win = wrapper.Window(width=w, height=h, resizable=False, config=config_template)
+        print 'setupWin. '+str(win)
 	win.set_vsync(False)
 	win.on_resize=resize       
 	global win_ctrls

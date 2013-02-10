@@ -1,9 +1,12 @@
 try:
+        from traceback import print_exc, print_stack
+        from collections import defaultdict
         from ctypes import *
         from pyglet import *
         from pyglet.gl import glu
         import os
 
+        raise ImportError()
         import pyglet
         from pyglet import gl
         from pyglet import window, font, clock # for pyglet 1.0
@@ -43,9 +46,9 @@ if api=='pyglet':
         object3dLib.deleteMesh.restype=None
 	deleteMesh=object3dLib.deleteMesh
 
-        object3dLib.getMeshPath.argtypes=[ c_void_p ]
-        object3dLib.getMeshPath.restype=c_char_p
-	getMeshPath=object3dLib.getMeshPath
+        #object3dLib.getMeshPath.argtypes=[ c_void_p ]
+        #object3dLib.getMeshPath.restype=c_char_p
+	#getMeshPath=object3dLib.getMeshPath
 
         object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
         object3dLib.getUvPath.restype=c_char_p
@@ -136,32 +139,33 @@ else:
         print 'pygame installed'
         import mouse
         
-        __pygame2PygletKeyList=[
-                (k.K_A, key.A),
-                (k.K_C, key.C),
-                (k.K_D, key.D),
-                (k.K_E, key.E),
-                (k.K_F, key.F),
-                (k.K_H, key.H),
-                (k.K_J, key.J),
-                (k.K_K, key.K),
-                (k.K_M, key.M),
-                (k.K_N, key.N),
-                (k.K_O, key.O),
-                (k.K_P, key.P),
-                (k.K_Q, key.Q),
-                (k.K_R, key.R),
-                (k.K_S, key.S),
-                (k.K_V, key.V),
-                (k.K_W, key.W),
-                (k.K_X, key.X),
-                (k.K_Z, key.Z),
+        pygame2PygletKeyList=[
+                (k.K_a, key.A),
+                (k.K_c, key.C),
+                (k.K_d, key.D),
+                (k.K_e, key.E),
+                (k.K_f, key.F),
+                (k.K_h, key.H),
+                (k.K_j, key.J),
+                (k.K_k, key.K),
+                (k.K_m, key.M),
+                (k.K_n, key.N),
+                (k.K_o, key.O),
+                (k.K_p, key.P),
+                (k.K_q, key.Q),
+                (k.K_r, key.R),
+                (k.K_s, key.S),
+                (k.K_v, key.V),
+                (k.K_w, key.W),
+                (k.K_x, key.X),
+                (k.K_z, key.Z),
                 (k.K_0, key._0),
                 (k.K_1, key._1),
                 (k.K_2, key._2),
                 (k.K_3, key._3),
                 (k.K_8, key._8),
                 (k.K_9, key._9),
+                (k.K_ESCAPE, key.ESCAPE),
                 (k.K_PAGEDOWN, key.PAGEDOWN),
                 (k.K_PAGEUP, key.PAGEUP),
                 ]
@@ -178,24 +182,28 @@ else:
         TIMER=pygame.USEREVENT
         
         FRAME_INTERVAL=17
-        def qtSchedule(callback):
+        def pygameSchedule(callback):
              eventActions[TIMER]=lambda e : callback(FRAME_INTERVAL)   
              pygame.time.set_timer(TIMER, FRAME_INTERVAL)
-        schedule=qtSchedule
+        schedule=pygameSchedule
 
-        def qtRun():
-                event=pyGame.QUIT
+        def pygameRun():
+                event=pygame.QUIT
                 try:
                         while True:
                                 for event in pygame.event.get():
-                                        eventActions[event](event)
+                                        if event.type!=pygame.USEREVENT:
+                                                print 'pygameRun. event: '+str(event)
+                                        eventActions[event.type](event)
                 except KeyError:
+                        Window.close()
                         try:
-                                assert event==pyGame.QUIT
+                                assert event.type==pygame.QUIT
                         except AssertionError:
+                                print 'event: '+str(event)
                                 print_exc()
                 return
-        run=qtRun
+        run=pygameRun
         
                 
 	setLightPosition = lambda lightPos : None
@@ -204,8 +212,8 @@ else:
 	createVBO=lambda group: None
 	deleteVBO=lambda vbo: None
 	deleteMesh=lambda mesh: None
-	getMeshPath=lambda mesh: ''
-	getUvPath=lambda mesh, uvId: ''
+        #getMeshPath=lambda mesh: ''
+	getUvPath=lambda mesh, uvId: None
 	setupTex=lambda mesh, uvId, texId: None
 	getMid=lambda centre_mesh, mid: None
 	setupRotation=lambda x, y, z, wr, xr, yr, zr, xmid, ymid, zmid, xorig, yorig, zorig: None
@@ -219,12 +227,33 @@ else:
                         pass
         listener=Listener()
         setAngleAxisRotation=lambda angle, fpos: None
-	imageLoad=lambda path: None
+        class Texture():
+                def __init__(self):
+                        self.id=0
+                        self.target=0
+                        self.tex_coords=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                                         0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+                def get_texture(self):
+                        return self
+                        
+        class Image:
+                def get_texture(self):
+                        return Texture()
+                        
+	imageLoad=lambda path: Image()
 	sndLoad=lambda path, streaming : None
 
 	class EventDispatcher:
-		    def event(self, *args):
-			    return args[0]
+                def event(self, *args):
+                        return args[0]
+
+                def push_handlers(self, *args, **kwargs):
+                        pass
+                        
+                @classmethod
+                def register_event_type(cls, ev):
+                        pass
 
 	class Label:
 		def __init__(self, txt, font_name, font_size, x, y, anchor_x, anchor_y):
@@ -243,7 +272,7 @@ else:
 			self.pitch=0.0
 			self.playing=False
 			self.position=(0.0, 0.0, 0.0)
-			self.eos_action
+			self.eos_action='stop'
 			self.min_distance=0
 
 		def next(self):
@@ -259,13 +288,19 @@ else:
 			pass
 
         class Window(EventDispatcher):
-                def __init__(self, fullscreen, config, width, height, resizable):
-                        pass
+                has_exit=False
+                
+                def __init__(self, config, width, height, resizable, fullscreen=False):
+                        print 'Window.__init__. start'
+                        self.width=1
+                        self.height=1
                         
                         def parseMotionEvent(event):
                                 (x, y)=event.pos
                                 (dx, dy)=event.rel
                                 return (x, y, dx, dy)
+                        eventActions[pygame.ACTIVEEVENT]=lambda event: None
+                        eventActions[pygame.VIDEORESIZE]=lambda event: None
                         eventActions[pygame.MOUSEMOTION]=lambda event: self.on_mouse_motion(*parseMotionEvent(event))
                         mousePressButtons=[None, 
                                       lambda x, y, mods: self.on_mouse_press(x, y, MouseButAction.LEFT, mods), 
@@ -287,13 +322,26 @@ else:
                         eventActions[pygame.MOUSEBUTTONDOWN]=lambda event: deMultiPlexMouseButton(event, mousePressButtons)
                         eventActions[pygame.MOUSEBUTTONUP]=lambda event: deMultiPlexMouseButton(event, mouseReleaseButtons)
 
-                        pygame2PygletKey=defaultDict(lambda f, mod: None)
+                        pygame2PygletKey=defaultdict(lambda : (lambda arg1, arg2: None))
                         for (pygame_key, pyglet_key) in pygame2PygletKeyList:
                                 pygame2PygletKey[pygame_key]=lambda f, mod: f(pyglet_key, mod)
+                        pygame2PygletKey[k.K_ESCAPE]=lambda f, mod: self.finish()
                                 
-                        eventActions[pygame.KEYDOWN]=lambda event: pygame2PygletKey[event.key](self.on_key_press, event.mod)
-                        eventActions[pygame.KEYUP]=lambda event: pygame2PygletKey[event.key](self.on_key_release, event.mod)
-                                                
+                        eventActions[pygame.KEYDOWN]=lambda event: (pygame2PygletKey[event.key](self.on_key_press, event.mod))
+                        eventActions[pygame.KEYUP]=lambda event: (pygame2PygletKey[event.key](self.on_key_release, event.mod))
+
+                @property
+                def has_exit(self):
+                        return Window.has_exit
+
+                @has_exit.setter
+                def has_exit(self, value):
+                        Window.has_exit=value
+                        
+                def finish(self):
+                        print 'finish. calling Window.close'
+                        Window.close()
+                        
                 def on_mouse_motion(self, x, y, dx, dy):
                      pass
                 
@@ -308,7 +356,21 @@ else:
                      
                 def on_key_press(self, symbol, mods):
                      pass
-                            
+
+                def on_key_release(self, symbol, mods):
+                     pass
+
+                def set_vsync(self, vsync):
+                        pass
+
+                def set_exclusive_mouse(self, mouse):
+                        pass
+                        
+                @classmethod
+                def close(cls):
+                        print 'Window.close. setting win.has_exit.'
+                        Window.has_exit=True
+                
 	glBegin=lambda prim: None
 	glBindTexture=lambda target, id : None
 	glColor3f=lambda r, g, b: None

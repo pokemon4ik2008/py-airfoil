@@ -97,6 +97,7 @@ def draw(bot, view):
 
 NO_VBO_GROUP=0xffffffff
 def loadMeshes(mesh_paths, views):
+    print 'loadMeshes. mesh_paths: '+str(mesh_paths)
     lookup = {}
     global meshes
     meshes = {}
@@ -121,6 +122,7 @@ def loadMeshes(mesh_paths, views):
         else:
             return group
 
+    print 'loadMeshes: paths: '+str(paths)
     for key in mesh_paths:
         meshes[key]=[ cls(collider.load(path, scale, c_ifyGroup(group)),
                           views, key, group)
@@ -180,8 +182,9 @@ class Mesh(object):
         else:
             self._sibs={}
             name_to_mesh[mesh_key]=self._sibs
-        self._mesh_path=wrapper.getMeshPath(self.mesh)
+        self._mesh_path=collider.getMeshPath(self.mesh)
         self._sibs[self._mesh_path]=self
+        print 'Mesh. initialising path: '+str(self._mesh_path)
             
         # self.texImages exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
         self.texImages=[]
@@ -366,8 +369,11 @@ class PropBlendMesh(Mesh):
         Mesh.__init__(self, *args, **kwargs)
 
     def finishInit(self):
-        self.__prop=self._sibs['data/models/cockpit/E_Prop.csv']
-
+        if 'data/models/cockpit/E_Prop.csv' in self._sibs:
+            self.__prop=self._sibs['data/models/cockpit/E_Prop.csv']
+        else:
+            self.draw=lambda bot, view_id: None
+            
     def draw(self, bot, view_id):
         glDepthMask(False)
         self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__prop.ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__prop.alpha)
