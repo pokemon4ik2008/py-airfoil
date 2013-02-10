@@ -6,7 +6,7 @@ try:
         from pyglet.gl import glu
         import os
 
-        raise ImportError()
+        #raise ImportError()
         import pyglet
         from pyglet import gl
         from pyglet import window, font, clock # for pyglet 1.0
