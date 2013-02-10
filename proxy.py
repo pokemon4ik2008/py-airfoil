@@ -591,6 +591,7 @@ class Client(Thread, Mirrorable):
 
      def send(self):
          if not self.alive():
+             self.__s.setblocking(1)
              print 'sending: '+str(len(self.__outbox))
          unique=self.__outbox.popleft()
          obj=self.__locked_serialised[unique]
@@ -888,6 +889,8 @@ class Server(Thread):
                     reads, writes, errs = select.select(self.__readers+ server_sockets , self.__writers, [], 2)
                     for r in reads:
                         try:
+                            #if manage.proxy is not None and not manage.proxy.isAlive():
+                            print 'Server.run. reading'
                             self.__readerSwitch[r](r)
                         except AssertionError:
                             print >> sys.stderr, 'Server.run. failed assertion on read'

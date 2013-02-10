@@ -527,6 +527,7 @@ def initCollider(typ, ident):
         import pdb; pdb.set_trace()
 
 def freeCollider(ident):
+    print 'freeCollider. start'
     global colModels
     if ident in colModels:
         mod=colModels[ident]
@@ -534,6 +535,7 @@ def freeCollider(ident):
         del(colModels[ident])
 
 def deleteColliders():
+    print 'deleteColliders. start'
     #global all_colliders
     #for (num, arr) in manage.lookup_colliders.values():
     #    object3dLib.deleteColliders(num, arr)
