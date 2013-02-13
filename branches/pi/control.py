@@ -1,5 +1,5 @@
-from wrapper import key
-from pyglet.window import mouse
+from wrapper import key, mouse
+#from pyglet.window import mouse
 from time import time
 from util import repeat
 

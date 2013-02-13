@@ -2,14 +2,12 @@ try:
         from traceback import print_exc, print_stack
         from collections import defaultdict
         from ctypes import *
+        import os
+        raise ImportError()
+        import pyglet
         from pyglet import *
         from pyglet.gl import glu
-        import os
 
-        #raise ImportError()
-        import pyglet
-        from pyglet import gl
-        from pyglet import window, font, clock # for pyglet 1.0
 	import mesh
 
 	if os.name == 'nt':
@@ -28,6 +26,7 @@ except ImportError:
 if api=='pyglet':
         print 'pyglet installed'
         from pyglet.window import key
+        #global mouse
         from pyglet.window import mouse
 
         schedule=pyglet.clock.schedule
@@ -166,8 +165,9 @@ if api=='pyglet':
         gluLookAt=glu.gluLookAt
 else:
         print 'pygame installed'
-        from control import MouseButAction
+        #global mouse
         import mouse
+        from control import MouseButAction
         
         pygame2PygletKeyList=[
                 (k.K_a, key.A),
@@ -198,10 +198,34 @@ else:
                 (k.K_ESCAPE, key.ESCAPE),
                 (k.K_PAGEDOWN, key.PAGEDOWN),
                 (k.K_PAGEUP, key.PAGEUP),
-                ]
+        ]
 
-        # app=QtGui.QApplication(sys.argv)
-        # pygame.init()
+        # Based on "Python GUI in Linux frame buffer"
+        # http://www.karoltomala.com/blog/?p=679
+        disp_no = os.getenv("DISPLAY")
+        if disp_no:
+                print "I'm running under X display = {0}".format(disp_no)
+        # Check which frame buffer drivers are available
+        # Start with fbcon since directfb hangs with composite output
+        drivers = ['fbcon', 'directfb', 'svgalib']
+        found = False
+        for driver in drivers:
+                # Make sure that SDL_VIDEODRIVER is set
+                if not os.getenv('SDL_VIDEODRIVER'):
+                        os.putenv('SDL_VIDEODRIVER', driver)
+                try:
+                        pygame.display.init()
+                except pygame.error:
+                        print 'Driver: {0} failed.'.format(driver)
+                        continue
+                found = True
+                break
+        if not found:
+                raise Exception('No suitable video driver found!')
+        size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+        print "Framebuffer size: %d x %d" % (size[0], size[1])
+        self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+
         pygame.display.init()
         pygame.display.set_mode((1,1))
         pygame.mouse.set_visible(False)
