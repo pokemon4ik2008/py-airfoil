@@ -9,7 +9,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+
+#ifdef OPEN_GL
 #include <GL/gl.h>
+#endif
+
 #include "../Eigen/Dense"
 #include <sstream>
 #include <Eigen/Geometry>

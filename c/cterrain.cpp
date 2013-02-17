@@ -693,6 +693,7 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
 */
 void terDrawLandscape(point_of_view &input_pov,float aspect
 		      ,short detail_levels) {
+#ifdef OPEN_GL
   vector point[3];//left,right,centre;
   int cut_off_dist,detail;
   float leftx,rightx,leftm,rightm;
@@ -813,7 +814,7 @@ void terDrawLandscape(point_of_view &input_pov,float aspect
       terrain_map(i,j).alt_y=(short) small_number;
     }
   }
-	
+#endif	
 }
 
 void terQsort_view_triangle(vector point[]) {
@@ -932,7 +933,7 @@ void terCalc_view_triangle(int topz,	int botz,
 			   float leftm,float &rightm,
 			   float view_angle,point_of_view &pov,
 			   int detail,short min_detail_level) {
-	
+#ifdef OPEN_GL	
   int inc,i,x,z ;
   double dist;
 	
@@ -1029,6 +1030,7 @@ void terCalc_view_triangle(int topz,	int botz,
     leftx  -=leftm;			
     rightx -=rightm;			
   }
+#endif
 }
 
 float terAdd_fog(float col,float backg_col,double dist) {
@@ -1039,6 +1041,7 @@ float terAdd_fog(float col,float backg_col,double dist) {
 
 inline void terDraw_Vertex(int x, int z)
 {
+#ifdef OPEN_GL
   //set the colour. add fog (the fog depends on that quads distance from the viewer)
   glColor3f(	terAdd_fog(terrain_map(x,z).col.r, backgr.r, terrain_map(x , z ).dist), 
 		terAdd_fog(terrain_map(x,z).col.g, backgr.g, terrain_map(x , z ).dist), 
@@ -1053,6 +1056,7 @@ inline void terDraw_Vertex(int x, int z)
     {
       glVertex3f(x*map_expansion_const ,terrain_map(x,z).alt_y*y_scale_const, z*map_expansion_const);	
     }
+#endif
 }
 
 //create a terrain quad at (x,z) and with side length of <detail> vertexes
