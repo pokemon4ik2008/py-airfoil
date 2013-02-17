@@ -23,24 +23,33 @@ if not conf.CheckPKGConfig('0.15.0'):
      Exit(1)
 
 
-graphics=False
+graphics=True
 libChecks=[('glew', '1.6.0'), ('glu', '8.0.5'), ('gl', '8.0.5')]
 for (lib, ver) in libChecks:
         comparison=lib+' >= '+ver
         if not conf.CheckPKG(comparison):
-                print comparison+' not found. graphics disabled'
-                graphics=False
-		break
+             print comparison+' not found. graphics disabled'
+             graphics=False
+             break
+        else:
+             print comparison+' found'
 
 objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
+objEnvOrig=objEnv.Clone()
 if graphics:
-        objEnv.Append(CCFLAGS='-O3 -DOPEN_GL')
-        objEnv.ParseConfig('pkg-config --cflags --libs glew')
-        objEnv.ParseConfig('pkg-config --cflags --libs glu')
-        objEnv.ParseConfig('pkg-config --cflags --libs gl')
+     try:
+          objEnv.Append(CCFLAGS='-O3 -DOPEN_GL')
+          objEnv.ParseConfig('pkg-config --cflags --libs glew')
+          objEnv.ParseConfig('pkg-config --cflags --libs glu')
+          objEnv.ParseConfig('pkg-config --cflags --libs gl')
+     except:
+          graphics=False
+          objEnv=objEnvOrig
+          objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
+     #     objEnv.ParseConfig('pkg-config --cflags --libs gl')
 else:
         objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
-        objEnv.ParseConfig('pkg-config --cflags --libs gl')
+        #objEnv.ParseConfig('pkg-config --cflags --libs gl')
         
 collider=objEnv.SharedLibrary(target = 'bin/collider', source = ["c/collider.cpp"])
 

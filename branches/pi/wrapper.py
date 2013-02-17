@@ -3,7 +3,7 @@ try:
         from collections import defaultdict
         from ctypes import *
         import os
-        raise ImportError()
+        #raise ImportError()
         import pyglet
         from pyglet import *
         from pyglet.gl import glu
