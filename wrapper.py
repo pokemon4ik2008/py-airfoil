@@ -213,10 +213,10 @@ else:
                 # Make sure that SDL_VIDEODRIVER is set
                 if not os.getenv('SDL_VIDEODRIVER'):
                         os.putenv('SDL_VIDEODRIVER', driver)
-                try:
+		try:
                         pygame.display.init()
-                except pygame.error:
-                        print 'Driver: {0} failed.'.format(driver)
+                except pygame.error as e:
+                        print 'Driver: {0} failed. msg: {1}.'.format(driver, str(e))
                         continue
                 found = True
                 break
@@ -224,7 +224,7 @@ else:
                 raise Exception('No suitable video driver found!')
         size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
         print "Framebuffer size: %d x %d" % (size[0], size[1])
-        self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+        screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
 
         pygame.display.init()
         pygame.display.set_mode((1,1))
