@@ -209,8 +209,10 @@ else:
         found = False
         disp_no = os.getenv("DISPLAY")
         TIMER=pygame.USEREVENT
+        getEvent=None
         if disp_no:
                 print "I'm running under X display = {0}".format(disp_no)
+                getEvent=pygame.event.get()
         else:
                 # Check which frame buffer drivers are available
                 # Start with fbcon since directfb hangs with composite output
