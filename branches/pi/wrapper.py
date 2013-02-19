@@ -208,6 +208,7 @@ else:
         # http://www.karoltomala.com/blog/?p=679
         found = False
         disp_no = os.getenv("DISPLAY")
+        TIMER=pygame.USEREVENT
         if disp_no:
                 print "I'm running under X display = {0}".format(disp_no)
         else:
@@ -227,6 +228,16 @@ else:
                         break
                 if not found:
                         print 'No suitable video driver found! Running headless'
+                        from time import sleep
+
+                        class Event:
+                                def __init__(self):
+                                        self.type=TIMER+1
+
+                        STUB_EVENT=Event()
+                        def getEvent():
+                                sleep(1)
+                                return STUB_EVENT
                 else:
                         size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
                         print "Framebuffer size: %d x %d" % (size[0], size[1])
@@ -236,25 +247,25 @@ else:
                         pygame.display.set_mode((1,1))
                         pygame.mouse.set_visible(False)
                         pygame.event.set_grab(1)
+                        getEvent=pygame.event.get()
 
         global alive
         alive=True
         eventActions={}
-        TIMER=pygame.USEREVENT
         
         FRAME_INTERVAL=17
         def pygameSchedule(callback):
              eventActions[TIMER]=lambda e : callback(FRAME_INTERVAL)   
              pygame.time.set_timer(TIMER, FRAME_INTERVAL)
         schedule=pygameSchedule
-
+        
         def pygameRun():
                 print 'pygameRun. start'
                 event=pygame.QUIT
                 try:
                         while alive:
-                                for event in pygame.event.get():
-                                        if event.type!=pygame.USEREVENT:
+                                for event in getEvent():
+                                        if event.type!=TIMER:
                                                 print 'pygameRun. event: '+str(event)
                                         eventActions[event.type](event)
                 except KeyError:
