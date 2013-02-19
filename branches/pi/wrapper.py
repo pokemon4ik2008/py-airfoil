@@ -210,9 +210,19 @@ else:
         disp_no = os.getenv("DISPLAY")
         TIMER=pygame.USEREVENT
         getEvent=None
+        def initDisplay():
+                size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+                print "Framebuffer size: %d x %d" % (size[0], size[1])
+                screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+                
+                pygame.display.init()
+                pygame.display.set_mode((1,1))
+                pygame.mouse.set_visible(False)
+                pygame.event.set_grab(1)
+                getEvent=pygame.event.get()
         if disp_no:
                 print "I'm running under X display = {0}".format(disp_no)
-                getEvent=pygame.event.get()
+                initDisplay()
         else:
                 # Check which frame buffer drivers are available
                 # Start with fbcon since directfb hangs with composite output
@@ -241,15 +251,7 @@ else:
                                 sleep(1)
                                 return STUB_EVENT
                 else:
-                        size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-                        print "Framebuffer size: %d x %d" % (size[0], size[1])
-                        screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
-
-                        pygame.display.init()
-                        pygame.display.set_mode((1,1))
-                        pygame.mouse.set_visible(False)
-                        pygame.event.set_grab(1)
-                        getEvent=pygame.event.get()
+                        initDisplay()
 
         global alive
         alive=True
