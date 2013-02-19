@@ -1,4 +1,5 @@
 try:
+        from api import getAPI, PYGLET, PYGAME
         from traceback import print_exc, print_stack
         from collections import defaultdict
         from ctypes import *
@@ -6,164 +7,167 @@ try:
         #raise ImportError()
         import pyglet
         from pyglet import *
-        from pyglet.gl import glu
-
-	import mesh
-
 	if os.name == 'nt':
 	    object3dLib = cdll.LoadLibrary("bin\object3d.dll")
 	else:
 	    object3dLib = cdll.LoadLibrary("bin/libobject3d.so")
 
-        api='pyglet'
+        #api='pyglet'
+        api=getAPI()
 except ImportError:
+        api=PYGAME
+        
+if api==PYGLET:
+        print 'pyglet installed'
+        try:
+                from pyglet.gl import glu
+                from pyglet.window import key
+                from pyglet.window import mouse
+                import mesh
+                
+                #global mouse
+                
+                schedule=pyglet.clock.schedule
+                run=pyglet.app.run
+                setLightPosition=object3dLib.setLightPosition
+                drawVBO=object3dLib.drawVBO
+                #load=object3dLib.load
+                
+                object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
+                object3dLib.createVBO.restype=c_int
+                createVBO=object3dLib.createVBO
+                
+                deleteVBO=object3dLib.deleteVBO
+                
+                object3dLib.deleteMesh.argtypes=[ c_void_p ]
+                object3dLib.deleteMesh.restype=None
+                deleteMesh=object3dLib.deleteMesh
+                
+                #object3dLib.getMeshPath.argtypes=[ c_void_p ]
+                #object3dLib.getMeshPath.restype=c_char_p
+                #getMeshPath=object3dLib.getMeshPath
+                
+                object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
+                object3dLib.getUvPath.restype=c_char_p
+                getUvPath=object3dLib.getUvPath
+                
+                object3dLib.setupTex.argtypes=[ c_void_p, c_uint, c_uint ]
+                object3dLib.setupTex.restype=c_uint
+                setupTex=object3dLib.setupTex
+                getMid=object3dLib.getMid
+                
+                object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
+                                                     c_double, c_double, c_double, c_double,
+                                                     c_double, c_double, c_double,
+                                                     c_double, c_double, c_double ]
+                object3dLib.setupRotation.restype=None
+                setupRotation=object3dLib.setupRotation
+                
+                object3dLib.drawToTex.argtypes=[ c_void_p, c_float, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint ]
+                object3dLib.drawToTex.restype=None
+                drawToTex=object3dLib.drawToTex
+                
+                object3dLib.draw.argtypes=[ c_void_p, c_float ]
+                object3dLib.draw.restype=None
+                draw=object3dLib.draw
+                
+                object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
+                                                   c_double, c_double, c_double, c_double,
+                                                   c_double, c_double, c_double, c_double,
+                                                   c_void_p, c_float, c_void_p ]
+                object3dLib.drawRotated.restype=None
+                drawRotated=object3dLib.drawRotated
+                
+                object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
+                object3dLib.createTexture.restype=c_uint
+                createTexture=object3dLib.createTexture
+                
+                object3dLib.createFBO.argtypes=[ c_uint, c_uint, c_uint ]
+                object3dLib.createFBO.restype=c_uint
+                createFBO=object3dLib.createFBO
+                setAngleAxisRotation=object3dLib.setAngleAxisRotation
+                listener=media.listener
+                imageLoad=image.load
+                Label=pyglet.text.Label
+                sndLoad=pyglet.media.load
+                appExit=pyglet.app.exit
+                
+                EventDispatcher=pyglet.event.EventDispatcher
+                Player=pyglet.media.Player
+                Window=pyglet.window.Window
+                Config=pyglet.gl.Config
+                
+                glBegin=gl.glBegin
+                glBindTexture=gl.glBindTexture
+                glBlendFunc=gl.glBlendFunc
+                glClear=gl.glClear
+                glClearColor=gl.glClearColor
+                glClearDepth=gl.glClearDepth
+                glColor3f=gl.glColor3f
+                glColor4f=gl.glColor4f
+                glColorMaterial=gl.glColorMaterial
+                glDepthFunc=gl.glDepthFunc
+                glDepthMask=gl.glDepthMask
+                glDisable=gl.glDisable
+                glEnable=gl.glEnable
+                glEnd=gl.glEnd
+                glFinish=gl.glFinish
+                glLightfv=gl.glLightfv
+                glLoadIdentity=gl.glLoadIdentity
+                glMatrixMode=gl.glMatrixMode
+                glPointSize=gl.glPointSize
+                glPopMatrix=gl.glPopMatrix
+                glPushMatrix=gl.glPushMatrix
+                glShadeModel=gl.glShadeModel
+                glTexCoord2f=gl.glTexCoord2f
+                glTexParameteri=gl.glTexParameteri
+                glTranslatef=gl.glTranslatef
+                glVertex3f=gl.glVertex3f
+                glViewport=gl.glViewport
+                
+                GL_AMBIENT=gl.GL_AMBIENT
+                GL_AMBIENT_AND_DIFFUSE=gl.GL_AMBIENT_AND_DIFFUSE
+                GL_BLEND=gl.GL_BLEND
+                GL_CLAMP_TO_EDGE=gl.GL_CLAMP_TO_EDGE
+                GL_COLOR_BUFFER_BIT=gl.GL_COLOR_BUFFER_BIT
+                GL_COLOR_MATERIAL=gl.GL_COLOR_MATERIAL
+                GL_CULL_FACE=gl.GL_CULL_FACE
+                GL_DEPTH_BUFFER_BIT=gl.GL_DEPTH_BUFFER_BIT
+                GL_DEPTH_TEST=gl.GL_DEPTH_TEST
+                GL_DIFFUSE=gl.GL_DIFFUSE
+                GL_FOG=gl.GL_FOG
+                GL_FRONT=gl.GL_FRONT
+                GL_LEQUAL=gl.GL_LEQUAL
+                GL_LIGHT0=gl.GL_LIGHT0
+                GL_LIGHTING=gl.GL_LIGHTING
+                GL_POINT_SMOOTH=gl.GL_POINT_SMOOTH
+                GL_LINEAR=gl.GL_LINEAR
+                GL_LINES=gl.GL_LINES
+                GL_POINTS=gl.GL_POINTS
+                GL_MODELVIEW=gl.GL_MODELVIEW
+                GL_ONE_MINUS_SRC_ALPHA=gl.GL_ONE_MINUS_SRC_ALPHA
+                GL_POSITION=gl.GL_POSITION
+                GL_PROJECTION=gl.GL_PROJECTION
+                GL_QUADS=gl.GL_QUADS
+                GL_SMOOTH=gl.GL_SMOOTH
+                GL_SPECULAR=gl.GL_SPECULAR
+                GL_SRC_ALPHA=gl.GL_SRC_ALPHA
+                GL_TEXTURE_WRAP_S=gl.GL_TEXTURE_WRAP_S
+                GL_TEXTURE_WRAP_T=gl.GL_TEXTURE_WRAP_T
+                GL_TEXTURE_WRAP_R=gl.GL_TEXTURE_WRAP_R
+                GL_TEXTURE_MAG_FILTER=gl.GL_TEXTURE_MAG_FILTER
+                GL_TEXTURE_MIN_FILTER=gl.GL_TEXTURE_MIN_FILTER
+                GL_TRIANGLES=gl.GL_TRIANGLES
+                
+                gluPerspective=glu.gluPerspective
+                gluLookAt=glu.gluLookAt
+        except:
+                print 'Failed to import glu. X might not be running';
+else:
         import pygame
         import pygame as k
         import key
         
-        api='pygame'
-
-if api=='pyglet':
-        print 'pyglet installed'
-        from pyglet.window import key
-        #global mouse
-        from pyglet.window import mouse
-
-        schedule=pyglet.clock.schedule
-        run=pyglet.app.run
-	setLightPosition=object3dLib.setLightPosition
-	drawVBO=object3dLib.drawVBO
-	#load=object3dLib.load
-
-        object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
-        object3dLib.createVBO.restype=c_int
-	createVBO=object3dLib.createVBO
-
-        deleteVBO=object3dLib.deleteVBO
-
-        object3dLib.deleteMesh.argtypes=[ c_void_p ]
-        object3dLib.deleteMesh.restype=None
-	deleteMesh=object3dLib.deleteMesh
-
-        #object3dLib.getMeshPath.argtypes=[ c_void_p ]
-        #object3dLib.getMeshPath.restype=c_char_p
-	#getMeshPath=object3dLib.getMeshPath
-
-        object3dLib.getUvPath.argtypes=[ c_void_p, c_uint ]
-        object3dLib.getUvPath.restype=c_char_p
-	getUvPath=object3dLib.getUvPath
-
-        object3dLib.setupTex.argtypes=[ c_void_p, c_uint, c_uint ]
-        object3dLib.setupTex.restype=c_uint
-	setupTex=object3dLib.setupTex
-	getMid=object3dLib.getMid
-
-        object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
-                                             c_double, c_double, c_double, c_double,
-                                             c_double, c_double, c_double,
-                                             c_double, c_double, c_double ]
-        object3dLib.setupRotation.restype=None
-	setupRotation=object3dLib.setupRotation
-
-        object3dLib.drawToTex.argtypes=[ c_void_p, c_float, c_uint, c_uint, c_uint, c_uint, c_uint, c_uint ]
-        object3dLib.drawToTex.restype=None
-	drawToTex=object3dLib.drawToTex
-
-        object3dLib.draw.argtypes=[ c_void_p, c_float ]
-        object3dLib.draw.restype=None
-	draw=object3dLib.draw
-
-        object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
-                                   c_double, c_double, c_double, c_double,
-                                   c_double, c_double, c_double, c_double,
-                                   c_void_p, c_float, c_void_p ]
-        object3dLib.drawRotated.restype=None
-        drawRotated=object3dLib.drawRotated
-
-        object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
-        object3dLib.createTexture.restype=c_uint
-        createTexture=object3dLib.createTexture
-
-        object3dLib.createFBO.argtypes=[ c_uint, c_uint, c_uint ]
-        object3dLib.createFBO.restype=c_uint
-        createFBO=object3dLib.createFBO
-        setAngleAxisRotation=object3dLib.setAngleAxisRotation
-        listener=media.listener
-	imageLoad=image.load
-	sndLoad=pyglet.media.load
-        appExit=pyglet.app.exit
-
-	EventDispatcher=pyglet.event.EventDispatcher
-	Label=pyglet.text.Label
-	Player=pyglet.media.Player
-        Window=pyglet.window.Window
-        Config=pyglet.gl.Config
-        
-	glBegin=gl.glBegin
-	glBindTexture=gl.glBindTexture
-        glBlendFunc=gl.glBlendFunc
-        glClear=gl.glClear
-	glClearColor=gl.glClearColor
-	glClearDepth=gl.glClearDepth
-	glColor3f=gl.glColor3f
-	glColor4f=gl.glColor4f
-	glColorMaterial=gl.glColorMaterial
-        glDepthFunc=gl.glDepthFunc
-	glDepthMask=gl.glDepthMask
-	glDisable=gl.glDisable
-	glEnable=gl.glEnable
-	glEnd=gl.glEnd
-        glFinish=gl.glFinish
-        glLightfv=gl.glLightfv
-	glLoadIdentity=gl.glLoadIdentity
-	glMatrixMode=gl.glMatrixMode
-        glPointSize=gl.glPointSize
-        glPopMatrix=gl.glPopMatrix
-	glPushMatrix=gl.glPushMatrix
-        glShadeModel=gl.glShadeModel
-	glTexCoord2f=gl.glTexCoord2f
-	glTexParameteri=gl.glTexParameteri
-	glTranslatef=gl.glTranslatef
-	glVertex3f=gl.glVertex3f
-        glViewport=gl.glViewport
-
-        GL_AMBIENT=gl.GL_AMBIENT
-        GL_AMBIENT_AND_DIFFUSE=gl.GL_AMBIENT_AND_DIFFUSE
-        GL_BLEND=gl.GL_BLEND
-        GL_CLAMP_TO_EDGE=gl.GL_CLAMP_TO_EDGE
-        GL_COLOR_BUFFER_BIT=gl.GL_COLOR_BUFFER_BIT
-        GL_COLOR_MATERIAL=gl.GL_COLOR_MATERIAL
-	GL_CULL_FACE=gl.GL_CULL_FACE
-        GL_DEPTH_BUFFER_BIT=gl.GL_DEPTH_BUFFER_BIT
-	GL_DEPTH_TEST=gl.GL_DEPTH_TEST
-        GL_DIFFUSE=gl.GL_DIFFUSE
-        GL_FOG=gl.GL_FOG
-        GL_FRONT=gl.GL_FRONT
-        GL_LEQUAL=gl.GL_LEQUAL
-        GL_LIGHT0=gl.GL_LIGHT0
-	GL_LIGHTING=gl.GL_LIGHTING
-        GL_POINT_SMOOTH=gl.GL_POINT_SMOOTH
-	GL_LINEAR=gl.GL_LINEAR
-	GL_LINES=gl.GL_LINES
-        GL_POINTS=gl.GL_POINTS
-	GL_MODELVIEW=gl.GL_MODELVIEW
-        GL_ONE_MINUS_SRC_ALPHA=gl.GL_ONE_MINUS_SRC_ALPHA
-        GL_POSITION=gl.GL_POSITION
-	GL_PROJECTION=gl.GL_PROJECTION
-	GL_QUADS=gl.GL_QUADS
-        GL_SMOOTH=gl.GL_SMOOTH
-        GL_SPECULAR=gl.GL_SPECULAR
-        GL_SRC_ALPHA=gl.GL_SRC_ALPHA
-	GL_TEXTURE_WRAP_S=gl.GL_TEXTURE_WRAP_S
-	GL_TEXTURE_WRAP_T=gl.GL_TEXTURE_WRAP_T
-	GL_TEXTURE_WRAP_R=gl.GL_TEXTURE_WRAP_R
-	GL_TEXTURE_MAG_FILTER=gl.GL_TEXTURE_MAG_FILTER
-	GL_TEXTURE_MIN_FILTER=gl.GL_TEXTURE_MIN_FILTER
-	GL_TRIANGLES=gl.GL_TRIANGLES
-
-	gluPerspective=glu.gluPerspective
-        gluLookAt=glu.gluLookAt
-else:
         print 'pygame installed'
         #global mouse
         import mouse
@@ -202,34 +206,36 @@ else:
 
         # Based on "Python GUI in Linux frame buffer"
         # http://www.karoltomala.com/blog/?p=679
+        found = False
         disp_no = os.getenv("DISPLAY")
         if disp_no:
                 print "I'm running under X display = {0}".format(disp_no)
-        # Check which frame buffer drivers are available
-        # Start with fbcon since directfb hangs with composite output
-        drivers = ['fbcon', 'directfb', 'svgalib']
-        found = False
-        for driver in drivers:
-                # Make sure that SDL_VIDEODRIVER is set
-                if not os.getenv('SDL_VIDEODRIVER'):
-                        os.putenv('SDL_VIDEODRIVER', driver)
-		try:
-                        pygame.display.init()
-                except pygame.error as e:
-                        print 'Driver: {0} failed. msg: {1}.'.format(driver, str(e))
-                        continue
-                found = True
-                break
-        if not found:
-                raise Exception('No suitable video driver found!')
-        size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-        print "Framebuffer size: %d x %d" % (size[0], size[1])
-        screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+        else:
+                # Check which frame buffer drivers are available
+                # Start with fbcon since directfb hangs with composite output
+                drivers = ['fbcon', 'directfb', 'svgalib']
+                for driver in drivers:
+                        # Make sure that SDL_VIDEODRIVER is set
+                        if not os.getenv('SDL_VIDEODRIVER'):
+                                os.putenv('SDL_VIDEODRIVER', driver)
+                        try:
+                                pygame.display.init()
+                        except pygame.error as e:
+                                print 'Driver: {0} failed. msg: {1}.'.format(driver, str(e))
+                                continue
+                        found = True
+                        break
+                if not found:
+                        print 'No suitable video driver found! Running headless'
+                else:
+                        size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+                        print "Framebuffer size: %d x %d" % (size[0], size[1])
+                        screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
 
-        pygame.display.init()
-        pygame.display.set_mode((1,1))
-        pygame.mouse.set_visible(False)
-        pygame.event.set_grab(1)
+                        pygame.display.init()
+                        pygame.display.set_mode((1,1))
+                        pygame.mouse.set_visible(False)
+                        pygame.event.set_grab(1)
 
         global alive
         alive=True

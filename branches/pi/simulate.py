@@ -765,7 +765,7 @@ def timeSlice(dt):
 
 				for bot in bots:
 					if bot.alive():
-						mesh.draw(bot, view)
+                                                mesh.draw(bot, view)
 
 				#destructible_types=[MyAirfoil.Type]
 				#for destructible in man.proxy.getTypeObjs(destructible_tpes):
