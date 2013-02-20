@@ -24,9 +24,11 @@ if not conf.CheckPKGConfig('0.15.0'):
      Exit(1)
 
 graphics=PYGLET
-if ARGUMENTS.get('pygame', 0)==1:
+if ARGUMENTS.get('api', 'pyglet')=='pygame':
+        print 'found pygame arg'
         graphics=PYGAME
 else:
+        print 'no pygame arg. checking libs'
         libChecks=[('glew', '1.6.0'), ('glu', '8.0.5'), ('gl', '8.0.5')]
         for (lib, ver) in libChecks:
                 comparison=lib+' >= '+ver
@@ -70,6 +72,7 @@ terrEnv = objEnv.Clone()
 terrEnv.Append(CPPPATH = ['c', 'c/Eigen', '/usr/X11R6/include', '/usr/local/include'])
 
 if graphics is PYGLET:
-     terrEnv.Append(LIBS = ['Mini'])
+        print 'will link to mini'
+        terrEnv.Append(LIBS = ['Mini'])
 
 cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp", collider])
