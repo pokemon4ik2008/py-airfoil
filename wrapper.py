@@ -269,6 +269,7 @@ else:
         def pygameRun():
                 print 'pygameRun. start'
                 event=pygame.QUIT
+                global getEvent
                 try:
                         while alive:
                                 for event in getEvent():
