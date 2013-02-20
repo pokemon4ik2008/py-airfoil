@@ -209,6 +209,11 @@ else:
         found = False
         disp_no = os.getenv("DISPLAY")
         TIMER=pygame.USEREVENT
+
+        def nullGet():
+            sleep(1)
+            return []
+
         def initDisplay():
                 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
                 print "Framebuffer size: %d x %d" % (size[0], size[1])
@@ -247,9 +252,7 @@ else:
                         #                self.type=TIMER+1
 
                         #STUB_EVENT=Event()
-                        def getEvent():
-                                sleep(1)
-                                return []
+                        getEvent=nullGet
                 else:
                         getEvent=initDisplay()
 
@@ -273,6 +276,7 @@ else:
                                                 print 'pygameRun. event: '+str(event)
                                         eventActions[event.type](event)
                 except KeyError:
+                        getEvent=nullGet
                         Window.close()
                         try:
                                 assert event.type==pygame.QUIT
