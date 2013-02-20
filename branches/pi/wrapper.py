@@ -204,57 +204,13 @@ else:
                 (k.K_PAGEUP, key.PAGEUP),
         ]
 
-        # Based on "Python GUI in Linux frame buffer"
-        # http://www.karoltomala.com/blog/?p=679
-        found = False
-        disp_no = os.getenv("DISPLAY")
         TIMER=pygame.USEREVENT
 
         def nullGet():
             from time import sleep
             sleep(1)
             return []
-
-        def initDisplay():
-                size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-                print "Framebuffer size: %d x %d" % (size[0], size[1])
-                #screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
-                
-                pygame.display.set_mode((1,1))
-                pygame.mouse.set_visible(False)
-                pygame.event.set_grab(1)
-                return pygame.event.get
-
-        if disp_no:
-                print "I'm running under X display = {0}".format(disp_no)
-                pygame.display.init()
-                getEvent=initDisplay()
-        else:
-                # Check which frame buffer drivers are available
-                # Start with fbcon since directfb hangs with composite output
-                drivers = ['fbcon', 'directfb', 'svgalib']
-                for driver in drivers:
-                        # Make sure that SDL_VIDEODRIVER is set
-                        if not os.getenv('SDL_VIDEODRIVER'):
-                                os.putenv('SDL_VIDEODRIVER', driver)
-                        try:
-                                pygame.display.init()
-                        except pygame.error as e:
-                                print 'Driver: {0} failed. msg: {1}.'.format(driver, str(e))
-                                continue
-                        found = True
-                        break
-                if not found:
-                        print 'No suitable video driver found! Running headless'
-
-                        #class Event:
-                        #        def __init__(self):
-                        #                self.type=TIMER+1
-
-                        #STUB_EVENT=Event()
-                        getEvent=nullGet
-                else:
-                        getEvent=initDisplay()
+	getEvent=nullGet
 
         global alive
         alive=True
@@ -380,6 +336,8 @@ else:
                 
                 def __init__(self, config, width, height, resizable, fullscreen=False):
                         print 'Window.__init__. start'
+			self.__initWindow()
+
                         self.width=1
                         self.height=1
                         
@@ -417,6 +375,48 @@ else:
                                 
                         eventActions[pygame.KEYDOWN]=lambda event: (pygame2PygletKey[event.key](self.on_key_press, event.mod))
                         eventActions[pygame.KEYUP]=lambda event: (pygame2PygletKey[event.key](self.on_key_release, event.mod))
+
+		def __initWindow(self):
+			global getEvent
+
+			# Based on "Python GUI in Linux frame buffer"
+			# http://www.karoltomala.com/blog/?p=679
+			found = False
+			disp_no = os.getenv("DISPLAY")
+
+			def initDisplay():
+				size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+				print "Framebuffer size: %d x %d" % (size[0], size[1])
+				#screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+
+				pygame.display.set_mode((1,1))
+				pygame.mouse.set_visible(False)
+				pygame.event.set_grab(1)
+				return pygame.event.get
+
+			if disp_no:
+				print "I'm running under X display = {0}".format(disp_no)
+				pygame.display.init()
+				getEvent=initDisplay()
+			else:
+				# Check which frame buffer drivers are available
+				# Start with fbcon since directfb hangs with composite output
+				drivers = ['fbcon', 'directfb', 'svgalib']
+				for driver in drivers:
+					# Make sure that SDL_VIDEODRIVER is set
+					if not os.getenv('SDL_VIDEODRIVER'):
+						os.putenv('SDL_VIDEODRIVER', driver)
+					try:
+						pygame.display.init()
+					except pygame.error as e:
+						print 'Driver: {0} failed. msg: {1}.'.format(driver, str(e))
+						continue
+					found = True
+					break
+				if not found:
+					print 'No suitable video driver found! Running headless'
+				else:
+					getEvent=initDisplay()
 
                 @property
                 def has_exit(self):
