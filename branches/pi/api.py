@@ -1,4 +1,4 @@
-from os import getcwd, remove
+from os import getcwd, remove, sep
 
 PYGAME='pygame'
 PYGLET='pyglet'
@@ -6,7 +6,6 @@ PYGLET='pyglet'
 FILE='compile_type.txt'
 
 def setAPI(api):
-        print getcwd()
         print 'setting api to '+api
         try:
                 compileType=None
@@ -19,7 +18,6 @@ def setAPI(api):
         finally:
                 if compileType is not None:
                         compileType.close()
-                remove(FILE)
 
 def setPyGame():
         setAPI(PYGAME)

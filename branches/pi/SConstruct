@@ -40,7 +40,7 @@ else:
                      print comparison+' found'
                      
 try:
-        setAPI(graphics)
+     setAPI(graphics)
 except IOError as e:
      graphics=PYGAME
         
