@@ -217,9 +217,9 @@ else:
         def initDisplay():
                 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
                 print "Framebuffer size: %d x %d" % (size[0], size[1])
-                screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+                #screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
                 
-                #pygame.display.set_mode((1,1))
+                pygame.display.set_mode((1,1))
                 pygame.mouse.set_visible(False)
                 pygame.event.set_grab(1)
                 return pygame.event.get
