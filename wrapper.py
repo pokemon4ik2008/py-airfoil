@@ -211,6 +211,7 @@ else:
         TIMER=pygame.USEREVENT
 
         def nullGet():
+            from time import sleep
             sleep(1)
             return []
 
@@ -245,7 +246,6 @@ else:
                         break
                 if not found:
                         print 'No suitable video driver found! Running headless'
-                        from time import sleep
 
                         #class Event:
                         #        def __init__(self):
