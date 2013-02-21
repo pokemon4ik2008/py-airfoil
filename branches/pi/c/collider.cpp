@@ -609,17 +609,16 @@ void col_objDelete(obj_3dMesh **pp_mesh) {
 
   void *col_allocTransCols(obj_collider *p_origCol) {
     obj_transformedCollider *p_col=new obj_transformedCollider;
-    printf("col_allocTransCols. alloced transcol %p\n", p_col);
+    //printf("col_allocTransCols. alloced transcol %p\n", p_col);
     if(p_col) {
       uint32 num_colliders;
       p_col->p_sphere=NULL;
       p_col->p_midIters=NULL;
       if(p_origCol && p_origCol->numCols) {
-	//p_col->p_mid=new Eigen::Vector3d[num_colliders];
 	p_col->p_midIters=new uint32[p_origCol->numCols];
-	printf("col_allocTransCols. alloced %u iters %p\n", p_origCol->numCols, p_col->p_midIters);
+	//printf("col_allocTransCols. alloced %u iters %p\n", p_origCol->numCols, p_col->p_midIters);
 	p_col->p_sphere=new obj_sphere[p_origCol->numCols];
-	printf("col_allocTransCols. alloced %u spheres %p\n", p_origCol->numCols, p_col->p_sphere);
+	//printf("col_allocTransCols. alloced %u spheres %p\n", p_origCol->numCols, p_col->p_sphere);
 	if(p_col->p_midIters && p_col->p_sphere) {
 	  num_colliders=p_origCol->numCols;
 	  
