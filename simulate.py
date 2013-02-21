@@ -102,13 +102,13 @@ class PlanePositionQuery(Query):
               0)]
 
         def __init__(self, ident=None, proxy=None, uniq=None):
-                print 'PlanePositionQuery.__init__'
+                #print 'PlanePositionQuery.__init__'
                 assert len(PlanePositionQuery.PLANE_INITS)==PlanePositionQuery.MAX_POS
                 Query.__init__(self, typ=PlanePositionQuery.TYP, ident=ident, proxy=proxy, uniq=uniq)
                 self.__pos=-1
 
         def setPos(self, pos):
-                print 'PlanePositionQuery.setPos: '+str(pos)
+                #print 'PlanePositionQuery.setPos: '+str(pos)
                 self.__pos=pos
                 return self
 
@@ -120,20 +120,20 @@ class PlanePositionQuery(Query):
                         return PlanePositionQuery.PLANE_INITS[self.__pos]
         
         def execute(self, ser):
-                print 'PlanePositionQuery.execute: '+str(PlanePositionQuery.POS)
+                #print 'PlanePositionQuery.execute: '+str(PlanePositionQuery.POS)
                 Query.execute(self, ser)
                 self.__pos=PlanePositionQuery.POS
                 PlanePositionQuery.POS+=1
                 PlanePositionQuery.POS%=PlanePositionQuery.MAX_POS
             
         def serialise(self):
-                print 'PlanePositionQuery.serialise. sys id: '+str(self._client_id)+' pos: '+str(self.__pos)
+                #print 'PlanePositionQuery.serialise. sys id: '+str(self._client_id)+' pos: '+str(self.__pos)
                 ser=Query.serialise(self)
                 ser.append(self.__pos)
                 return ser
 
         def peekInside(self, ser):
-                print 'PlanePositionQuery.peekInside: sys id: '+str(self._client_id)+' ser: '+str(ser)
+                #print 'PlanePositionQuery.peekInside: sys id: '+str(self._client_id)+' ser: '+str(ser)
                 Query.peekInside(self, ser).setPos(ser[self.__POS_IDX])
                 return self
 

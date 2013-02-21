@@ -226,6 +226,13 @@ else:
                 print 'pygameRun. start'
                 event=pygame.QUIT
                 global getEvent
+		if getEvent is nullGet:
+			print 'using nullGet'
+		else: 
+			if getEvent is pygame.event.get:
+				print 'using pygame\'s event get'
+			else:
+				print 'unrecognised get'
                 try:
                         while alive:
                                 for event in getEvent():
@@ -399,24 +406,11 @@ else:
 				pygame.display.init()
 				getEvent=initDisplay()
 			else:
-				# Check which frame buffer drivers are available
-				# Start with fbcon since directfb hangs with composite output
-				drivers = ['fbcon', 'directfb', 'svgalib']
-				for driver in drivers:
-					# Make sure that SDL_VIDEODRIVER is set
-					if not os.getenv('SDL_VIDEODRIVER'):
-						os.putenv('SDL_VIDEODRIVER', driver)
-					try:
-						pygame.display.init()
-					except pygame.error as e:
-						print 'Driver: {0} failed. msg: {1}.'.format(driver, str(e))
-						continue
-					found = True
-					break
-				if not found:
-					print 'No suitable video driver found! Running headless'
-				else:
+				try:
+					pygame.display.init()
 					getEvent=initDisplay()
+				except pygame.error as e:
+					print 'No suitable video driver found! Running headless'
 
                 @property
                 def has_exit(self):
