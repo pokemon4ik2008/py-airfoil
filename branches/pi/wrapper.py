@@ -216,7 +216,7 @@ else:
         alive=True
         eventActions={}
         
-        FRAME_INTERVAL=17
+        FRAME_INTERVAL=50
         def pygameSchedule(callback):
              eventActions[TIMER]=lambda e : callback(FRAME_INTERVAL)   
              pygame.time.set_timer(TIMER, FRAME_INTERVAL)
@@ -437,7 +437,7 @@ else:
                      pass
                      
                 def on_key_press(self, symbol, mods):
-                     pass
+                     print 'on_key_press. sym: '+str(symbol)+' mods: '+str(mods)
 
                 def on_key_release(self, symbol, mods):
                      pass
