@@ -3,6 +3,7 @@ try:
         from traceback import print_exc, print_stack
         from collections import defaultdict
         from ctypes import *
+	import inspect
         import os
         #raise ImportError()
         import pyglet
@@ -295,16 +296,61 @@ else:
                         print 'quitting'
                 alive=False
 
+	EVENT_HANDLED=True
+	EVENT_UNHANDLED=False
 	class EventDispatcher:
+		__HANDLERS__=defaultdict(lambda: [])
+		__NAMES__=[]
+
                 def event(self, *args):
+			print 'EventDispatcher.event: '+str(args)
+			if args[0].__name__ in self.__NAMES__:
+				#setattr(self, args[0].__name__)=args[0]
+				handlers=self.__HANDLERS__[args[0].__name__].insert(0, args[0])
                         return args[0]
 
+		def dispatch_event(self, event, *args):
+			print 'dispatch_event. 1'
+			#for obj in args:
+			for obj in self.__HANDLERS__[ event ]:
+			    if inspect.isroutine(obj):
+				    print 'dispatch_event. 1'
+				    # Single magically named function
+				    name = obj.__name__
+				    if name not in self.__NAMES__:
+					    raise EventException('Unknown event "%s"' % name)
+				    print 'invoking event handler 1'
+				    if obj(*args) == EVENT_HANDLED:
+					    return True
+			    else:
+				    print 'dispatch_event. 2'
+				    # Single instance with magically named methods
+				    for name in dir(obj):
+					    if name in self.__NAMES__:
+						    print 'invoking event handler 2'
+						    if getattr(obj, name)(*args) == EVENT_HANDLED:
+							    return True
+			return False
+
                 def push_handlers(self, *args, **kwargs):
-                        pass
+			#currently can only handle object instances (rather than methods)
+			for obj in args:
+				for method in dir(obj):
+					if method in self.__NAMES__:
+						self.__HANDLERS__[ method ].insert(0, obj)
+
+			for name, obj in kwargs.items():
+				#try:
+				#if kwarg in self.__NAMES__:
+				for method in dir(obj):
+					if method in self.__NAMES__:
+						self.__HANDLERS__[ method ].insert(0, obj)
+				#except:
+				#	print 'EventDispatchecher.push_handler. unrecognised handler: '+kwarg
                         
                 @classmethod
                 def register_event_type(cls, ev):
-                        pass
+			cls.__NAMES__.append(ev)
 
 	class Label:
 		def __init__(self, txt, font_name, font_size, x, y, anchor_x, anchor_y):
@@ -377,11 +423,18 @@ else:
 
                         pygame2PygletKey=defaultdict(lambda : (lambda arg1, arg2: None))
                         for (pygame_key, pyglet_key) in pygame2PygletKeyList:
-                                pygame2PygletKey[pygame_key]=lambda f, mod: f(pyglet_key, mod)
-                        pygame2PygletKey[k.K_ESCAPE]=lambda f, mod: self.finish()
-                                
-                        eventActions[pygame.KEYDOWN]=lambda event: (pygame2PygletKey[event.key](self.on_key_press, event.mod))
-                        eventActions[pygame.KEYUP]=lambda event: (pygame2PygletKey[event.key](self.on_key_release, event.mod))
+                                pygame2PygletKey[pygame_key]=lambda event, mod: self.dispatch_event(event, pyglet_key, mod)
+                        pygame2PygletKey[k.K_ESCAPE]=lambda event, mod: self.finish()
+
+                        eventActions[pygame.KEYDOWN]=lambda event: (pygame2PygletKey[event.key]('on_key_press', event.mod))
+                        eventActions[pygame.KEYUP]=lambda event: (pygame2PygletKey[event.key]('on_key_release', event.mod))
+			Window.register_event_type('on_mouse_drag');
+			Window.register_event_type('on_mouse_motion');
+			Window.register_event_type('on_mouse_scroll');
+			Window.register_event_type('on_mouse_press');
+			Window.register_event_type('on_mouse_release');
+			Window.register_event_type('on_key_press');
+			Window.register_event_type('on_key_release');
 
 		def __initWindow(self):
 			global getEvent

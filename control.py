@@ -159,6 +159,7 @@ class Controller:
 
             @win.event
             def on_key_press(symbol, mods):
+                print 'control. on key press'
                 for c in Controller.__INSTANCES:
                     for ctrl in [control for control in c.__on_key_press]:
                         if c.__controls[ctrl].matches(symbol, mods):
