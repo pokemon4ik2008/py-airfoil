@@ -139,7 +139,9 @@ class PlanePositionQuery(Query):
 
 class MyServer(Server):
         def __init__(self, server=getLocalIP(), own_thread=True):
-                Server.__init__(self, server=server, own_thread=own_thread) 
+                Server.__init__(self, server=server, own_thread=own_thread)
+                
+                #any constructors for server-based queries are listed next 
                 self._ctors={ PlanePositionQuery.TYP: PlanePositionQuery }                
         def getConstructors(self):
                 return self._ctors
@@ -477,6 +479,8 @@ def init():
 
                 option('-2', '--two', dest='two_player', action='store_true', default=False,
                         help='Two player split screen action')
+                option('-s', '--split', dest='split', action='store_true', default=False,
+                        help='Split screen, even if there\'s only one player')
                 option('-S', '--server', dest='server', type='str', default=None,
                         help='Create a server using at this IP / domain')
                 option('-C', '--client', dest='client', type='str', default=None,
@@ -484,6 +488,7 @@ def init():
                 man.opt, args = parser.parse_args()
                 if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
+                #All object and server query constructors are listed next
                 factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet, PlanePositionQuery.TYP: PlanePositionQuery })
 
                 scale=3.0
@@ -511,8 +516,9 @@ def init():
 
                 if not interactive:
                         print 'init. not interactive'
-                        return (0, [], time.time())
+                        return (0, [], time.time(), 0)
 
+                print 'init(). starting'
                 waitForClient(man.proxy)
 
                 global mouse_cap, fullscreen, views, planes, bots, skybox
@@ -557,10 +563,16 @@ def init():
 
                 planes = {}
                 plane_ids=[]
+                
                 if man.opt.two_player==True:
                         num_players=2
                 else:
                         num_players=1
+                        
+                num_views=num_players
+                if man.opt.split==True:
+                        num_views=2
+
                 assert num_players<=PlanePositionQuery.MAX_POS
                         
                 plane_inits=[]
@@ -576,21 +588,22 @@ def init():
                         plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, proxy=man.proxy)
                         plane_ids.append(plane.getId())
                         planes[plane.getId()]=plane
-                        view = View(plane, num_players, man.opt)
+
+                print 'planes: '+str(planes)
+                for i in range(num_views):
+                        print 'idx: '+str(i%num_players)
+                        plane=planes[plane_ids[i%num_players]]
+                        view = View(plane, num_views, man.opt)
                         views.append(view)
 
-                if man.opt.two_player==True:
-                        num_players=2
-                else:
-                        num_players=1
                 bots=[]
                 skybox = Skybox()
                 start_time=time.time()
-                return num_players, plane_ids, start_time
+                return num_players, plane_ids, start_time, num_views
         except:
                 print_exc()
                 start_time=time.time()
-                return 0, [], start_time
+                return 0, [], start_time, 0
 
 def ptrOn(st=True):
 	# kw. set_exclusive_mouse called twice due to Pyglet bug in X windows.
@@ -609,7 +622,10 @@ def resize(width, height):
 		view.updateDimensions()
 	return pyglet.event.EVENT_HANDLED
 
-def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
+def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
+        if num_views==None:
+                num_views=num_players
+                
 	config_template=Config(double_buffer=True, depth_size=24)
 	global win
 	if fs:
@@ -626,12 +642,26 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	
 	global player_keys
 	player_keys = []
+        view_keys=[]
 	if num_players==2:
 		player_keys.extend([Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 						(Controller.FIRE, KeyAction(key.R)),
 						(Controller.PITCH, KeyAction(key.S, key.W)),
-						(Controller.ROLL, KeyAction(key.A, key.D)),
-						(Controller.CAM_FIXED, KeyAction(key._1)),
+						(Controller.ROLL, KeyAction(key.A, key.D))], 
+			       win),
+				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
+						(Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
+						(Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
+						(Controller.ROLL, MouseAction(-0.00010, MouseAction.X))], 
+					      win)])
+	else:
+			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+						       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
+						       (Controller.PITCH, KeyAction(key.S, key.W)),
+						       (Controller.ROLL, KeyAction(key.A, key.D))],
+		       win))
+	if num_views==2:
+		view_keys.extend([Controller([(Controller.CAM_FIXED, KeyAction(key._1)),
 						(Controller.CAM_FOLLOW, KeyAction(key._2)),
 						(Controller.CAM_INTERNAL, KeyAction(key._3)),
 						(Controller.CAM_Z, KeyAction(key.C, key.V)),
@@ -640,13 +670,9 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
 						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
 			       win),
-				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-						(Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-						(Controller.CAM_FIXED, KeyAction(key._8)),
+				    Controller([(Controller.CAM_FIXED, KeyAction(key._8)),
 						(Controller.CAM_FOLLOW, KeyAction(key._9)), 
 						(Controller.CAM_INTERNAL, KeyAction(key._0)), 
-						(Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
-						(Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
 						(Controller.CAM_X, KeyAction(key.O, key.P)), 
 						(Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
 						(Controller.CAM_ZOOM, KeyAction(key.J, key.K)),
@@ -654,11 +680,7 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
 					      win)])
 	else:
-			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-						       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-						       (Controller.PITCH, KeyAction(key.S, key.W)),
-						       (Controller.ROLL, KeyAction(key.A, key.D)),
-						       (Controller.CAM_FIXED, KeyAction(key._1)),
+			view_keys.append(Controller([(Controller.CAM_FIXED, KeyAction(key._1)),
 						       (Controller.CAM_FOLLOW, KeyAction(key._2)),
 						       (Controller.CAM_INTERNAL, KeyAction(key._3)),
 						       (Controller.CAM_Z, KeyAction(key.C, key.V)),
@@ -670,7 +692,10 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	for i in range(num_players):
 		print 'planes: '+str(planes)+' '+str(player_keys[i])
 		planes[plane_ids[i]].setControls(player_keys[i])
-		views[i].setViewController(win, player_keys[0])
+
+        for i in range(num_views):
+                print 'view: '+str(i)
+		views[i].setViewController(win, view_keys[i])
 
 
 	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
@@ -807,11 +832,11 @@ def timeSlice(dt):
 
 def run():
         num_players=0
-        num_players, plane_ids, start_time=init()
+        num_players, plane_ids, start_time, num_views=init()
         if num_players>0:
                 wrapper.schedule(timeSlice)
                 while man.proxy.alive():
-                    setupWin(num_players, plane_ids, fs=fullscreen)
+                    setupWin(num_players, plane_ids, fs=fullscreen, num_views=num_views)
                     glFinish()
                     mesh.createVBOs(mesh.vbo_meshes)
                     glFinish()
