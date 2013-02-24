@@ -239,7 +239,7 @@ class Mesh(object):
             if c_path is not None:
                 print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)+" path: "+c_path
 
-    def view_change(self, view):
+    def on_view_change(self, view):
         new_details={}
         for (view_id, bot_id) in self._bot_details:
             if view_id is not view:

@@ -39,6 +39,7 @@ import time
 import random
 from skybox import *
 from sound import *
+from subject import SubjectSelector
 import sys
 from threading import Condition
 from time import sleep
@@ -562,7 +563,7 @@ def init():
                                   }, views)
 
                 planes = {}
-                plane_ids=[]
+                plane_ids= []
                 
                 if man.opt.two_player==True:
                         num_players=2
@@ -596,6 +597,8 @@ def init():
                         view = View(plane, num_views, man.opt)
                         views.append(view)
 
+                SubjectSelector(man.proxy, [ MyAirfoil.TYP ], views)
+                        
                 bots=[]
                 skybox = Skybox()
                 start_time=time.time()
@@ -668,7 +671,8 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
 						(Controller.CAM_X, KeyAction(key.Z, key.X)),
 						(Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
 						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
-						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
+						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION),
+                                                (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._4, key._5, onPress=True))], 
 			       win),
 				    Controller([(Controller.CAM_FIXED, KeyAction(key._8)),
 						(Controller.CAM_FOLLOW, KeyAction(key._9)), 
@@ -677,12 +681,14 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
 						(Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
 						(Controller.CAM_ZOOM, KeyAction(key.J, key.K)),
 						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
-						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
+						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION),
+                                                (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._6, key._7, onPress=True))], 
 					      win)])
 	else:
 			view_keys.append(Controller([(Controller.CAM_FIXED, KeyAction(key._1)),
 						       (Controller.CAM_FOLLOW, KeyAction(key._2)),
 						       (Controller.CAM_INTERNAL, KeyAction(key._3)),
+                                                       (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._4, key._5, onPress=True)),
 						       (Controller.CAM_Z, KeyAction(key.C, key.V)),
 						       (Controller.CAM_X, KeyAction(key.Z, key.X)),
 						       (Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
