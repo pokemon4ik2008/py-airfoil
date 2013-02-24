@@ -35,6 +35,8 @@ def waitForClient(proxy, passed=None):
             if Client.PROXY is not None and (passed==None or passed()):
                 proxy.releaseLock()
                 break
+            else:
+                print 'waitForClient. '+str(Client.PROXY)+' passed: '+str(passed)
             proxy.releaseLock()
         print 'waitForClient. sleeping'
         sleep(1)
@@ -206,7 +208,7 @@ class Query(Mirrorable):
         Query.req_handle+=1
         Query.req_handle%=Query._HANDLE_MOD
         Query.on_replies[self._handle]=onReply
-        #print 'post. on_replies: '+str(Query.on_replies)
+        print 'post. adding handle to on_replies: '+str(Query.on_replies)
         self.markChanged()
         
     def execute(self, ser):
@@ -232,9 +234,9 @@ class Query(Mirrorable):
     def _handleResponse(self):
         try:
             if self.myBot():
-                #print '_handleResponse. handle: '+str(self._handle)+' on_replies: '+str(Query.on_replies)
                 assert self._handle in Query.on_replies
                 Query.on_replies[self._handle](self)
+                print '_handleResponse. deleting handle: '+str(self._handle)+' on_replies: '+str(Query.on_replies)
                 del Query.on_replies[self._handle]
             else:
                 assert False
@@ -251,6 +253,7 @@ class Query(Mirrorable):
                 if self.__outstanding is None:
                     #Initialise outstanding here as now we have the lock
                     self.__outstanding=Query.on_replies.keys()
+                    print 'HandlePoller. outstanding: '+str(self.__outstanding)
                 for handle in Query.on_replies.keys():
                     if handle in self.__outstanding:
                         return False
@@ -258,6 +261,7 @@ class Query(Mirrorable):
                         del self.__outstanding[handle]
                 return True
 
+        print 'Query.waitForReplies. starting'
         waitForClient(proxy, HandlePoller())
             
 class ControlledSer(Mirrorable):
@@ -707,7 +711,6 @@ class Server(Thread):
     def __init__(self, server=getLocalIP(), port=PORT, own_thread=True):
          Thread.__init__(self)
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-         #self.__s.bind((gethostname(), port))
          print 'Server. ip: '+str(server)+' port: '+str(port)
          self.__s.bind((server, port))
          self.__s.setblocking(0)
@@ -726,10 +729,6 @@ class Server(Thread):
          self.daemon=True
 
          self._ctors={}
-         #if own_thread:
-         #    self.daemon=False
-         #else:
-         #    self.daemon=True
          self.start()
 
     def getConstructors(self):
@@ -749,9 +748,6 @@ class Server(Thread):
          
     def recWrites(self, s, obj_len, obj_str):
         self.__recWrites(s, obj_len, obj_str, self.qWrites)
-
-        #    def recControllerWrites(self, s, obj_len, obj_str):
-        #        self.__reqWrites(s, obj_len, obj_str, self.qReplyWrites)
 
     def qWrite(self, s, string):
         self.__serialisables[s]+=string
@@ -778,12 +774,6 @@ class Server(Thread):
             assert False
         self.qWrite(s, int2Bytes(len(serialised), LEN_LEN)+serialised)
                 
-        #    def qWrites(self, s):
-        #        self.__qGeneralWrites(self, s, self.__qDistributedWrites)
-
-        #    def qReplyWrites(self, s):
-        #        self.__qGeneralWrites(self, s, self.__qReply)
-
     def qWrites(self, s):
         try:
             for uniq in self.__outQs[s]:
