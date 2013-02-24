@@ -42,22 +42,28 @@ class KeyAction(Action):
 
     def __init__(self, k1, k2=None, mod=0, onPress=False):
         Action.__init__(self, 'KeyAction: '+str(k1)+' '+str(k2))
+        print 'KeyAction.__init__ '+str(k1)
         self.__k1=k1
+        print 'KeyAction.__init__. '+str(k2)
         self.__k2=k2
         self.__mod=mod
         self.__onPress=onPress
 
     def getState(self):
         if KeyAction.__KEYS[self.__k1]:
+            print 'KeyAction.getState. 1: '+str(self.__k1)
             return 1
         if self.__k2 is not None and KeyAction.__KEYS[self.__k2]:
+            print 'KeyAction.getState. -1'+str(self.__k1)
             return -1
         return 0
 
     def matches(self, symbol, modifier):
         if self.__k1==symbol and self.__mod==modifier:
+            print 'KeyAction.matches 1: '+str(self.__k1)
             return True
         if self.__k2!=None and self.__k2==symbol and self.__mod==modifier:
+            print 'KeyAction.matches 2: '+str(self.__k2)
             return True
         return False
 
@@ -159,7 +165,6 @@ class Controller:
 
             @win.event
             def on_key_press(symbol, mods):
-                print 'control. on key press'
                 for c in Controller.__INSTANCES:
                     for ctrl in [control for control in c.__on_key_press]:
                         if c.__controls[ctrl].matches(symbol, mods):

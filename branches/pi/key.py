@@ -86,6 +86,7 @@ class KeyStateHandler(dict):
     def on_key_release(self, symbol, modifiers):
         self[symbol] = False
     def __getitem__(self, key):
+        #print 'KeyHandler.__getitem__. self: '+str(self)+' key: '+str(key)
         return self.get(key, False)
 
 def modifiers_string(modifiers):

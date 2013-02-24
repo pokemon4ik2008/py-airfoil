@@ -337,9 +337,9 @@ class MyAirfoil(Airfoil, ControlledSer):
 		events[Controller.ROLL]=1
         self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
         if events[Controller.PITCH]!=0:
-            self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
+		self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
-            self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
+		self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
 	if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
 		frame_rot=self._attitude*mesh.SETUP_ROT
 		vOff=self.getVelocity().normalized()+frame_rot* Bullet.VEL
