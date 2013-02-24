@@ -126,6 +126,7 @@ class Controller:
     CAM_ZOOM=Controls("camera zoom")
     CAM_MOUSE_LOOK_X=Controls("mouse look x")
     CAM_MOUSE_LOOK_Y=Controls("mouse look y")
+    CAM_SUBJECT_CHANGE=Controls("next camera subject")
     TOG_MOUSE_CAP =Controls("toggle mouse capture")
     TOG_FULLSCREEN =Controls("toggle fullscreen")
     TOG_SOUND_EFFECTS =Controls("toggle sound effects")
