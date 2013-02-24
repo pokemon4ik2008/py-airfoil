@@ -202,7 +202,7 @@ else:
                 (k.K_9, key._9),
                 (k.K_ESCAPE, key.ESCAPE),
                 (k.K_PAGEDOWN, key.PAGEDOWN),
-                (k.K_PAGEUP, key.PAGEUP),
+                (k.K_PAGEUP, key.PAGEUP)
         ]
 
         TIMER=pygame.USEREVENT
@@ -310,25 +310,22 @@ else:
                         return args[0]
 
 		def dispatch_event(self, event, *args):
-			print 'dispatch_event. 1'
 			#for obj in args:
 			for obj in self.__HANDLERS__[ event ]:
 			    if inspect.isroutine(obj):
-				    print 'dispatch_event. 1'
 				    # Single magically named function
 				    name = obj.__name__
 				    if name not in self.__NAMES__:
 					    raise EventException('Unknown event "%s"' % name)
-				    print 'invoking event handler 1'
-				    if obj(*args) == EVENT_HANDLED:
+				    print 'dispatch_event.method: '+event
+				    if obj(*args) != EVENT_UNHANDLED:
 					    return True
 			    else:
-				    print 'dispatch_event. 2'
 				    # Single instance with magically named methods
 				    for name in dir(obj):
 					    if name in self.__NAMES__:
-						    print 'invoking event handler 2'
-						    if getattr(obj, name)(*args) == EVENT_HANDLED:
+						    print 'dispatch_event.obj: '+event
+						    if getattr(obj, name)(*args) != EVENT_UNHANDLED:
 							    return True
 			return False
 
@@ -423,9 +420,12 @@ else:
 
                         pygame2PygletKey=defaultdict(lambda : (lambda arg1, arg2: None))
                         for (pygame_key, pyglet_key) in pygame2PygletKeyList:
-                                pygame2PygletKey[pygame_key]=lambda event, mod: self.dispatch_event(event, pyglet_key, mod)
+				def scopeLimit(pyg_key):
+					pygame2PygletKey[pygame_key]=lambda event, mod: self.dispatch_event(event, pyg_key, mod)
+				scopeLimit(pyglet_key)
                         pygame2PygletKey[k.K_ESCAPE]=lambda event, mod: self.finish()
 
+				
                         eventActions[pygame.KEYDOWN]=lambda event: (pygame2PygletKey[event.key]('on_key_press', event.mod))
                         eventActions[pygame.KEYUP]=lambda event: (pygame2PygletKey[event.key]('on_key_release', event.mod))
 			Window.register_event_type('on_mouse_drag');
