@@ -1,4 +1,5 @@
-from pyglet.window import key, mouse
+from wrapper import key, mouse
+#from pyglet.window import mouse
 from time import time
 from util import repeat
 
@@ -48,15 +49,19 @@ class KeyAction(Action):
 
     def getState(self):
         if KeyAction.__KEYS[self.__k1]:
+            #print 'KeyAction.getState. 1: '+str(self.__k1)
             return 1
         if self.__k2 is not None and KeyAction.__KEYS[self.__k2]:
+            #print 'KeyAction.getState. -1'+str(self.__k1)
             return -1
         return 0
 
     def matches(self, symbol, modifier):
         if self.__k1==symbol and self.__mod==modifier:
+            #print 'KeyAction.matches 1: '+str(self.__k1)
             return True
         if self.__k2!=None and self.__k2==symbol and self.__mod==modifier:
+            #print 'KeyAction.matches 2: '+str(self.__k2)
             return True
         return False
 
@@ -121,6 +126,7 @@ class Controller:
     CAM_ZOOM=Controls("camera zoom")
     CAM_MOUSE_LOOK_X=Controls("mouse look x")
     CAM_MOUSE_LOOK_Y=Controls("mouse look y")
+    CAM_SUBJECT_CHANGE=Controls("next camera subject")
     TOG_MOUSE_CAP =Controls("toggle mouse capture")
     TOG_FULLSCREEN =Controls("toggle fullscreen")
     TOG_SOUND_EFFECTS =Controls("toggle sound effects")
@@ -131,10 +137,10 @@ class Controller:
 
     def __init__(self, controls, win):
 	if not win in Controller.__WINS:
-            @win.event
-            def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
-                for c in Controller.__INSTANCES:
-                    c.__accum_mouse_motion(dx, dy, 0)
+            #@win.event
+            #def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
+            #    for c in Controller.__INSTANCES:
+            #        c.__accum_mouse_motion(dx, dy, 0)
 
             @win.event
             def on_mouse_motion(x, y, dx, dy):
@@ -174,7 +180,6 @@ class Controller:
             self.__control_types[v.__class__][k]=v
 
         self.__controls_list = self.__controls.keys()
-        print 'Controller.__init__. self: '+str(self)+' controls: '+str(self.__controls_list)
         self.__on_key_press=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if action.checkOnPress()]
         self.__on_key_press_not=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if not action.checkOnPress()]
         self.__vals=dict([ (c, c.default_val) for c in self.__controls]);

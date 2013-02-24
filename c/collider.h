@@ -6,6 +6,94 @@
 #include <Eigen/Geometry>
 #include "rtu.h"
 #include "types.h"
+#ifdef OPEN_GL
+#include <GL/glew.h>
+#include <GL/glu.h>
+#else
+#include "nogl.h"
+#endif
+
+#define PATH_LEN 256
+#define TAG_LEN 32
+
+typedef enum {line,tri,quad,empty} primitiveType;
+
+typedef struct {
+	float				x,y,z;
+} obj_vector;
+
+typedef struct {
+  float32				x,y,z;
+  float32				u,v;
+  obj_vector			norm;		//vertex normal
+  ubyte				shared;		//holds number of primitives sharing this vertex
+  uint32 id;
+} obj_vertex;
+
+typedef struct {
+	float				x,y,z;
+	float				ax,ay,az;
+} obj_plot_position;
+
+typedef struct OBJ_3DPRIMITIVE
+{
+  obj_vertex			*vertex_list;
+  obj_vertex			*vert[4];
+  float				r,g,b;			//primitives colour
+  struct OBJ_3DPRIMITIVE	*next_ref;	//pointer to the next node
+  //points to NULL if last in obj
+  primitiveType		type;		//describes the type of the data held
+  unsigned int		flags;		//holds details about normals/shiny surface etc.		
+  //float scale;
+  uint32 uv_id;
+  uint32 id;
+} obj_3dPrimitive;
+
+typedef struct {
+#define NO_VBO 0xffffffff
+  GLuint vbo;
+#define NO_IBO 0xffffffff
+  GLuint ibo;
+  uint32 num_prims;
+  GLuint num_indices;
+  uint32 num_vert_components;
+  uint32 num_col_components;
+  uint32 num_norm_components;
+  uint32 stride;
+} obj_vbo;
+
+class obj_3dMesh {
+ public:
+  obj_3dPrimitive *p_prim;
+  Eigen::Vector3d mid;
+  obj_vertex min;
+  obj_vertex max;
+  uint32 num_uv_maps;
+  uint32 *p_tex_ids;
+  uint32 *p_tex_widths;
+  uint32 *p_tex_heights;
+  uint32 *p_tex_flags;
+  uint8 **pp_tex_paths;
+  uint8 mesh_path[PATH_LEN];
+#define PRIMARY_TAG "primary"
+#define WING_TAG "wing"
+#define TAIL_TAG "tail"
+#define FUELTANK_TAG "fueltank"
+#define VICINITY_TAG "vicinity"
+  uint8 tag[TAG_LEN];
+  uint32 num_prims;
+
+  //uint32 num_colliders;
+  //obj_collider *p_colliders;
+
+#define NO_VBO_GROUP 0xffffffff
+#define NO_VBO_GROUP_EVER 0xfffffffe
+  uint32 vbo_group;
+  obj_vbo vbo;
+  void *p_vert_start;
+  void *p_vert_end;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
 
 class obj_sphere {
  public:
@@ -148,6 +236,10 @@ private:
   bool allowDeep;
 };
 
+obj_3dMesh** col_getMeshes();
+uint32 col_numMeshes();
+
+oError	col_objCreate(obj_3dMesh **obj, char *fname, float obj_scaler, unsigned int flags, uint32 vbo_group);
 void col_deleteTransCols(obj_transformedCollider *p_col);
 void *col_allocTransCols(obj_collider *p_origCol);
 void *col_allocColliders(uint32 num_colliders);
@@ -170,4 +262,8 @@ bool col_CheckCollider(const obj_transformedCollider *p_col,
 inline bool col_PtCollisionCheck(const obj_transformedCollider *p_col, uint32 idx, const Eigen::Vector3d &oldPoint, const Eigen::Vector3d &point);
 inline bool col_ColCollisionCheck(const obj_transformedCollider *p_me, uint32 meIdx, 
 				  const obj_transformedCollider *p_other, uint32 oIdx);
+void col_objDelete(obj_3dMesh **pp_mesh);
+const obj_plot_position & col_getPos();
+void col_setPosition(float plotPos[]);
+
 #endif

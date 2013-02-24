@@ -21,14 +21,13 @@ from euclid import *
 import glob
 import manage
 import mesh
-from pyglet.gl import *
-from pyglet.window import key
 import time
 from util import *
 from math import *
 #import pdb
 import threading
 from traceback import print_exc
+from wrapper import *
 
 ##[3]Spitfire Mk.XIV
 ##
