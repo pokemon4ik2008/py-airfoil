@@ -442,7 +442,6 @@ class MyAirfoil(Airfoil, ControlledSer):
 		#and not on every frame until it clears the plane
 		return False
 	if b.collisionForType(self.getId()):
-		print 'count '+str(mesh.colModels[self.getId()].num_collisions)
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
 			#print 'bullet collisions: '+str(mesh.colModels[self.getId()].num_collisions)

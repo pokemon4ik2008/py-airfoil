@@ -186,11 +186,11 @@ class Query(Mirrorable):
     def __init__(self, typ, ident=None, proxy=None, uniq=None):
         Mirrorable.__init__(self, typ, ident, proxy, uniq)
         self._client_id=SERVICE_SYS
-        print 'Query.__init__. uniq: '+str((self._client_id, self._ident))
+        #print 'Query.__init__. uniq: '+str((self._client_id, self._ident))
         self._flags &= ~Mirrorable.DROPPABLE_FLAG
 
     def __setHandle(self, handle):
-        print '__setHandle. handle: '+str(handle)
+        #print '__setHandle. handle: '+str(handle)
         self._handle=handle
         return self
         
@@ -206,7 +206,7 @@ class Query(Mirrorable):
         Query.req_handle+=1
         Query.req_handle%=Query._HANDLE_MOD
         Query.on_replies[self._handle]=onReply
-        print 'post. on_replies: '+str(Query.on_replies)
+        #print 'post. on_replies: '+str(Query.on_replies)
         self.markChanged()
         
     def execute(self, ser):
@@ -220,7 +220,7 @@ class Query(Mirrorable):
     def serialise(self):
             ser=Mirrorable.serialise(self)
             ser.append(self._handle)
-            print 'Query.serialise. handle: '+str(self._handle)
+            #print 'Query.serialise. handle: '+str(self._handle)
             #ser.extend(int2Bytes(self._handle, Query._HANDLE_SIZE))
             return ser
 
@@ -232,7 +232,7 @@ class Query(Mirrorable):
     def _handleResponse(self):
         try:
             if self.myBot():
-                print '_handleResponse. handle: '+str(self._handle)+' on_replies: '+str(Query.on_replies)
+                #print '_handleResponse. handle: '+str(self._handle)+' on_replies: '+str(Query.on_replies)
                 assert self._handle in Query.on_replies
                 Query.on_replies[self._handle](self)
                 del Query.on_replies[self._handle]

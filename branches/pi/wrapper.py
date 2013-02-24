@@ -296,6 +296,11 @@ else:
                         print 'quitting'
                 alive=False
 
+	class EventException(Exception):
+	    '''An exception raised when an event handler could not be attached.
+	    '''
+	    pass
+
 	EVENT_HANDLED=True
 	EVENT_UNHANDLED=False
 	class EventDispatcher:
@@ -322,11 +327,14 @@ else:
 					    return True
 			    else:
 				    # Single instance with magically named methods
-				    for name in dir(obj):
-					    if name in self.__NAMES__:
-						    print 'dispatch_event.obj: '+event
-						    if getattr(obj, name)(*args) != EVENT_UNHANDLED:
-							    return True
+				    #for name in dir(obj):
+				    #    if name==event and name in self.__NAMES__:
+				    #	    print 'dispatch_event.obj: '+event
+				    try:
+					    if getattr(obj, event)(*args) != EVENT_UNHANDLED:
+						    return True
+				    except:
+					    raise EventException('Unknown method "%s"' % event)
 			return False
 
                 def push_handlers(self, *args, **kwargs):

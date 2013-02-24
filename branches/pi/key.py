@@ -82,8 +82,10 @@ class KeyStateHandler(dict):
 
     '''
     def on_key_press(self, symbol, modifiers):
+        #print 'KeyStateHandler. on_key_press'
         self[symbol] = True
     def on_key_release(self, symbol, modifiers):
+        #print 'KeyStateHandler. on_key_release'
         self[symbol] = False
     def __getitem__(self, key):
         #print 'KeyHandler.__getitem__. self: '+str(self)+' key: '+str(key)
