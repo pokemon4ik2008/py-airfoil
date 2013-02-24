@@ -51,19 +51,19 @@ class KeyAction(Action):
 
     def getState(self):
         if KeyAction.__KEYS[self.__k1]:
-            print 'KeyAction.getState. 1: '+str(self.__k1)
+            #print 'KeyAction.getState. 1: '+str(self.__k1)
             return 1
         if self.__k2 is not None and KeyAction.__KEYS[self.__k2]:
-            print 'KeyAction.getState. -1'+str(self.__k1)
+            #print 'KeyAction.getState. -1'+str(self.__k1)
             return -1
         return 0
 
     def matches(self, symbol, modifier):
         if self.__k1==symbol and self.__mod==modifier:
-            print 'KeyAction.matches 1: '+str(self.__k1)
+            #print 'KeyAction.matches 1: '+str(self.__k1)
             return True
         if self.__k2!=None and self.__k2==symbol and self.__mod==modifier:
-            print 'KeyAction.matches 2: '+str(self.__k2)
+            #print 'KeyAction.matches 2: '+str(self.__k2)
             return True
         return False
 
