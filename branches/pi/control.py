@@ -42,9 +42,7 @@ class KeyAction(Action):
 
     def __init__(self, k1, k2=None, mod=0, onPress=False):
         Action.__init__(self, 'KeyAction: '+str(k1)+' '+str(k2))
-        print 'KeyAction.__init__ '+str(k1)
         self.__k1=k1
-        print 'KeyAction.__init__. '+str(k2)
         self.__k2=k2
         self.__mod=mod
         self.__onPress=onPress
@@ -181,7 +179,6 @@ class Controller:
             self.__control_types[v.__class__][k]=v
 
         self.__controls_list = self.__controls.keys()
-        print 'Controller.__init__. self: '+str(self)+' controls: '+str(self.__controls_list)
         self.__on_key_press=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if action.checkOnPress()]
         self.__on_key_press_not=[control for (control, action) in self.__control_types.get(KeyAction, {}).items() if not action.checkOnPress()]
         self.__vals=dict([ (c, c.default_val) for c in self.__controls]);
