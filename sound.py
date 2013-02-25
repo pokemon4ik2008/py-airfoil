@@ -1,12 +1,12 @@
-import pyglet
 #unable to reuse Players when alsa is the selected driver on Paul's samsung laptop
 #so alsa is disabled for now
 #pyglet.options['audio'] = ('directsound', 'openal', 'alsa', 'silent')
-pyglet.options['audio'] = ('directsound', 'openal', 'silent')
+from wrapper import *
+if api=='pyglet':
+    pyglet.options['audio'] = ('directsound', 'openal', 'silent')
 
 from collections import deque
 from euclid import *
-from pyglet.media import *
 import thread
 from traceback import print_exc
 import manage
@@ -162,13 +162,13 @@ class SoundSlot(object):
         if self.__player:
             self.__player.position=self.__pos
 
-GUN_SND=load('data/gun.wav', streaming=False)
-ENGINE_SND=load('data/spitfire_engine.wav', streaming=False)
-SCREECH_SND=load('data/104026__rutgermuller__Tire_Squeek_www.rutgermuller.wav', streaming=False)
-WIND_SND=load('data/34338__ERH__wind.wav', streaming=False)
-WHIZZ_SND=load('data/90782__kmoon__bullet-flyby-2.wav', streaming=False)
-IMPACT_SND=load('data/116645__woodingp__bullets-hit-edit.wav', streaming=False)
-GRIND_SND=load('data/10338__batchku__no-escape.wav', streaming=False)
+GUN_SND=sndLoad('data/gun.wav', streaming=False)
+ENGINE_SND=sndLoad('data/spitfire_engine.wav', streaming=False)
+SCREECH_SND=sndLoad('data/104026__rutgermuller__Tire_Squeek_www.rutgermuller.wav', streaming=False)
+WIND_SND=sndLoad('data/34338__ERH__wind.wav', streaming=False)
+WHIZZ_SND=sndLoad('data/90782__kmoon__bullet-flyby-2.wav', streaming=False)
+IMPACT_SND=sndLoad('data/116645__woodingp__bullets-hit-edit.wav', streaming=False)
+GRIND_SND=sndLoad('data/10338__batchku__no-escape.wav', streaming=False)
 
 def setListener(eye, pos, zen):
     listener.position=(eye.x, eye.y, eye.z)
