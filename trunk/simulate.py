@@ -31,15 +31,15 @@ from math import sqrt, atan2
 import mesh
 import optparse
 import os
-#import view
 from proxy import *
-import pyglet
-from pyglet.gl import *
-from pyglet import window, font, clock # for pyglet 1.0
-from pyglet.window import key
+#import pyglet
+#from pyglet.gl import *
+#from pyglet import window, font, clock # for pyglet 1.0
+import time
 import random
 from skybox import *
 from sound import *
+from subject import SubjectSelector
 import sys
 from threading import Condition
 from time import sleep
@@ -47,6 +47,8 @@ import traceback
 from traceback import print_exc, print_stack
 from util import X_UNIT, Y_UNIT, Z_UNIT
 from view import EXTERNAL, INTERNAL, View
+import wrapper
+from wrapper import *
 
 def loadTerrain():
 	global cterrain
@@ -101,13 +103,13 @@ class PlanePositionQuery(Query):
               0)]
 
         def __init__(self, ident=None, proxy=None, uniq=None):
-                print 'PlanePositionQuery.__init__'
+                #print 'PlanePositionQuery.__init__'
                 assert len(PlanePositionQuery.PLANE_INITS)==PlanePositionQuery.MAX_POS
                 Query.__init__(self, typ=PlanePositionQuery.TYP, ident=ident, proxy=proxy, uniq=uniq)
                 self.__pos=-1
 
         def setPos(self, pos):
-                print 'PlanePositionQuery.setPos: '+str(pos)
+                #print 'PlanePositionQuery.setPos: '+str(pos)
                 self.__pos=pos
                 return self
 
@@ -119,26 +121,28 @@ class PlanePositionQuery(Query):
                         return PlanePositionQuery.PLANE_INITS[self.__pos]
         
         def execute(self, ser):
-                print 'PlanePositionQuery.execute: '+str(PlanePositionQuery.POS)
+                #print 'PlanePositionQuery.execute: '+str(PlanePositionQuery.POS)
                 Query.execute(self, ser)
                 self.__pos=PlanePositionQuery.POS
                 PlanePositionQuery.POS+=1
                 PlanePositionQuery.POS%=PlanePositionQuery.MAX_POS
             
         def serialise(self):
-                print 'PlanePositionQuery.serialise. sys id: '+str(self._client_id)+' pos: '+str(self.__pos)
+                #print 'PlanePositionQuery.serialise. sys id: '+str(self._client_id)+' pos: '+str(self.__pos)
                 ser=Query.serialise(self)
                 ser.append(self.__pos)
                 return ser
 
         def peekInside(self, ser):
-                print 'PlanePositionQuery.peekInside: sys id: '+str(self._client_id)+' ser: '+str(ser)
+                #print 'PlanePositionQuery.peekInside: sys id: '+str(self._client_id)+' ser: '+str(ser)
                 Query.peekInside(self, ser).setPos(ser[self.__POS_IDX])
                 return self
 
 class MyServer(Server):
         def __init__(self, server=getLocalIP(), own_thread=True):
-                Server.__init__(self, server=server, own_thread=own_thread) 
+                Server.__init__(self, server=server, own_thread=own_thread)
+                
+                #any constructors for server-based queries are listed next 
                 self._ctors={ PlanePositionQuery.TYP: PlanePositionQuery }                
         def getConstructors(self):
                 return self._ctors
@@ -336,9 +340,9 @@ class MyAirfoil(Airfoil, ControlledSer):
 		events[Controller.ROLL]=1
         self.changeThrust(events[Controller.THRUST]*self.__thrustAdjust)
         if events[Controller.PITCH]!=0:
-            self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
+		self.adjustPitch(events[Controller.PITCH]*self.__pitchAdjust)
         if events[Controller.ROLL]!=0:
-            self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
+		self.adjustRoll(-events[Controller.ROLL]*self.__rollAdjust)
 	if events[Controller.FIRE]!=0 and manage.now-self.__last_fire>Airfoil._FIRING_PERIOD:
 		frame_rot=self._attitude*mesh.SETUP_ROT
 		vOff=self.getVelocity().normalized()+frame_rot* Bullet.VEL
@@ -441,7 +445,6 @@ class MyAirfoil(Airfoil, ControlledSer):
 		#and not on every frame until it clears the plane
 		return False
 	if b.collisionForType(self.getId()):
-		print 'count '+str(mesh.colModels[self.getId()].num_collisions)
 		#import pdb; pdb.set_trace()
 		if b.TYP==Bullet.TYP:
 			#print 'bullet collisions: '+str(mesh.colModels[self.getId()].num_collisions)
@@ -477,6 +480,8 @@ def init():
 
                 option('-2', '--two', dest='two_player', action='store_true', default=False,
                         help='Two player split screen action')
+                option('-s', '--split', dest='split', action='store_true', default=False,
+                        help='Split screen, even if there\'s only one player')
                 option('-S', '--server', dest='server', type='str', default=None,
                         help='Create a server using at this IP / domain')
                 option('-C', '--client', dest='client', type='str', default=None,
@@ -484,6 +489,7 @@ def init():
                 man.opt, args = parser.parse_args()
                 if args: raise optparse.OptParseError('Unrecognized args: %s' % args)
 
+                #All object and server query constructors are listed next
                 factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet, PlanePositionQuery.TYP: PlanePositionQuery })
 
                 scale=3.0
@@ -511,15 +517,15 @@ def init():
 
                 if not interactive:
                         print 'init. not interactive'
-                        return (0, [], time.time())
+                        return (0, [], time.time(), 0)
 
+                print 'init(). starting'
                 waitForClient(man.proxy)
 
                 global mouse_cap, fullscreen, views, planes, bots, skybox
                 mouse_cap=True
                 fullscreen=False
                 views = []
-                clock = pyglet.clock.Clock()
                 loadTerrain()
                 #r = 0.0
 
@@ -557,11 +563,17 @@ def init():
                                   }, views)
 
                 planes = {}
-                plane_ids=[]
+                plane_ids= []
+                
                 if man.opt.two_player==True:
                         num_players=2
                 else:
                         num_players=1
+                        
+                num_views=num_players
+                if man.opt.split==True:
+                        num_views=2
+
                 assert num_players<=PlanePositionQuery.MAX_POS
                         
                 plane_inits=[]
@@ -577,22 +589,24 @@ def init():
                         plane = MyAirfoil(pos=pos, attitude=att, velocity=vel, thrust=thrust, proxy=man.proxy)
                         plane_ids.append(plane.getId())
                         planes[plane.getId()]=plane
-                        view = View(plane, num_players, man.opt)
+
+                print 'planes: '+str(planes)
+                for i in range(num_views):
+                        print 'idx: '+str(i%num_players)
+                        plane=planes[plane_ids[i%num_players]]
+                        view = View(plane, num_views, man.opt)
                         views.append(view)
 
-                if man.opt.two_player==True:
-                        num_players=2
-                else:
-                        num_players=1
+                SubjectSelector(man.proxy, [ MyAirfoil.TYP ], views)
+                        
                 bots=[]
                 skybox = Skybox()
                 start_time=time.time()
-                print 'startup current ctx: '+str(glx.glXGetCurrentContext())
-                return num_players, plane_ids, start_time
+                return num_players, plane_ids, start_time, num_views
         except:
                 print_exc()
                 start_time=time.time()
-                return 0, [], start_time
+                return 0, [], start_time, 0
 
 def ptrOn(st=True):
 	# kw. set_exclusive_mouse called twice due to Pyglet bug in X windows.
@@ -611,13 +625,17 @@ def resize(width, height):
 		view.updateDimensions()
 	return pyglet.event.EVENT_HANDLED
 
-def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
-	config_template=pyglet.gl.Config(double_buffer=True, depth_size=24)
+def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
+        if num_views==None:
+                num_views=num_players
+                
+	config_template=Config(double_buffer=True, depth_size=24)
 	global win
 	if fs:
-		win = pyglet.window.Window(fullscreen=True, config=config_template)
+		win = wrapper.Window(fullscreen=True, config=config_template)
 	else:
-		win = pyglet.window.Window(width=w, height=h, resizable=False, config=config_template)
+		win = wrapper.Window(width=w, height=h, resizable=False, config=config_template)
+        print 'setupWin. '+str(win)
 	win.set_vsync(False)
 	win.on_resize=resize       
 	global win_ctrls
@@ -627,41 +645,50 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	
 	global player_keys
 	player_keys = []
+        view_keys=[]
 	if num_players==2:
 		player_keys.extend([Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
 						(Controller.FIRE, KeyAction(key.R)),
 						(Controller.PITCH, KeyAction(key.S, key.W)),
-						(Controller.ROLL, KeyAction(key.A, key.D)),
-						(Controller.CAM_FIXED, KeyAction(key._1)),
+						(Controller.ROLL, KeyAction(key.A, key.D))], 
+			       win),
+				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
+						(Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
+						(Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
+						(Controller.ROLL, MouseAction(-0.00010, MouseAction.X))], 
+					      win)])
+	else:
+			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
+						       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
+						       (Controller.PITCH, KeyAction(key.S, key.W)),
+						       (Controller.ROLL, KeyAction(key.A, key.D))],
+		       win))
+	if num_views==2:
+		view_keys.extend([Controller([(Controller.CAM_FIXED, KeyAction(key._1)),
 						(Controller.CAM_FOLLOW, KeyAction(key._2)),
 						(Controller.CAM_INTERNAL, KeyAction(key._3)),
 						(Controller.CAM_Z, KeyAction(key.C, key.V)),
 						(Controller.CAM_X, KeyAction(key.Z, key.X)),
 						(Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
 						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
-						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
+						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION),
+                                                (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._4, key._5, onPress=True))], 
 			       win),
-				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-						(Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-						(Controller.CAM_FIXED, KeyAction(key._8)),
+				    Controller([(Controller.CAM_FIXED, KeyAction(key._8)),
 						(Controller.CAM_FOLLOW, KeyAction(key._9)), 
 						(Controller.CAM_INTERNAL, KeyAction(key._0)), 
-						(Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
-						(Controller.ROLL, MouseAction(-0.00010, MouseAction.X)),
 						(Controller.CAM_X, KeyAction(key.O, key.P)), 
 						(Controller.CAM_Z, MouseAction(-0.0025, MouseAction.Z)),
 						(Controller.CAM_ZOOM, KeyAction(key.J, key.K)),
 						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
-						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION)], 
+						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION),
+                                                (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._6, key._7, onPress=True))], 
 					      win)])
 	else:
-			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
-						       (Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-						       (Controller.PITCH, KeyAction(key.S, key.W)),
-						       (Controller.ROLL, KeyAction(key.A, key.D)),
-						       (Controller.CAM_FIXED, KeyAction(key._1)),
+			view_keys.append(Controller([(Controller.CAM_FIXED, KeyAction(key._1)),
 						       (Controller.CAM_FOLLOW, KeyAction(key._2)),
 						       (Controller.CAM_INTERNAL, KeyAction(key._3)),
+                                                       (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._4, key._5, onPress=True)),
 						       (Controller.CAM_Z, KeyAction(key.C, key.V)),
 						       (Controller.CAM_X, KeyAction(key.Z, key.X)),
 						       (Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
@@ -671,7 +698,10 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	for i in range(num_players):
 		print 'planes: '+str(planes)+' '+str(player_keys[i])
 		planes[plane_ids[i]].setControls(player_keys[i])
-		views[i].setViewController(win, player_keys[0])
+
+        for i in range(num_views):
+                print 'view: '+str(i)
+		views[i].setViewController(win, view_keys[i])
 
 
 	glClearColor(Skybox.FOG_GREY, Skybox.FOG_GREY, Skybox.FOG_GREY, 1.0)
@@ -685,7 +715,7 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600):
 	glLightfv(GL_LIGHT0, GL_SPECULAR, fourfv(0.05, 0.05, 0.05, 1.0))
 	lightPosition = fourfv(0.0,1000.0,1.0,1.0)
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)	
-	mesh.object3dLib.setLightPosition(lightPosition)
+	wrapper.setLightPosition(lightPosition)
 	glEnable(GL_DEPTH_TEST)
 	glEnable(GL_CULL_FACE)
 	glDepthFunc(GL_LEQUAL)
@@ -765,7 +795,7 @@ def timeSlice(dt):
 
 				for bot in bots:
 					if bot.alive():
-						mesh.draw(bot, view)
+                                                mesh.draw(bot, view)
 
 				#destructible_types=[MyAirfoil.Type]
 				#for destructible in man.proxy.getTypeObjs(destructible_tpes):
@@ -777,7 +807,6 @@ def timeSlice(dt):
 				view.eventCheck()
 				glLoadIdentity()
 				view.drawText()
-				#dt=clock.tick()
 
 			setListener(views[0].getEye(), views[0].getPos(), views[0].getZen())
 
@@ -798,7 +827,7 @@ def timeSlice(dt):
 
 			return
 		else:
-                        pyglet.app.exit()
+                        appExit()
 	except Exception:
 		traceback.print_exc()
 		man.proxy.markDead()
@@ -809,19 +838,21 @@ def timeSlice(dt):
 
 def run():
         num_players=0
-        num_players, plane_ids, start_time=init()
+        num_players, plane_ids, start_time, num_views=init()
         if num_players>0:
-                #pyglet.clock.schedule_interval(timeSlice, 1/60.0)
-                pyglet.clock.schedule(timeSlice)
+                wrapper.schedule(timeSlice)
                 while man.proxy.alive():
-                    setupWin(num_players, plane_ids, fs=fullscreen)
+                    setupWin(num_players, plane_ids, fs=fullscreen, num_views=num_views)
                     glFinish()
                     mesh.createVBOs(mesh.vbo_meshes)
                     glFinish()
                     ptrOn(mouse_cap)
-                    pyglet.app.run()
+                    print 'run. before wrapper.run'
+                    wrapper.run()
+                    print 'run. after wrapper.run'
                     glFinish()
 
+                print 'run. done'
                 flush_start=time.time()
                 while not man.proxy.attemptSendAll():
                         if time()-flush_start>3:
@@ -851,7 +882,6 @@ def run():
 	mesh.deleteMeshes()
 	mesh.deleteColliders()
 	print 'quitting main thread'
-        print "fps:  %d" % clock.get_fps()
 	end_time=time.time()
 	if man.proxy:
                 [ mesh.freeCollider(bot.getId()) for bot in man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ])]

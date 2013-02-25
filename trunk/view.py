@@ -1,7 +1,7 @@
 from control import Controller
 from euclid import *
-from pyglet.gl import *
 from util import X_UNIT, Y_UNIT, Z_UNIT
+from wrapper import *
 
 class ViewType:
     def __init__(self, name):
@@ -104,26 +104,31 @@ class InternalCam(FixedCam):
         if self._xrot<-10:
             self._xrot=-10
             
-class View(pyglet.event.EventDispatcher):
+class View(EventDispatcher):
     __FOLLOW=0
     __FIXED=1
     __INTERNAL=2
     __VIEW_COUNT=0
 
-    def __init__(self, plane, num_players, opt):
+    def __init__(self, plane, num_views, opt):
         self.__opt=opt
-        self.__cams=[FollowCam(plane), FixedCam(plane), InternalCam(plane)]
-        self.__currentCamera = self.__cams[View.__FIXED]
-        self.v_type=self.__currentCamera.TYPE
+        self.link(plane)
         self.__controls=None
-        self.__plane_id=plane.getId()
         self.view_id=View.__VIEW_COUNT
         View.__VIEW_COUNT+=1
         self.__win=None
-        self.__num_players=num_players
+        self.__num_views=num_views
         #(self.__xrot, self.__zrot, self.__zoom) = self.__currentCamera.vantage
         self.__screenMessage=''
-      
+
+    def link(self, plane):
+        if plane is None:
+            return
+        self.__cams=[FollowCam(plane), FixedCam(plane), InternalCam(plane)]
+        self.__currentCamera = self.__cams[View.__FIXED]
+        self.v_type=self.__currentCamera.TYPE
+        self.__plane_id=plane.getId()
+        
     def setViewController(self, win, controller):
         self.__win=win
         self.__controls=controller
@@ -132,15 +137,15 @@ class View(pyglet.event.EventDispatcher):
     def updateDimensions(self):
         print self.__win.width, self.__win.height
         self.__width=self.__win.width
-        self.__height=self.__win.height/self.__num_players
-        (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_players -1 - self.view_id))
-        if self.__num_players==1:
+        self.__height=self.__win.height/self.__num_views
+        (self.__xOrig, self.__yOrig) = (0, self.__height*(self.__num_views -1 - self.view_id))
+        if self.__num_views==1:
             f_size=16
             width_offset=self.__win.width*0.5
         else:
             f_size=24
             width_offset=self.__win.width*0.75
-        self.__label = pyglet.text.Label('bla',
+        self.__label = Label('bla',
                           font_name='Times New Roman',
                           font_size=f_size,
                           x= - width_offset, y=self.__win.height/2.0,
@@ -152,7 +157,7 @@ class View(pyglet.event.EventDispatcher):
 
     def getPlaneId(self):
         return self.__plane_id
-
+        
     def eventCheck(self):
         interesting_events = [Controller.CAM_FIXED, 
                               Controller.CAM_FOLLOW, 
@@ -161,19 +166,23 @@ class View(pyglet.event.EventDispatcher):
                               Controller.CAM_Z,
                               Controller.CAM_ZOOM,
                               Controller.CAM_MOUSE_LOOK_X,
-                              Controller.CAM_MOUSE_LOOK_Y
+                              Controller.CAM_MOUSE_LOOK_Y,
+                              Controller.CAM_SUBJECT_CHANGE
                               ]
         events = self.__controls.eventCheck(interesting_events)
 
         if events[Controller.CAM_FOLLOW]!=0:
             self.__currentCamera = self.__cams[View.__FOLLOW]
-            self.dispatch_event('view_change', self.view_id)
+            self.dispatch_event('on_view_change', self.view_id)
         if events[Controller.CAM_FIXED]!=0:
             self.__currentCamera = self.__cams[View.__FIXED]
-            self.dispatch_event('view_change', self.view_id)
+            self.dispatch_event('on_view_change', self.view_id)
         if events[Controller.CAM_INTERNAL]!=0:
             self.__currentCamera = self.__cams[View.__INTERNAL]
-            self.dispatch_event('view_change', self.view_id)
+            self.dispatch_event('on_view_change', self.view_id)
+        if events[Controller.CAM_SUBJECT_CHANGE]!=0:
+            print 'View. changing subject'
+            self.dispatch_event('on_subject_change', self, events[Controller.CAM_SUBJECT_CHANGE])
         self.v_type=self.__currentCamera.TYPE
         self.__currentCamera.update(events[Controller.CAM_X],
                                     events[Controller.CAM_Z],
@@ -227,4 +236,6 @@ class View(pyglet.event.EventDispatcher):
 
     def __clearText(self):
         self.__screenMessage = ''
-View.register_event_type('view_change')
+
+View.register_event_type('on_view_change')
+View.register_event_type('on_subject_change')

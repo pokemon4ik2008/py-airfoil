@@ -5,16 +5,14 @@ import glob
 import itertools
 from math import cos, degrees, sin
 import manage
-from manage import object3dLib
-import pyglet
-from pyglet.gl import *
+from manage import collider
 import random
 import sys
 from traceback import print_exc
 from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath
 
-from pyglet import image
-from pyglet.gl import *
+import wrapper
+from wrapper import *
 
 PRIMARY_COL=0x1
 WING_COL=0x2
@@ -71,13 +69,13 @@ def transformBot(bot):
     fpos[0] = bot._pos.x
     fpos[1] = bot._pos.y
     fpos[2] = bot._pos.z
-    object3dLib.setPosition(fpos)
+    collider.setPosition(fpos)
     
     fpos[0] = axis.x
     fpos[1] = axis.y
     fpos[2] = axis.z
     
-    object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+    setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
 
 def draw(bot, view):
     bot.frame_rot=bot._attitude*SETUP_ROT
@@ -86,7 +84,7 @@ def draw(bot, view):
         for v in vbos[(bot.TYP, v_type)]:
             glPushMatrix()
             transformBot(bot)
-            object3dLib.drawVBO(v)
+            wrapper.drawVBO(v)
             glPopMatrix()
     if (bot.TYP, v_type) in meshes:
         count=0
@@ -99,6 +97,7 @@ def draw(bot, view):
 
 NO_VBO_GROUP=0xffffffff
 def loadMeshes(mesh_paths, views):
+    print 'loadMeshes. mesh_paths: '+str(mesh_paths)
     lookup = {}
     global meshes
     meshes = {}
@@ -123,8 +122,9 @@ def loadMeshes(mesh_paths, views):
         else:
             return group
 
+    print 'loadMeshes: paths: '+str(paths)
     for key in mesh_paths:
-        meshes[key]=[ cls(object3dLib.load(path, scale, c_ifyGroup(group)),
+        meshes[key]=[ cls(collider.load(path, scale, c_ifyGroup(group)),
                           views, key, group)
                            for (path, (cls, scale, group)) in paths[key]]
 
@@ -147,7 +147,7 @@ def createVBOs(mesh_map):
 
     vbo_map={}
     for g in all_vbo_groups:
-        vbo_map[g]=object3dLib.createVBO(g)
+        vbo_map[g]=wrapper.createVBO(g)
         all_vbos.append(vbo_map[g])
         
     for key in mesh_map:
@@ -159,14 +159,14 @@ def deleteVBOs():
     global all_vbos
     for vbo in all_vbos:
         print 'deleting vbo'
-        object3dLib.deleteVBO(vbo)
+        wrapper.deleteVBO(vbo)
     all_vbos=[]
     #TODO rebuild vbos dict
 
 def deleteMeshes():
     global all_meshes
     for mesh in all_meshes:
-        object3dLib.deleteMesh(mesh)
+        wrapper.deleteMesh(mesh)
     all_meshes=[]
     deleteVBOs()
 
@@ -182,8 +182,9 @@ class Mesh(object):
         else:
             self._sibs={}
             name_to_mesh[mesh_key]=self._sibs
-        self._mesh_path=object3dLib.getMeshPath(self.mesh)
+        self._mesh_path=collider.getMeshPath(self.mesh)
         self._sibs[self._mesh_path]=self
+        print 'Mesh. initialising path: '+str(self._mesh_path)
             
         # self.texImages exists only to maintain a reference to the textures, ensuring that it isn't deleted during garbage collection
         self.texImages=[]
@@ -223,22 +224,22 @@ class Mesh(object):
         
     def upload_textures(self, gen_fbo=False):
         uvId=0
-        c_path=object3dLib.getUvPath(self.mesh, uvId)
+        c_path=wrapper.getUvPath(self.mesh, uvId)
         while c_path!=None:
             path=c_path
-            img=image.load(path)
+            img=wrapper.imageLoad(path)
             tex=img.get_texture()
             self.texImages.append((path,img))
             self.uvId.append(uvId)
-            object3dLib.setupTex(self.mesh, uvId, tex.id)
+            wrapper.setupTex(self.mesh, uvId, tex.id)
             #object3dLib.createTexture(self.mesh,
             #                          uvId, img.get_data('RGBA', img.width*len('RGBA')), img.width, img.height, GL_RGBA)
             uvId+=1
-            c_path=object3dLib.getUvPath(self.mesh, uvId)
+            c_path=wrapper.getUvPath(self.mesh, uvId)
             if c_path is not None:
                 print "upload_textures: "+str(tex.target)+" id: "+str(tex.id)+" tex: "+str(tex.get_texture())+" coords: "+str(tex.tex_coords)+" path: "+c_path
 
-    def view_change(self, view):
+    def on_view_change(self, view):
         new_details={}
         for (view_id, bot_id) in self._bot_details:
             if view_id is not view:
@@ -263,46 +264,46 @@ class Mesh(object):
         fpos[0] = offset.x
         fpos[1] = offset.y
         fpos[2] = offset.z
-        object3dLib.setPosition(fpos)
+        collider.setPosition(fpos)
         #print 'python. set pos: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
         fpos[0] = axis.x
         fpos[1] = axis.y
         fpos[2] = axis.z
         
-        object3dLib.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
+        collider.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
         #print 'python. set rot: '+str(degrees(angleAxis[0]))+' axis: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
 
     def drawRotatedToTexAlpha(self, bot, angle_quat, centre_mesh, fbo, width, height, bg, alpha, boundPlane, top):
         rot=angle_quat
         mid = (c_float * 3)()
-        object3dLib.getMid(centre_mesh, mid)
+        wrapper.getMid(centre_mesh, mid)
         #midPt=Vector3(mid[0], mid[1], mid[2])
         #self.setupRotation(NULL_VEC, rot, midPt)
-        object3dLib.setupRotation(
+        wrapper.setupRotation(
             NULL_VEC.x, NULL_VEC.y, NULL_VEC.z,
             rot.x, rot.y, rot.z,
             mid[0], mid[1], mid[2],
             mid[0], mid[1], mid[2]
             )
-        object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bg, boundPlane, top)
+        wrapper.drawToTex(self.mesh, alpha, fbo, width, height, bg, boundPlane, top)
 
     def drawToTexAlpha(self, fbo, width, height, bgTex, alpha, boundPlane, top):
         fpos = (c_float * 3)()
         fpos[0] = 0.0
         fpos[1] = 0.0
         fpos[2] = 0.0
-        object3dLib.setPosition(fpos)
+        collider.setPosition(fpos)
         setup_angle_axis=NULL_ROT.get_angle_axis()
         setup_axis=setup_angle_axis[1].normalized()
         fpos[0] = setup_axis.x
         fpos[1] = setup_axis.y
         fpos[2] = setup_axis.z
-        object3dLib.setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
-        object3dLib.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
+        collider.setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
+        wrapper.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
 
     def draw(self, bot, view_id):
         transformBot(bot)
-        object3dLib.draw(self.mesh, 1.0)
+        wrapper.draw(self.mesh, 1.0)
 
     def drawRotated(self, bot, angle_quat, centre_mesh, alpha=1.0):
         # rot=bot.getAttitude()*angle_quat*SETUP_ROT
@@ -325,11 +326,11 @@ class Mesh(object):
 
         p=bot.getPos();
         a=bot.getAttitude();
-        object3dLib.drawRotated(p.x, p.y, p.z,
+        wrapper.drawRotated(p.x, p.y, p.z,
                                 a.w, a.x, a.y, a.z,
                                 angle_quat.w, angle_quat.x, angle_quat.y, angle_quat.z,
                                 centre_mesh, alpha, self.mesh);
-        object3dLib.draw(self.mesh, alpha)
+        wrapper.draw(self.mesh, alpha)
 
 
 class PropMesh(Mesh):
@@ -368,8 +369,11 @@ class PropBlendMesh(Mesh):
         Mesh.__init__(self, *args, **kwargs)
 
     def finishInit(self):
-        self.__prop=self._sibs['data/models/cockpit/E_Prop.csv']
-
+        if 'data/models/cockpit/E_Prop.csv' in self._sibs:
+            self.__prop=self._sibs['data/models/cockpit/E_Prop.csv']
+        else:
+            self.draw=lambda bot, view_id: None
+            
     def draw(self, bot, view_id):
         glDepthMask(False)
         self.drawRotated(bot, Quaternion.new_rotate_axis(-self.__prop.ang, X_UNIT), self._sibs['data/models/cockpit/E_PropPivot.csv'].mesh, self.__prop.alpha)
@@ -499,15 +503,15 @@ def loadColliders( colliders ):
         #lookup_paths[typ][:]=[ (getNativePath(p), scale)
         #                       for (p, scale) in lookup_paths[typ] ]
         num_paths=len(lookup_paths[typ])
-        coll_arr=object3dLib.allocColliders(num_paths)
+        coll_arr=collider.allocColliders(num_paths)
         #lookup_colliders[typ]=object3dLib.allocColliders(num_paths)
         idx=0
         print 'loadColliders. in paths: '+str((typ, path_list, scale))
         for (path, scale) in lookup_paths[typ]:
             print 'loadColliders. pathScale: '+str((path,scale))
-            object3dLib.loadCollider(coll_arr, idx, path, scale)
+            collider.loadCollider(coll_arr, idx, path, scale)
             idx+=1
-        object3dLib.identifyBigCollider(coll_arr, num_paths)
+        collider.identifyBigCollider(coll_arr, num_paths)
         manage.lookup_colliders[typ]=(num_paths, coll_arr)
 
 
@@ -523,6 +527,7 @@ def initCollider(typ, ident):
         import pdb; pdb.set_trace()
 
 def freeCollider(ident):
+    print 'freeCollider. start'
     global colModels
     if ident in colModels:
         mod=colModels[ident]
@@ -530,6 +535,7 @@ def freeCollider(ident):
         del(colModels[ident])
 
 def deleteColliders():
+    print 'deleteColliders. start'
     #global all_colliders
     #for (num, arr) in manage.lookup_colliders.values():
     #    object3dLib.deleteColliders(num, arr)
@@ -554,7 +560,7 @@ def collidedCollider(id1, id2):
         assert id1 in colModels and id2 in colModels
         m1=colModels[id1]
         m2=colModels[id2]
-        return object3dLib.checkCollisionCol(m1.colliders, m2.colliders,
+        return collider.checkCollisionCol(m1.colliders, m2.colliders,
                                              byref(m1.num_collisions), m1.results,
                                              byref(m2.num_collisions), m2.results)
     except AssertionError:
@@ -566,7 +572,7 @@ def collidedPoint(id1, oldPt, newPt):
     try:
         assert id1 in colModels
         m1=colModels[id1]
-        return object3dLib.checkCollisionPoint(m1.colliders, oldPt.x, oldPt.y, oldPt.z,
+        return collider.checkCollisionPoint(m1.colliders, oldPt.x, oldPt.y, oldPt.z,
                                                newPt.x, newPt.y, newPt.z,
                                                byref(m1.num_collisions), m1.results)
     except AssertionError:
@@ -580,15 +586,15 @@ class CollisionModel:
         ArrayType=ctypes.c_uint*self._numCols
         self.results=ArrayType()
         self.num_collisions=ctypes.c_uint();
-        self.colliders=manage.object3dLib.allocTransCols(self._origCols)
+        self.colliders=manage.collider.allocTransCols(self._origCols)
 
     def free(self):
-        object3dLib.deleteTransCols(self.colliders)
+        collider.deleteTransCols(self.colliders)
 
     def update(self, pos, att):
         self._forced_y_delta=0.0
         if self._numCols>0:
-            object3dLib.updateColliders( self.colliders, manage.iteration,
+            collider.updateColliders( self.colliders, manage.iteration,
                                          pos.x, pos.y, pos.z,
                                          att.w, att.x,
                                          att.y, att.z )
