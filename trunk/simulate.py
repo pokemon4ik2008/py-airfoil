@@ -416,11 +416,12 @@ class MyAirfoil(Airfoil, ControlledSer):
         obj=Mirrorable.deserialise(self, ser, estimated).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx, vy, vz))
 	obj.thrust=ser[MyAirfoil._THRUST]
 
+        pos=Vector3(px,py,pz)
         if not estimated:
             now=manage.now
             period=now-self.__lastUpdateTime
+
 	    if period>0:
-                pos=Vector3(px,py,pz)
                 self.__lastDelta=(pos-self.__lastKnownPos)/period
                 deltaSquared=self.__lastDelta.magnitude_squared()
                 if deltaSquared>self.__maxDeltaSquared:
@@ -429,6 +430,8 @@ class MyAirfoil(Airfoil, ControlledSer):
                 self.__lastUpdateTime=now
                 self.__lastKnownPos=pos
             self.__corrector.updateCorrection(pos-self.getPos());
+        else:
+            self.setPos(pos)
 	return obj
 
     def _hitGround(self):
