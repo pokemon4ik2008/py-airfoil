@@ -14,7 +14,7 @@ import sys
 from threading import Condition, RLock, Thread
 from time import sleep, time
 from traceback import print_exc, print_stack
-from util import getLocalIP, int2Bytes, bytes2Int, toHexStr
+from util import getLocalIP, int2Bytes, bytes2Int, toHexStr, median3
 
 from async import Scheduler
 
@@ -41,6 +41,36 @@ def waitForClient(proxy, passed=None):
         print 'waitForClient. sleeping'
         sleep(1)
     print 'waitForClient. exiting'
+
+class AmortizedCorrector:
+    def __init__(self, nullCorrection):
+        self.__frame_idx=0
+        self.__frames=[1,1,1]
+        self.__correctionPerFrame=nullCorrection
+        self.__null=nullCorrection
+        self.__numCorrections=0
+        self.__numFrames=0
+        
+    def updateCorrection(self, correction):
+        medianFrames=self.__medianFrames(self.__numFrames)
+        self.__correctionPerFrame=correction/medianFrames
+        self.__numCorrections=medianFrames
+        self.__numFrames=1
+        return self.getCorrection()
+        
+    def getCorrection(self):
+        self.__numFrames+=1
+        
+        if self.__numCorrections>0:
+            self.__numCorrections-=1
+            return self.__correctionPerFrame
+        return self.__null
+        
+    def __medianFrames(self, frames):
+        self.__frames[self.__frame_idx]=frames
+        medianFrames=median3(self.__frames)
+        self.__frame_idx=(self.__frame_idx+1)%3
+        return medianFrames
 
 class Mirrorable:
     META=0

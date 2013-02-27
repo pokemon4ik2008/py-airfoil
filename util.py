@@ -71,6 +71,20 @@ def toHexStr(string):
 def getEffectiveAngle(angle):
     return angle-math.floor(angle/math.pi/2)*math.pi*2
 
+def median3(l):
+    median=maximum=minimum=l
+    for v in l[1:]:
+        if v>maximum:
+            median=maximum
+            maximum=v
+        else:
+            if v<minimum:
+                median=minimum
+                minimum=v
+            else:
+                median=v
+    return median
+                
 if os.name == 'nt':
     getNativePath=lambda s: re.sub(r'/', r'\\', s)
 else:

@@ -321,6 +321,9 @@ class MyAirfoil(Airfoil, ControlledSer):
 
         man.worker.postTask(self.__setupSlots)
         mesh.initCollider(self.TYP, ident)
+
+        self.__maxDeltaSquared=self.__lastDelta.magnitude_squared()
+        self.__corrector=AmortizedCorrector(Vector3(0,0,0))
         
     def setControls(self, c):
         self.__controls=c
@@ -328,7 +331,7 @@ class MyAirfoil(Airfoil, ControlledSer):
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
         self.setPos(self.__lastKnownPos+
-                    (self.__lastDelta*period))
+                    (self.__lastDelta*period)+self.__corrector.getCorrection())
         mesh.updateCollider(self.getId(), self._pos, self._attitude)
 
     def eventCheck(self):
@@ -410,17 +413,22 @@ class MyAirfoil(Airfoil, ControlledSer):
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
         
 	#print 'MyAirfoil.deserialise: '+str((aw, ax, ay, az))
-        obj=Mirrorable.deserialise(self, ser, estimated).setPos(Vector3(px,py,pz)).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx, vy, vz))
+        obj=Mirrorable.deserialise(self, ser, estimated).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx, vy, vz))
 	obj.thrust=ser[MyAirfoil._THRUST]
 
         if not estimated:
             now=manage.now
             period=now-self.__lastUpdateTime
 	    if period>0:
-		    pos=Vector3(px,py,pz)
-		    self.__lastDelta=(pos-self.__lastKnownPos)/period
-		    self.__lastUpdateTime=now
-		    self.__lastKnownPos=pos
+                pos=Vector3(px,py,pz)
+                self.__lastDelta=(pos-self.__lastKnownPos)/period
+                deltaSquared=self.__lastDelta.magnitude_squared()
+                if deltaSquared>self.__maxDeltaSquared:
+                    self.__maxDeltaSquared=deltaSquared
+                    print 'MyAirdoil.deserialise. id: '+str(self.getId())+' delta: '+str(abs(self.__lastDelta))
+                self.__lastUpdateTime=now
+                self.__lastKnownPos=pos
+            self.__corrector.updateCorrection(pos-self.getPos());
 	return obj
 
     def _hitGround(self):
