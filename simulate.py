@@ -323,7 +323,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         mesh.initCollider(self.TYP, ident)
 
         self.__maxDeltaSquared=self.__lastDelta.magnitude_squared()
-        self.__corrector=AmortizedCorrector(Vector3(0,0,0))
+        self.__amortizer=Amortizer();
+        self.__corrector=AmortizedCorrector(Vector3(0,0,0), self.__amortizer)
         
     def setControls(self, c):
         self.__controls=c
@@ -431,6 +432,7 @@ class MyAirfoil(Airfoil, ControlledSer):
                     print 'MyAirdoil.deserialise. id: '+str(self.getId())+' delta: '+str(abs(self.__lastDelta))
                 self.__lastUpdateTime=now
                 self.__lastKnownPos=pos
+            
             self.__corrector.updateCorrection(pos-self.getPos());
             #self.setPos(pos)
         else:
