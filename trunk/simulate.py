@@ -333,6 +333,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.setPos(self.__lastKnownPos+
                     (self.__lastDelta*period)+self.__corrector.getCorrection())
         mesh.updateCollider(self.getId(), self._pos, self._attitude)
+        #self.setPos(self.__lastKnownPos+
+        #            (self.__lastDelta*period))
 
     def eventCheck(self):
         if not Controls:
@@ -430,6 +432,7 @@ class MyAirfoil(Airfoil, ControlledSer):
                 self.__lastUpdateTime=now
                 self.__lastKnownPos=pos
             self.__corrector.updateCorrection(pos-self.getPos());
+            #self.setPos(pos)
         else:
             self.setPos(pos)
 	return obj
