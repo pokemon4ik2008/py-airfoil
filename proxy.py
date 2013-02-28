@@ -42,17 +42,28 @@ def waitForClient(proxy, passed=None):
         sleep(1)
     print 'waitForClient. exiting'
 
-class AmortizedCorrector:
-    def __init__(self, nullCorrection):
+class Amortizer:
+    def __init__(self):
         self.__frame_idx=0
         self.__frames=[1,1,1]
+
+    def medianFrames(self, frames):
+        self.__frames[self.__frame_idx]=frames
+        medianFrames=median3(self.__frames)
+        self.__frame_idx=(self.__frame_idx+1)%3
+        return medianFrames
+
+    
+class AmortizedCorrector:
+    def __init__(self, nullCorrection, amortizer=Amortizer()):
+        self.__amortizer=amortizer
         self.__correctionPerFrame=nullCorrection
         self.__null=nullCorrection
         self.__numCorrections=0
         self.__numFrames=0
         
     def updateCorrection(self, correction):
-        medianFrames=self.__medianFrames(self.__numFrames)
+        medianFrames=self.__amortizer.medianFrames(self.__numFrames)
         self.__correctionPerFrame=correction/medianFrames
         self.__numCorrections=medianFrames
         self.__numFrames=1
@@ -66,12 +77,6 @@ class AmortizedCorrector:
             return self.__correctionPerFrame
         return self.__null
         
-    def __medianFrames(self, frames):
-        self.__frames[self.__frame_idx]=frames
-        medianFrames=median3(self.__frames)
-        self.__frame_idx=(self.__frame_idx+1)%3
-        return medianFrames
-
 class Mirrorable:
     META=0
     NEXT_IDX=META+1
