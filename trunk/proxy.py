@@ -46,36 +46,40 @@ class Amortizer:
     def __init__(self):
         self.__frame_idx=0
         self.__frames=[1,1,1]
+        self.__numCorrections=0
+        self.__numFrames=1
 
-    def medianFrames(self, frames):
-        self.__frames[self.__frame_idx]=frames
-        medianFrames=median3(self.__frames)
+    def medianFrames(self):
+        self.__frames[self.__frame_idx]=self.__numFrames
         self.__frame_idx=(self.__frame_idx+1)%3
+
+        medianFrames=median3(self.__frames)
+        self.__numCorrections=medianFrames
+        self.__numFrames=1
         return medianFrames
 
-    
+    def correctionNeeded(self):
+        self.__numFrames+=1
+        if self.__numCorrections>0:
+            self.__numCorrections-=1
+            return True
+        return False
+        
 class AmortizedCorrector:
     def __init__(self, nullCorrection, amortizer=Amortizer()):
         self.__amortizer=amortizer
         self.__correctionPerFrame=nullCorrection
         self.__null=nullCorrection
-        self.__numCorrections=0
-        self.__numFrames=0
         
     def updateCorrection(self, correction):
-        medianFrames=self.__amortizer.medianFrames(self.__numFrames)
-        self.__correctionPerFrame=correction/medianFrames
-        self.__numCorrections=medianFrames
-        self.__numFrames=1
+        self.__correctionPerFrame=correction/self.__amortizer.medianFrames()
         return self.getCorrection()
         
     def getCorrection(self):
-        self.__numFrames+=1
-        
-        if self.__numCorrections>0:
-            self.__numCorrections-=1
+        if self.__amortizer.correctionNeeded():
             return self.__correctionPerFrame
-        return self.__null
+        else:
+            return self.__null
         
 class Mirrorable:
     META=0
