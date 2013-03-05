@@ -16,8 +16,8 @@ typedef struct {
 class PositionObject {
  public:
   PositionObject();
-  void updateCorrection(Eigen::Quaternion<float32> att, uint32 period);
-  Eigen::Quaternion<float32> getCorrection(uint32 period);
+  void updateCorrection(Eigen::Quaternion<float32> att, float32 period);
+  Eigen::Quaternion<float32> getCorrection(float32 period);
  private:
   float32 lastPeriod;
   Eigen::Quaternion<float32> lastKnownAtt;
