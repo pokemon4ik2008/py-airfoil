@@ -45,7 +45,8 @@ except IOError as e:
      graphics=PYGAME
         
 objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
-objEnvOrig=objEnv.Clone()
+eigenEnv=objEnv.Clone()
+eigenEnv.Append(CCFLAGS='-O3')
 
 if graphics is PYGLET:
      try:
@@ -55,7 +56,7 @@ if graphics is PYGLET:
           objEnv.ParseConfig('pkg-config --cflags --libs gl')
      except:
           graphics=PYGAME
-          objEnv=objEnvOrig
+          objEnv=eigenEnv
           objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
      #     objEnv.ParseConfig('pkg-config --cflags --libs gl')
 else:
@@ -63,6 +64,7 @@ else:
         #objEnv.ParseConfig('pkg-config --cflags --libs gl')
         
 collider=objEnv.SharedLibrary(target = 'bin/collider', source = ["c/collider.cpp"])
+positions=eigenEnv.SharedLibrary(target = 'bin/positions', source = ["c/positions.cpp"])
 
 if graphics is PYGLET:
         object3d=objEnv.SharedLibrary(target = 'bin/object3d', 

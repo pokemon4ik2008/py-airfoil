@@ -73,7 +73,7 @@ class AmortizedCorrector:
         
     def updateCorrection(self, correction):
         self.__correctionPerFrame=correction/self.__amortizer.medianFrames()
-        return self.getCorrection()
+        #return self.getCorrection()
         
     def getCorrection(self):
         if self.__amortizer.correctionNeeded():
@@ -131,6 +131,9 @@ class Mirrorable:
     def remoteInit(self, ident):
         (self._client_id, self._ident)=ident
 
+    def remoteDestroy(self):
+        pass
+        
     def isClose(self, obj):
         return False
 
@@ -425,6 +428,7 @@ class SerialisableFact:
             if len(serialised)>obj.UPDATE_SIZE:
                 obj.deserNonDroppable(*serialised[obj.UPDATE_SIZE:])
             if not obj.alive():
+                obj.remoteDestroy()
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
         except AssertionError:
