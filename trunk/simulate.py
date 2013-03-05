@@ -26,7 +26,7 @@ import cProfile
 from euclid import *
 import itertools
 import manage
-from manage import cterrain
+from manage import cterrain, positions, Quat
 from math import sqrt, atan2
 import mesh
 import optparse
@@ -45,7 +45,7 @@ from threading import Condition
 from time import sleep
 import traceback
 from traceback import print_exc, print_stack
-from util import X_UNIT, Y_UNIT, Z_UNIT
+from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT
 from view import EXTERNAL, INTERNAL, View
 import wrapper
 from wrapper import *
@@ -278,6 +278,7 @@ class Bullet(Obj, ControlledSer):
 Bullet.positions=[]
 
 class MyAirfoil(Airfoil, ControlledSer):
+    NO_ROT=Quaternion(0.0, 0.0, 1.0, 0.0)
     UPDATE_SIZE=Mirrorable.META+12
     [ _POS,_,_, _ATT,_,_,_, _VEL,_,_, _THRUST ] = range(Mirrorable.META+1, UPDATE_SIZE)
     TYP=0
@@ -310,8 +311,13 @@ class MyAirfoil(Airfoil, ControlledSer):
 	
     def remoteInit(self, ident):
         ControlledSer.remoteInit(self, ident)
-        self.__lastKnownPos=Vector3(0,0,0)
-        self.__lastDelta=Vector3(0,0,0)
+
+        self.__lastKnownPos=NULL_VEC
+        self.__lastPosDelta=NULL_VEC
+
+        self.__lastKnownAtt=self.NO_ROT
+        self.__lastAttDelta=self.NO_ROT
+        
         self.__lastUpdateTime=0.0
         self.__played=False
         self.__play_tire=False
@@ -322,9 +328,13 @@ class MyAirfoil(Airfoil, ControlledSer):
         man.worker.postTask(self.__setupSlots)
         mesh.initCollider(self.TYP, ident)
 
-        self.__maxDeltaSquared=self.__lastDelta.magnitude_squared()
         self.__amortizer=Amortizer();
-        self.__corrector=AmortizedCorrector(Vector3(0,0,0), self.__amortizer)
+        self.__posCorrector=AmortizedCorrector(NULL_VEC, self.__amortizer)
+        self.__attCorrector=AmortizedCorrector(self.NO_ROT, self.__amortizer)
+        self.__attitudes=positions.newObj()
+        
+    def remoteDestroy(self):
+        positions.delObj(self.__attitudes)
         
     def setControls(self, c):
         self.__controls=c
@@ -332,10 +342,14 @@ class MyAirfoil(Airfoil, ControlledSer):
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
         self.setPos(self.__lastKnownPos+
-                    (self.__lastDelta*period)+self.__corrector.getCorrection())
+                    (self.__lastPosDelta*period)+self.__posCorrector.getCorrection())
+        correction=positions.getCorrection(self.__attitudes, period)
+        self.setAttitude(Quaternion(correction.w, correction.x, correction.y, correction.z));
+        #self.setAttitude(self.__lastKnownAtt*
+        #    (self.__lastAttDelta*period))
+        #self.setAttitude(self.__lastKnownAtt*
+        #    (self.__lastAttDelta*period)*self.__attCorrector.getCorrection())
         mesh.updateCollider(self.getId(), self._pos, self._attitude)
-        #self.setPos(self.__lastKnownPos+
-        #            (self.__lastDelta*period))
 
     def eventCheck(self):
         if not Controls:
@@ -382,7 +396,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 		    else:
 			    self.__engineNoise.play(snd=WIND_SND)
 	    self.__engineNoise.setPos(self._pos)
-	    spd=self.__lastDelta.magnitude()
+	    spd=self.__lastPosDelta.magnitude()
 	    self.__engineNoise.pitch = max(((spd/300.0)+0.67, self.thrust/self.__class__.MAX_THRUST))
 	    if self.__engineNoise.snd is WIND_SND:
 		    self.__engineNoise.volume=min(spd, self._pos.y)/100.0
@@ -416,27 +430,55 @@ class MyAirfoil(Airfoil, ControlledSer):
         (vx, vy, vz)=ControlledSer.vAssign(ser, ControlledSer._VEL)
         
 	#print 'MyAirfoil.deserialise: '+str((aw, ax, ay, az))
-        obj=Mirrorable.deserialise(self, ser, estimated).setAttitude(Quaternion(aw,ax,ay,az)).setVelocity(Vector3(vx, vy, vz))
+        obj=Mirrorable.deserialise(self, ser, estimated).setVelocity(Vector3(vx, vy, vz))
 	obj.thrust=ser[MyAirfoil._THRUST]
 
         pos=Vector3(px,py,pz)
+        att=Quaternion(aw,ax,ay,az)
         if not estimated:
             now=manage.now
             period=now-self.__lastUpdateTime
 
 	    if period>0:
-                self.__lastDelta=(pos-self.__lastKnownPos)/period
-                deltaSquared=self.__lastDelta.magnitude_squared()
-                if deltaSquared>self.__maxDeltaSquared:
-                    self.__maxDeltaSquared=deltaSquared
-                    print 'MyAirdoil.deserialise. id: '+str(self.getId())+' delta: '+str(abs(self.__lastDelta))
+                self.__lastPosDelta=(pos-self.__lastKnownPos)/period
                 self.__lastUpdateTime=now
                 self.__lastKnownPos=pos
             
-            self.__corrector.updateCorrection(pos-self.getPos());
-            #self.setPos(pos)
+                #print 'deserialise. lastAttDelta: '+str(self.__lastAttDelta)
+                #treating rotations same as positions
+                #self.__lastAttDelta=((self.__lastKnownAtt.copy().inverse()*att)/period)
+                #args:
+                #att
+                #self.__lastKnownAtt
+                #returns:
+                #nextAtt
+                #lastPeriod
+                #self.__lastKnownAtt
+                positions.updateCorrection(self.__attitudes, byref(Quat(att.w, att.x, att.y, att.z)), period)
+                #att.normalize()
+                #attDelta=(att*self.__lastKnownAtt.conjugated())
+                #nextAtt=att*attDelta
+                #lastPeriod=period
+                #self.__lastKnownAtt=att
+                
+                #on est
+                #args:
+                #period
+                #lastPeriod
+                #lastKnownAtt
+                #nextAtt
+                #progress=period/lastPeriod
+                #if progress>1:
+                #    #worry about this later
+                #else:
+                #        setAtt(slerp(self.lastKnownAtt, nextAtt, progress))
+                                        
+            self.__posCorrector.updateCorrection(pos-self.getPos())
+            #self.__attCorrector.updateCorrection(att*self.getAttitude().copy().inverse())
+            self.setAttitude(att)
         else:
-            self.setPos(pos)
+            self.setPos(pos).setAttitude(att)
+            pass
 	return obj
 
     def _hitGround(self):
@@ -470,7 +512,7 @@ class MyAirfoil(Airfoil, ControlledSer):
 		else:
 			#print 'typ: '+str(b.TYP)+' collisions: '+str(mesh.colModels[self.getId()].num_collisions)
 			self.__grindSlot.play(pos=b.getPos())
-			self._collisionRespond(b);
+			self._collisionRespond(b)
 			return True
 	else:
 		if b.TYP==Bullet.TYP and mesh.colModels[self.getId()].num_collisions.value==1: 

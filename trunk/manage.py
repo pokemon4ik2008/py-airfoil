@@ -24,10 +24,30 @@ global cterrain
 global collider
 if os.name == 'nt':
     cterrain = cdll.LoadLibrary("bin\cterrain.dll")
-    collider = cdll.LoadLibrary("bin\libcollider.dll")
+    collider = cdll.LoadLibrary("bin\collider.dll")
+    positions = cdll.LoadLibrary("bin\positions.dll")
 else:
     cterrain = cdll.LoadLibrary("bin/libcterrain.so")
     collider = cdll.LoadLibrary("bin/libcollider.so")
+    positions = cdll.LoadLibrary("bin/libpositions.so")
+
+class Quat(Structure):
+    _fields_ = [ ("w", c_float),
+                 ("x", c_float),
+                 ("y", c_float),
+                 ("z", c_float) ]
+    
+positions.newObj.argtypes=[ ]
+positions.newObj.restype=c_void_p
+
+positions.updateCorrection.argtypes=[ c_void_p, c_void_p, c_float ]
+positions.updateCorrection.restype=None
+
+positions.getCorrection.argtypes=[ c_void_p, c_float ]
+positions.getCorrection.restype=Quat
+
+positions.delObj.argtypes=[ c_void_p ]
+positions.delObj.restype=None
 
 cterrain.checkCollision.argtypes=[ c_void_p, c_void_p, POINTER(c_uint) ]
 cterrain.checkCollision.restype=c_bool

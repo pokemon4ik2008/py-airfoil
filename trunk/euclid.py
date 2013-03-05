@@ -1286,6 +1286,9 @@ class Quaternion:
         self *= Quaternion.new_rotate_matrix(m)
         return self
 
+    #def inverse(self):
+    #don't do this as calling conjugated on the normalized quaternion is the same thing
+        
     def conjugated(self):
         Q = Quaternion()
         Q.w = self.w
