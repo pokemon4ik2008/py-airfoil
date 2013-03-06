@@ -20,8 +20,13 @@ class PositionObject {
   Eigen::Quaternion<float32> getCorrection(float32 period);
  private:
   float32 lastPeriod;
+  float32 nextPeriodStart;
+  float32 periodLen;
   Eigen::Quaternion<float32> lastKnownAtt;
   Eigen::Quaternion<float32> nextAtt;
+  Eigen::Quaternion<float32> attDelta;
+  void nextInterval();
+  uint32 inst;
 };
 
 #endif
