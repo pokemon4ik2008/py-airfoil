@@ -343,8 +343,11 @@ class MyAirfoil(Airfoil, ControlledSer):
         period=manage.now-self.__lastUpdateTime
         self.setPos(self.__lastKnownPos+
                     (self.__lastPosDelta*period)+self.__posCorrector.getCorrection())
-        correction=positions.getCorrection(self.__attitudes, period)
-        self.setAttitude(Quaternion(correction.w, correction.x, correction.y, correction.z));
+        corPtr=positions.getCorrection(self.__attitudes, period)
+        if bool(corPtr) is not False:
+            cor=corPtr.contents
+            #print 'estUpdate. id: '+str(self.getId())+' att: '+str(self.__attitudes)+' correction: '+str((cor.z, cor.x, cor.y, cor.z))
+            self.setAttitude(Quaternion(cor.w, cor.x, cor.y, cor.z));
         #self.setAttitude(self.__lastKnownAtt*
         #    (self.__lastAttDelta*period))
         #self.setAttitude(self.__lastKnownAtt*

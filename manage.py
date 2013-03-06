@@ -36,6 +36,8 @@ class Quat(Structure):
                  ("x", c_float),
                  ("y", c_float),
                  ("z", c_float) ]
+
+QuatPtr=POINTER(Quat)
     
 positions.newObj.argtypes=[ ]
 positions.newObj.restype=c_void_p
@@ -44,7 +46,7 @@ positions.updateCorrection.argtypes=[ c_void_p, c_void_p, c_float ]
 positions.updateCorrection.restype=None
 
 positions.getCorrection.argtypes=[ c_void_p, c_float ]
-positions.getCorrection.restype=Quat
+positions.getCorrection.restype=QuatPtr
 
 positions.delObj.argtypes=[ c_void_p ]
 positions.delObj.restype=None
