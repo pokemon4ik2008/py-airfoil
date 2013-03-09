@@ -25,6 +25,7 @@ class PositionObject {
   Eigen::Quaternion<float32> lastKnownAtt;
   Eigen::Quaternion<float32> nextAtt;
   Eigen::Quaternion<float32> attDelta;
+  Eigen::Quaternion<float32> estimated;
   void nextInterval();
   uint32 inst;
 };

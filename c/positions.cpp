@@ -52,6 +52,7 @@ extern "C"
 PositionObject::PositionObject(): attDelta(NULL_ROT), 
 				  lastKnownAtt(NULL_ROT),
 				  nextAtt(NULL_ROT),
+				  estimated(NULL_ROT),
 				  lastPeriod(0.0),
 				  nextPeriodStart(0.0),
 				  periodLen(0.0)
@@ -68,9 +69,16 @@ void PositionObject::nextInterval() {
 }
 
 void PositionObject::updateCorrection(Eigen::Quaternion<float32> att, float32 period) {
+  //we need:
+  //assumed att -- this->estimated
+  //last att -- this->lastKnownAtt
+  //current att -- att
+
+
   this->periodLen=period;
   this->nextPeriodStart=period;
-  this->attDelta=att*this->lastKnownAtt.inverse();
+  this->attDelta=att*this->lastKnownAtt.inverse() * att*this->estimated.inverse();
+ 
   this->nextAtt=att;
   
   this->nextInterval();
@@ -82,5 +90,6 @@ Eigen::Quaternion<float32> PositionObject::getCorrection(float32 period) {
   if(period>this->nextPeriodStart) {
     this->nextInterval();
   }
-  return this->lastKnownAtt.slerp(progress, this->nextAtt);
+  this->estimated=this->lastKnownAtt.slerp(progress, this->nextAtt);
+  return this->estimated;
 }
