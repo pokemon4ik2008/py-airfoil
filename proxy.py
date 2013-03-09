@@ -399,7 +399,7 @@ class SerialisableFact:
             assert mirrorable.local()
             self.__class__.TOT_CNT+=1
             if mirrorable.getId() not in self.__mine:
-                #print 'estimable. False 1'
+                print 'estimable. I\'m surprised'
                 return False
             if mirrorable.isClose(self.__mine[mirrorable.getId()]):
                 self.__class__.HIT_CNT+=1
@@ -600,11 +600,11 @@ class Client(Thread, Mirrorable):
              ser=mirrorable.serialise()
              if full_ser:
                  ser+=mirrorable.serNonDroppable()
-             if uniq in self.__fact and manage.fast_path:
+             if uniq in self.__fact:
                  self.__fact.getObj(uniq).estUpdate()
              if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
                  self.__pushSend(uniq, ser)
-                 if manage.fast_path and not isService(uniq):
+                 if not isService(uniq):
                      self.__fact.deserLocal(uniq, ser)
                  #print 'flags: '+str(mirrorable.flags)
                  #if not mirrorable.droppable():
@@ -801,7 +801,7 @@ class Server(Thread):
     def __qDistributedWrites(self, obj_str, uniq, s):
         obj=int2Bytes(len(obj_str), LEN_LEN)+obj_str
         for reader in self.__readers:
-            if reader is not s or not manage.fast_path:
+            if reader is not s:
                 self.qWrite(reader, obj)
 
     def __qReply(self, serialised, uniq, s):

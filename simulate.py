@@ -494,7 +494,6 @@ class MyAirfoil(Airfoil, ControlledSer):
                 #        setAtt(slerp(self.lastKnownAtt, nextAtt, progress))
             frames=self.__amortizer.medianFrames();
             self.__posCorrector.updateCorrection(pos-self.getPos(), frames)
-            #self.__attCorrector.updateCorrection(att*self.getAttitude().copy().inverse())
             #self.setAttitude(att)
         else:
             self.setPos(pos).setAttitude(att)
