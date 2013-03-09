@@ -45,7 +45,7 @@ from threading import Condition
 from time import sleep
 import traceback
 from traceback import print_exc, print_stack
-from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT
+from util import NULL_ROT, NULL_VEC, X_UNIT, Y_UNIT, Z_UNIT
 from view import EXTERNAL, INTERNAL, View
 import wrapper
 from wrapper import *
@@ -277,6 +277,17 @@ class Bullet(Obj, ControlledSer):
             print_exc()
 Bullet.positions=[]
 
+class PosCorrector(AmortizedCorrector):
+    def __init__(self):
+        AmortizedCorrector.__init__(self, NULL_VEC)
+        self.__correctionPerFrame=NULL_VEC
+        
+    def updateCorrection(self, correction, medianFrames):
+        self.__correctionPerFrame=correction/medianFrames
+
+    def _calcCorrection(self):
+        return self.__correctionPerFrame
+    
 class MyAirfoil(Airfoil, ControlledSer):
     NO_ROT=Quaternion(0.0, 0.0, 1.0, 0.0)
     UPDATE_SIZE=Mirrorable.META+12
@@ -329,8 +340,8 @@ class MyAirfoil(Airfoil, ControlledSer):
         mesh.initCollider(self.TYP, ident)
 
         self.__amortizer=Amortizer();
-        self.__posCorrector=AmortizedCorrector(NULL_VEC, self.__amortizer)
-        self.__attCorrector=AmortizedCorrector(self.NO_ROT, self.__amortizer)
+        self.__posCorrector=PosCorrector()
+        #self.__attCorrector=AttCorrector()
         self.__attitudes=positions.newObj()
         
     def remoteDestroy(self):
@@ -341,8 +352,14 @@ class MyAirfoil(Airfoil, ControlledSer):
 
     def estUpdate(self):
         period=manage.now-self.__lastUpdateTime
-        self.setPos(self.__lastKnownPos+
-                    (self.__lastPosDelta*period)+self.__posCorrector.getCorrection())
+
+        correctionNeeded=self.__amortizer.correctionNeeded();
+        #print 'lastKnown: '+str(self.__lastKnownPos)
+        #print 'lastPosDelta: '+str(self.__lastPosDelta*period)
+        #print 'posCorrector: '+str(self.__posCorrector.getCorrection(correctionNeeded))
+        self.setPos(self.__lastKnownPos+(self.__lastPosDelta*period)
+                    +self.__posCorrector.getCorrection(correctionNeeded))
+
         corPtr=positions.getCorrection(self.__attitudes, period)
         if bool(corPtr) is not False:
             cor=corPtr.contents
@@ -475,13 +492,12 @@ class MyAirfoil(Airfoil, ControlledSer):
                 #    #worry about this later
                 #else:
                 #        setAtt(slerp(self.lastKnownAtt, nextAtt, progress))
-                                        
-            self.__posCorrector.updateCorrection(pos-self.getPos())
+            frames=self.__amortizer.medianFrames();
+            self.__posCorrector.updateCorrection(pos-self.getPos(), frames)
             #self.__attCorrector.updateCorrection(att*self.getAttitude().copy().inverse())
-            self.setAttitude(att)
+            #self.setAttitude(att)
         else:
             self.setPos(pos).setAttitude(att)
-            pass
 	return obj
 
     def _hitGround(self):

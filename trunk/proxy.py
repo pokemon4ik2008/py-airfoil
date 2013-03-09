@@ -14,7 +14,7 @@ import sys
 from threading import Condition, RLock, Thread
 from time import sleep, time
 from traceback import print_exc, print_stack
-from util import getLocalIP, int2Bytes, bytes2Int, toHexStr, median3
+from util import bytes2Int, getLocalIP, int2Bytes, median3, toHexStr
 
 from async import Scheduler
 
@@ -64,20 +64,20 @@ class Amortizer:
             self.__numCorrections-=1
             return True
         return False
-        
+
 class AmortizedCorrector:
-    def __init__(self, nullCorrection, amortizer=Amortizer()):
-        self.__amortizer=amortizer
-        self.__correctionPerFrame=nullCorrection
+    def __init__(self, nullCorrection):
         self.__null=nullCorrection
         
-    def updateCorrection(self, correction):
-        self.__correctionPerFrame=correction/self.__amortizer.medianFrames()
-        #return self.getCorrection()
+    def updateCorrection(self, correction, medianFrames):
+        pass
+
+    def _calcCorrection(self):
+        pass
         
-    def getCorrection(self):
-        if self.__amortizer.correctionNeeded():
-            return self.__correctionPerFrame
+    def getCorrection(self, correctionNeeded):
+        if correctionNeeded:
+            return self._calcCorrection()
         else:
             return self.__null
         
