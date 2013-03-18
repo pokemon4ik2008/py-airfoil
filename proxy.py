@@ -399,7 +399,6 @@ class SerialisableFact:
             assert mirrorable.local()
             self.__class__.TOT_CNT+=1
             if mirrorable.getId() not in self.__mine:
-                print 'estimable. I\'m surprised'
                 return False
             if mirrorable.isClose(self.__mine[mirrorable.getId()]):
                 self.__class__.HIT_CNT+=1
