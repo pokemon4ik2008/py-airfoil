@@ -329,7 +329,7 @@ class MyAirfoil(Airfoil, ControlledSer):
         self.__lastKnownAtt=self.NO_ROT
         self.__lastAttDelta=self.NO_ROT
         
-        self.__lastUpdateTime=0.0
+        self.__lastUpdateTime=manage.now
         self.__played=False
         self.__play_tire=False
 
@@ -354,21 +354,13 @@ class MyAirfoil(Airfoil, ControlledSer):
         period=manage.now-self.__lastUpdateTime
 
         correctionNeeded=self.__amortizer.correctionNeeded();
-        #print 'lastKnown: '+str(self.__lastKnownPos)
-        #print 'lastPosDelta: '+str(self.__lastPosDelta*period)
-        #print 'posCorrector: '+str(self.__posCorrector.getCorrection(correctionNeeded))
         self.setPos(self.__lastKnownPos+(self.__lastPosDelta*period)
                     +self.__posCorrector.getCorrection(correctionNeeded))
 
         corPtr=positions.getCorrection(self.__attitudes, period)
         if bool(corPtr) is not False:
             cor=corPtr.contents
-            #print 'estUpdate. id: '+str(self.getId())+' att: '+str(self.__attitudes)+' correction: '+str((cor.z, cor.x, cor.y, cor.z))
             self.setAttitude(Quaternion(cor.w, cor.x, cor.y, cor.z));
-        #self.setAttitude(self.__lastKnownAtt*
-        #    (self.__lastAttDelta*period))
-        #self.setAttitude(self.__lastKnownAtt*
-        #    (self.__lastAttDelta*period)*self.__attCorrector.getCorrection())
         mesh.updateCollider(self.getId(), self._pos, self._attitude)
 
     def eventCheck(self):
@@ -474,6 +466,7 @@ class MyAirfoil(Airfoil, ControlledSer):
                 #nextAtt
                 #lastPeriod
                 #self.__lastKnownAtt
+                #print 'deserialise. period '+str(period)
                 positions.updateCorrection(self.__attitudes, byref(Quat(att.w, att.x, att.y, att.z)), period)
                 #att.normalize()
                 #attDelta=(att*self.__lastKnownAtt.conjugated())

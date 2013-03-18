@@ -22,10 +22,13 @@ class PositionObject {
   float32 lastPeriod;
   float32 nextPeriodStart;
   float32 periodLen;
+  bool initialised;
   Eigen::Quaternion<float32> lastKnownAtt;
   Eigen::Quaternion<float32> nextAtt;
+  Eigen::Quaternion<float32> correction;
   Eigen::Quaternion<float32> attDelta;
   Eigen::Quaternion<float32> estimated;
+  Eigen::Quaternion<float32> lastEst;
   void nextInterval();
   uint32 inst;
 };

@@ -1,8 +1,11 @@
+#include <iostream>
 #include <math.h>
 #include <stdio.h>
 #include <Eigen/Geometry>
 #include "positions.h"
 #include "types.h"
+
+using namespace std;
 
 Eigen::Quaternion<float32> NULL_ROT=Eigen::Quaternion<float32>(1.0, 0.0, 0.0, 0.0);
 Quat result;
@@ -49,24 +52,20 @@ extern "C"
   }
 }
 
-PositionObject::PositionObject(): attDelta(NULL_ROT), 
+PositionObject::PositionObject(): correction(NULL_ROT), 
+				  attDelta(NULL_ROT),
 				  lastKnownAtt(NULL_ROT),
 				  nextAtt(NULL_ROT),
 				  estimated(NULL_ROT),
-				  lastPeriod(0.0),
-				  nextPeriodStart(0.0),
-				  periodLen(0.0)
+				  lastEst(NULL_ROT),
+				  lastPeriod(1.0),
+				  nextPeriodStart(1.0),
+				  periodLen(1.0),
+				  initialised(false)
 {
   static uint32 insts=0;
   this->inst=insts++;
  };
-
-void PositionObject::nextInterval() {
-  this->lastPeriod=this->nextPeriodStart;
-  this->nextPeriodStart+=this->periodLen;
-  this->lastKnownAtt=this->nextAtt;
-  this->nextAtt=this->lastKnownAtt*this->attDelta;
-}
 
 void PositionObject::updateCorrection(Eigen::Quaternion<float32> att, float32 period) {
   //we need:
@@ -74,22 +73,59 @@ void PositionObject::updateCorrection(Eigen::Quaternion<float32> att, float32 pe
   //last att -- this->lastKnownAtt
   //current att -- att
 
-
+  //printf("updateCorrection. period len %f\n", period);
+  att.normalize();
   this->periodLen=period;
   this->nextPeriodStart=period;
-  this->attDelta=att*this->lastKnownAtt.inverse() * att*this->estimated.inverse();
- 
   this->nextAtt=att;
-  
+  if(!this->initialised){
+    this->initialised=true;
+    this->estimated=att;
+  }
+  this->correction=att*(this->estimated.inverse());
+  //Eigen::AngleAxis<float32> rot=Eigen::AngleAxis<float32>(correction);
+  //cout<<"updateCorrection ang: "<<rot.angle()<<'\n'<<rot.axis()<<endl;
+  //this->attDelta=att*this->lastKnownAtt.inverse();
+  //this->attDelta=NULL_ROT;
+  //this->attDelta=att*this->lastKnownAtt.inverse()*att*this->estimated.inverse();
+ 
+  this->lastPeriod=this->nextPeriodStart;
+  this->nextPeriodStart+=this->periodLen;
   this->nextInterval();
+}
+
+void PositionObject::nextInterval() {
+  this->attDelta=this->nextAtt*this->lastKnownAtt.inverse();
+  this->lastEst=this->estimated;
+
+  this->lastKnownAtt=this->nextAtt;
+  this->nextAtt=this->lastKnownAtt*this->attDelta;
+  /*
+  Eigen::AngleAxis<float32> rot=Eigen::AngleAxis<float32>(this->lastKnownAtt);
+  cout<<"nextInterval last: "<<rot.angle()<<'\n'<<rot.axis()<<endl;
+  rot=Eigen::AngleAxis<float32>(this->nextAtt);
+  cout<<"nextInterval next: "<<rot.angle()<<'\n'<<rot.axis()<<endl;
+  */
 }
 
 Eigen::Quaternion<float32> PositionObject::getCorrection(float32 period) {
   //printf("getCorrection %u w %f x %f y %f z %f\n", this->inst, result.w, result.x, result.y, result.z);
-  float32 progress=fmod(((float32)period), this->lastPeriod);
-  if(period>this->nextPeriodStart) {
-    this->nextInterval();
+  //float32 progress=fmod(((float32)period), this->lastPeriod);
+  float32 progress=period / this->lastPeriod;
+  while(progress>1.0) {
+    //printf("getCorrection. period %f next %f\n", period, this->lastPeriod);
+    //this->nextInterval();
+
+    this->nextAtt=this->nextAtt*this->attDelta;
+    this->lastEst=this->estimated;
+
+    period-=this->lastPeriod;
+    progress=period/this->lastPeriod;
   }
-  this->estimated=this->lastKnownAtt.slerp(progress, this->nextAtt);
+
+  this->estimated=this->lastEst.slerp(progress, this->nextAtt).normalized();
+  //Eigen::AngleAxis<float32> rot=Eigen::AngleAxis<float32>(this->estimated);
+  //cout<<"getCorrection ang: "<<rot.angle()<<'\n'<<rot.axis()<<endl;
+  //printf("getCorrection. progress %f. period %f \n", progress, period);
   return this->estimated;
 }
