@@ -561,6 +561,25 @@ def init():
                 #All object and server query constructors are listed next
                 factory=SerialisableFact({ MyAirfoil.TYP: MyAirfoil, Bullet.TYP: Bullet, PlanePositionQuery.TYP: PlanePositionQuery })
 
+                class BotTracker:
+                        def __init__(self, factory, types):
+                                self.types=types
+                                self.bots=[]
+                                factory.push_handlers(self)
+
+                        def __updater(self):
+                                return man.proxy.getTypesObjs(self.types)
+                                
+                        def on_birth(self, bot):
+                                if bot.TYP in self.types:
+                                        self.bots.append(bot)
+
+                        def on_death(self, bot):
+                                self.bots[:]=self.__updater()
+
+                global botTracker
+                botTracker=BotTracker( factory, [ MyAirfoil.TYP, Bullet.TYP ] )
+                
                 scale=3.0
                 colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
                 colliders=[ path for (path, scale) in colliders_map.values() ]
@@ -797,6 +816,7 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
 	glEnable(GL_FOG)
 
 def timeSlice(dt):
+        global bots
 	try:
 		if man.proxy.alive():
 			man.updateTime()
@@ -805,7 +825,7 @@ def timeSlice(dt):
 			man.worker.flush()
 			man.worker.run()
 			if man.proxy.acquireLock():
-				bots[:]= man.proxy.getTypesObjs([ MyAirfoil.TYP, Bullet.TYP ]) 
+				bots=botTracker.bots
 				[ b.estUpdate() for b in bots ]
 				man.proxy.releaseLock()
 
@@ -863,8 +883,13 @@ def timeSlice(dt):
 				drawTerrain(view)
 
 				for bot in bots:
-					if bot.alive():
+					if bot.TYP!=MyAirfoil.TYP or bot.getId()[0]!=Client.PROXY.getSysId():
+                                                #draw everything here except native planes
                                                 mesh.draw(bot, view)
+
+				for plane in curPlanes:
+					if plane.alive():
+                                                mesh.draw(plane, view)
 
 				#destructible_types=[MyAirfoil.Type]
 				#for destructible in man.proxy.getTypeObjs(destructible_tpes):
@@ -961,7 +986,6 @@ def run():
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)+' ratio: '+str(SerialisableFact.HIT_CNT/float(SerialisableFact.TOT_CNT))
 	else:
 		print 'hits: '+str(SerialisableFact.HIT_CNT)+' '+str(SerialisableFact.TOT_CNT)
-
 
 if __name__ == '__main__':
 	#cProfile.run('run()', 'profile')

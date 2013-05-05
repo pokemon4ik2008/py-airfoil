@@ -15,6 +15,7 @@ from threading import Condition, RLock, Thread
 from time import sleep, time
 from traceback import print_exc, print_stack
 from util import bytes2Int, getLocalIP, int2Bytes, median3, toHexStr
+from wrapper import EventDispatcher
 
 from async import Scheduler
 
@@ -363,7 +364,7 @@ class ControlledSer(Mirrorable):
         #print 'isClose: '+str(Vector3(diff.x, diff.y, diff.z).magnitude_squared())
         return Vector3(diff.x, diff.y, diff.z).magnitude_squared()<0.0001
 
-class SerialisableFact:
+class SerialisableFact(EventDispatcher):
     __OBJ_IDX,__TIME_IDX=range(2)
     HIT_CNT=0
     TOT_CNT=0
@@ -421,6 +422,7 @@ class SerialisableFact:
                     obj = self.__ctors[typ](ident=identifier)
                     objLookup[identifier] = obj
                     objByType[typ].append(obj)
+                    self.dispatch_event('on_birth', obj)
                 else:
                     assert False
             obj.deserialise(serialised, estimated)
@@ -430,6 +432,7 @@ class SerialisableFact:
                 obj.remoteDestroy()
                 del(objLookup[identifier])
                 objByType[obj.getType()].remove(obj)
+                self.dispatch_event('on_death', obj)
         except AssertionError:
             print >> sys.stderr, 'deserialiseAll. unrecognised typ: '+str(typ)+' '+str(serialised)
             print_exc()
@@ -472,6 +475,9 @@ class SerialisableFact:
             objs.extend(self.getTypeObjs(t, native, foreign))
         return objs
 
+SerialisableFact.register_event_type('on_birth')
+SerialisableFact.register_event_type('on_death')
+    
 def read(s, rec, addSend, finalise):
     start=0
     cur_len_in=0
@@ -498,7 +504,7 @@ class Client(Thread, Mirrorable):
      __TOP_UP_LEN=32
 
      def initSys(self, ident):
-         print 'initSys. after deserialising '+str(self._client_id)+' new: '+str(ident)
+         print 'initSys. after deserialising '+str(self._client_id)+' new: '+str(ident)+'\n'
          #Sys.ID=Sys(ident)
          #self.__readSysId()
          if self._client_id==0:
@@ -508,13 +514,13 @@ class Client(Thread, Mirrorable):
          print 'initSys: id '+str(Client.PROXY)
          return self
 
-     def __init__(self, ident=None, server=getLocalIP(), port=PORT, factory=None):
+     def __init__(self, factory, ident=None, server=getLocalIP(), port=PORT):
          print 'Client.__init__. ident: '+str(ident)
          self.__server=server
          self.__port=port
-         self.__fact=factory
+         self.factory=factory
          Mirrorable.__init__(self, self.TYP, ident, self)
-
+         
      #def __readSysId(self):
      #    self._client_id=Sys.ID.getSysId()
 
@@ -530,7 +536,7 @@ class Client(Thread, Mirrorable):
          #Mirrorable.localInit(self)
          self._ident=Mirrorable.InstCount
          Mirrorable.InstCount+=1
-         self.__fact.update({ Client.TYP: self.initSys })
+         self.factory.update({ Client.TYP: self.initSys })
          self.__dead_here=False
          self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
          self.__s.setblocking(0)
@@ -599,12 +605,12 @@ class Client(Thread, Mirrorable):
              ser=mirrorable.serialise()
              if full_ser:
                  ser+=mirrorable.serNonDroppable()
-             if uniq in self.__fact:
-                 self.__fact.getObj(uniq).estUpdate()
-             if not mirrorable.droppable() or not self.__fact.estimable(mirrorable):
+             if uniq in self.factory:
+                 self.factory.getObj(uniq).estUpdate()
+             if not mirrorable.droppable() or not self.factory.estimable(mirrorable):
                  self.__pushSend(uniq, ser)
                  if not isService(uniq):
-                     self.__fact.deserLocal(uniq, ser)
+                     self.factory.deserLocal(uniq, ser)
                  #print 'flags: '+str(mirrorable.flags)
                  #if not mirrorable.droppable():
                  #    mirrorable.flags|=Mirrorable.DROPPABLE_FLAG
@@ -612,7 +618,7 @@ class Client(Thread, Mirrorable):
                  #by right deserLocal should check that the ser is not a service
                  #but as we never follow this path for services we move
                  #the check out of deserLocal to the above invocation
-                 self.__fact.deserLocal(uniq, ser, estimated=True)
+                 self.factory.deserLocal(uniq, ser, estimated=True)
              self.attemptSendAll()
          except AssertionError:
              print_exc()
@@ -624,16 +630,16 @@ class Client(Thread, Mirrorable):
          self.__lock.release()
 
      def __contains__(self, ident):
-         return ident in self.__fact
+         return ident in self.factory
 
      def getObj(self, ident):
-         return self.__fact.getObj(ident)
+         return self.factory.getObj(ident)
 
      def getTypeObjs(self, typ, native=True, foreign=True):
-         return self.__fact.getTypeObjs(typ)
+         return self.factory.getTypeObjs(typ)
 
      def getTypesObjs(self, types):
-         return self.__fact.getTypesObjs(types)
+         return self.factory.getTypesObjs(types)
 
      def send(self):
          if not self.alive():
@@ -711,9 +717,9 @@ class Client(Thread, Mirrorable):
                                  break
                              #print 'Client.run: len read: '+str(len(rec))
                              rec=read(self.__s, rec+read_now, self.addSerialisables, lambda sock: None)
-                             self.__fact.deserRemotes(self.__sers)
+                             self.factory.deserRemotes(self.__sers)
                              self.__sers={}
-                             if self.getId() in self.__fact and not self.getObj(self.getId()).alive():
+                             if self.getId() in self.factory and not self.getObj(self.getId()).alive():
                                  print 'Client.run. closing socket'
                                  self.releaseLock()
                                  self.__open=False
@@ -874,7 +880,7 @@ class Server(Thread):
     def setupDistributor(self, r):
         sock=self.__setupSocket(r, self.record)
 
-        client=Client((self.__nextInst,0)).serialise()
+        client=Client(factory=None, ident=(self.__nextInst,0)).serialise()
         self.__nextInst+=1
         client_s=client[Mirrorable.META]+cPickle.dumps(client[Mirrorable.NEXT_IDX:])
         self.qWrite(sock, int2Bytes(len(client_s), LEN_LEN)+client_s)
