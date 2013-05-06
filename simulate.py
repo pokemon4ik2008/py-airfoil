@@ -870,14 +870,6 @@ def timeSlice(dt):
 			for view in views:
 				glLoadIdentity()
 				view.activate()
-				if view.getPlaneId() in planes:
-					my_plane=planes[view.getPlaneId()]
-					#view.printToScreen('pos = ' + str(my_plane.getPos()))
-					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
-					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
-					#view.printToScreen('thrust = ' + str(my_plane.thrust))
-					#view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
-					#view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
 
 				skybox.draw(view)
 				drawTerrain(view)
@@ -891,6 +883,15 @@ def timeSlice(dt):
 					if plane.alive():
                                                 mesh.draw(plane, view)
 
+				if view.getPlaneId() in planes:
+					my_plane=planes[view.getPlaneId()]
+					#view.printToScreen('pos = ' + str(my_plane.getPos()))
+					#view.printToScreen('bank = ' + str('%f' % my_plane.getAttitude().get_bank()))
+					#view.printToScreen('vel = ' + str(my_plane.getVelocity()))
+					#view.printToScreen('thrust = ' + str(my_plane.thrust))
+					#view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
+					#view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
+                                        mesh.drawHud(my_plane);
 				#destructible_types=[MyAirfoil.Type]
 				#for destructible in man.proxy.getTypeObjs(destructible_tpes):
 				#	collider=destructible.collider

@@ -95,8 +95,16 @@ def draw(bot, view):
     else:
         bot.draw()
 
+def drawHud(plane):
+    pass
+        
 NO_VBO_GROUP=0xffffffff
 def loadMeshes(mesh_paths, views):
+    # mesh_paths = { <(TYP, view): (all, not)>* }
+    # all = [ (glob_path, (mesh_constructor, scale, <group|None>))* ]
+    # not = [ glob_path* ]
+    # <something>* = something, something, something, ..., something
+
     print 'loadMeshes. mesh_paths: '+str(mesh_paths)
     lookup = {}
     global meshes
@@ -115,6 +123,8 @@ def loadMeshes(mesh_paths, views):
         all_possible_globs=mesh_paths[mesh_key][0]
         blacklist=list(itertools.chain(*[ glob.glob(getNativePath(black_glob)) for black_glob in mesh_paths[mesh_key][1]]))
         paths[mesh_key]=dict(itertools.chain(*[ genGlobbedList(glob_path, cls, scale, group, blacklist) for (glob_path, (cls, scale, group)) in all_possible_globs ])).items()
+    # paths does not contain any path found in not list above
+    # paths = { <(TYP, view) : { <path : (mesh_constructor, scale, group)>* } >* }
 
     def c_ifyGroup(group):
         if group is None:
@@ -127,12 +137,19 @@ def loadMeshes(mesh_paths, views):
         meshes[key]=[ cls(collider.load(path, scale, c_ifyGroup(group)),
                           views, key, group)
                            for (path, (cls, scale, group)) in paths[key]]
-
+    # meshes = { <(TYP, view): mesh_inst>* }
+        
     for mesh_key in dict(meshes):
         [ m.finishInit() for m in meshes[mesh_key] ]
         vbo_meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is not None and manage.vbo]
         meshes[mesh_key]=[ m for m in meshes[mesh_key] if m.group is None or not manage.vbo]
-
+    # vbo_meshes is a copy of meshes but only contains elements with group set
+    # it is empty if not manage.vbo
+    # vbo_meshes = { <(TYP, view): mesh_inst>* }
+    # Unsure of what we were attempting to do with meshes dict in last for loop.
+    # It appears to do nothing. However, maybe it should contain only meshes
+    # that don't have a group set.
+    
 def createVBOs(mesh_map):
     if not manage.vbo:
         return
