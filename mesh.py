@@ -211,7 +211,6 @@ class Mesh(object):
         for v in views:
             v.push_handlers(self)
         self._bot_details={}
-        self.rot=0.0
 
     def finishInit(self):
         pass
@@ -323,30 +322,18 @@ class Mesh(object):
         wrapper.draw(self.mesh, 1.0)
 
     def drawRotated(self, bot, angle_quat, centre_mesh, alpha=1.0):
-        # rot=bot.getAttitude()*angle_quat*SETUP_ROT
-
-        # mid = (c_float * 3)()
-        # object3dLib.getMid(centre_mesh, mid)
-        # midPt=Vector3(mid[0], mid[1], mid[2])
-        # rotOrig=(bot.getAttitude() * SETUP_ROT * (midPt))
-        # print 'python. pos: '+str(bot.getPos())
-        # print 'python. rotOrig: '+str(rotOrig)
-        # print 'python. rot: '+str(rot)
-        # pos=bot.getPos()
-        # object3dLib.setupRotation(
-        #     pos.x, pos.y, pos.z,
-        #     rot.w, rot.x, rot.y, rot.z,
-        #     mid[0], mid[1], mid[2],
-        #     rotOrig.x, rotOrig.y, rotOrig.z
-        #     )
-
-
         p=bot.getPos();
         a=bot.getAttitude();
         wrapper.drawRotated(p.x, p.y, p.z,
                                 a.w, a.x, a.y, a.z,
                                 angle_quat.w, angle_quat.x, angle_quat.y, angle_quat.z,
-                                centre_mesh, alpha, self.mesh);
+                                centre_mesh, alpha);
+        wrapper.draw(self.mesh, alpha)
+
+    def drawRotatedCen(self, bot, angle_quat, xCen, yCen, zCen, alpha=1.0):
+        p=bot.getPos();
+        a=bot.getAttitude();
+        wrapper.drawRotatedCen(p.x, p.y, p.z, a.w, a.x, a.y, a.z, angle_quat.w, angle_quat.x, angle_quat.y, angle_quat.z, xCen, yCen, zCen, alpha)
         wrapper.draw(self.mesh, alpha)
 
 
@@ -505,6 +492,31 @@ class CompassMesh(Mesh):
         ang=-last_heading/2
         self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)
+
+class MiniRep:
+    def __init__(self):
+        self.pos=NULL_VEC.copy()
+        self.att=NULL_ROT.copy()
+
+    def getPos(self):
+        return self.pos
+
+    def getAttitude(self):
+        return self.att
+    
+class LittlePlaneMesh(Mesh):
+    def __init__(self, *args, **kwargs):
+        Mesh.__init__(self, *args, **kwargs)
+        self.rep=MiniRep()
+        
+    def draw(self, bot, view_id):
+        ang=-bot.getHeading()
+        self.rep.att=bot.getAttitude()
+        pos=bot.getPos()
+        self.rep.pos=Vector3(pos.x, pos.y, pos.z)
+        #self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh)
+        self.drawRotated(self.rep, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh)
+        #self.drawRotatedCen(self.rep, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.rep.pos.x, self.rep.pos.y, self.rep.pos.z)
 
 def loadColliders( colliders ):
     print 'loadColliders start'

@@ -34,8 +34,8 @@ if api==PYGLET:
                 drawVBO=object3dLib.drawVBO
                 #load=object3dLib.load
                 
-                object3dLib.createVBO.argtypes=[ c_void_p, c_uint, c_void_p ];
-                object3dLib.createVBO.restype=c_int
+                object3dLib.createVBO.argtypes=[ c_uint ]
+                object3dLib.createVBO.restype=c_void_p
                 createVBO=object3dLib.createVBO
                 
                 deleteVBO=object3dLib.deleteVBO
@@ -75,9 +75,16 @@ if api==PYGLET:
                 object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
                                                    c_double, c_double, c_double, c_double,
                                                    c_double, c_double, c_double, c_double,
-                                                   c_void_p, c_float, c_void_p ]
+                                                   c_void_p, c_float ]
                 object3dLib.drawRotated.restype=None
                 drawRotated=object3dLib.drawRotated
+                
+                object3dLib.drawRotatedCen.argtypes=[ c_double, c_double, c_double,
+                                                   c_double, c_double, c_double, c_double,
+                                                   c_double, c_double, c_double, c_double,
+                                                   c_double, c_double, c_double, c_float ]
+                object3dLib.drawRotatedCen.restype=None
+                drawRotatedCen=object3dLib.drawRotatedCen
                 
                 object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
                 object3dLib.createTexture.restype=c_uint
@@ -271,7 +278,7 @@ else:
 	setupRotation=lambda x, y, z, wr, xr, yr, zr, xmid, ymid, zmid, xorig, yorig, zorig: None
 	drawToTex=lambda mesh, alpha, fbo, width, height, bg, boundPlane, top: None
 	draw=lambda mesh, alpha: None
-	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha, p_mesh: None
+	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha: None
         createTexture=lambda mesh, uv_id, data, width, height, form: 0
         createFBO=lambda texId, width, height: 0
         class Listener:

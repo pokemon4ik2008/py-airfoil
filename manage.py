@@ -3,7 +3,8 @@ from ctypes import *
 
 from async import Scheduler
 
-global worker
+map_expansion_const=50.0
+(map_x_size, map_z_size)=(1.0,1.0)
 worker=Scheduler(block=False)
 global proxy
 proxy=None
@@ -13,7 +14,7 @@ global sound_effects
 sound_effects=False
 global opt
 global vbo
-vbo=False
+vbo=True
 from time import time
 global now, delta, iteration
 iteration=0
@@ -36,7 +37,13 @@ class Quat(Structure):
                  ("z", c_float) ]
 
 QuatPtr=POINTER(Quat)
-    
+
+cterrain.xSize.argtypes=[]
+cterrain.xSize.restype=c_float
+
+cterrain.zSize.argtypes=[]
+cterrain.zSize.restype=c_float
+
 positions.newObj.argtypes=[ ]
 positions.newObj.restype=c_void_p
 
