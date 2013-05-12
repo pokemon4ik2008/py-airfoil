@@ -1,0 +1,29 @@
+Objects, 1
+Object:, First Vertice:, Vertices:, First Triangle:, Triangles:
+Plane.007, 1, 4, 1, 2, none
+
+Vertices, 4
+Vertice:, X:, Y:, Z:
+1, -0.45939071103930473, -0.6609277985990047, 1.2197350669302978
+2, -0.45939071103930473, -0.7008847929537296, 1.2178808044991456
+3, -0.49939071387052536, -0.7008847910910845, 1.2178808045573533
+4, -0.4993907045572996, -0.660927789285779, 1.219735067395959
+
+Triangles, 2
+Triangle:, Side1:, Side2:, Side3:
+1, 1, 2, 3
+2, 1, 3, 4
+
+Colors, 2
+Triangle:, Red:, Green:, Blue:
+1, 28, 34, 59
+2, 28, 34, 59
+
+Textures, 1
+UV Map Id:, Texture Wrapping, Texture_Path
+0, 1, data/textures/plane.png
+
+UVMaps, 2
+Triangle:, UV Map Id:, vector1_uv_x, vector1_uv_y, vector2_uv_x, vector2_uv_y, vector3_uv_x, vector3_uv_x
+1, 0, 0.00000000, 0.00000000, 0.00000000, 1.00000000, 1.00000000, 1.00000000
+2, 0, 0.00000000, 0.00000000, 1.00000000, 1.00000000, 1.00000000, 0.00000000

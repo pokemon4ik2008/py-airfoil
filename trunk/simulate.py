@@ -67,8 +67,11 @@ def loadTerrain():
 		      c_char_p(mapFileName), 
 		      c_float(4.0/3.0*2.0),
 		      c_int(0),
-		      c_float(50.0),
+		      c_float(manage.map_expansion_const),
 		      c_float(1.0))
+        man=manage
+        man.map_y_size=cterrain.xSize()
+        man.map_z_size=cterrain.zSize()
 
 def drawTerrain(view):
 	pointOfView = (c_float * 9)()
@@ -617,17 +620,19 @@ def init():
                 loadTerrain()
                 #r = 0.0
 
-                def genMeshArgs(moving_maps, onlys, scale, group):
-                        all=[("data/models/cockpit/*.csv", (mesh.Mesh, scale, group))]
+                def genMeshArgs(all_glob, moving_maps, onlys, scale, group):
+                        all=[(all_glob, (mesh.Mesh, scale, group))]
                         all.extend(moving_maps.items())
-
+                        #all.append(("data/models/hud/*.csv", (mesh.HudMesh, scale, None)))
+                        
                         movingAndOnly=moving_maps.keys()[:]
                         movingAndOnly.append(onlys)
 
                         return (all, movingAndOnly)
 
                 internal_grp, external_grp=range(2)
-                (all_internal, not_external)=genMeshArgs({
+                (all_internal, not_external)=genMeshArgs("data/models/cockpit/*.csv", {
+                        "data/models/cockpit/LittlePlane.csv": (mesh.LittlePlaneMesh, scale, None),
                         "data/models/cockpit/Plane.004.csv": (mesh.CompassMesh, scale, None),
                         "data/models/cockpit/Plane.003.csv": (mesh.AltMeterMesh, scale, None), 
                         "data/models/cockpit/Plane.005.csv": (mesh.ClimbMesh, scale, None), 
@@ -637,7 +642,7 @@ def init():
                         "data/models/cockpit/Plane.014.csv": (mesh.BankingMesh, scale, None)
                         }, "data/models/cockpit/I_*.csv", scale, internal_grp)
                 not_external.extend(colliders)
-                (all_external, not_internal)=genMeshArgs({
+                (all_external, not_internal)=genMeshArgs("data/models/cockpit/*.csv", {
                         "data/models/cockpit/E_Prop.csv": (mesh.PropMesh, scale, None),
                         "data/models/cockpit/E_PropBlend.csv": (mesh.PropBlendMesh, scale, None)
                         }, "data/models/cockpit/E_*.csv", scale, external_grp)

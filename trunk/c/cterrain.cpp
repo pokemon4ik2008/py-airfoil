@@ -110,6 +110,16 @@ extern "C"
     //return checkSimpleCollision(p_cols, results);
   }
 
+  DLL_EXPORT float32 xSize()
+  {
+    return terrain_max_x*map_expansion_const;
+  }
+
+  DLL_EXPORT float32 zSize()
+  {
+    return terrain_max_z*map_expansion_const;
+  }
+
   DLL_EXPORT void getPlaneVectorAtPos(float x, float z, float outputVector[])
   {
     int xi = x/map_expansion_const;
