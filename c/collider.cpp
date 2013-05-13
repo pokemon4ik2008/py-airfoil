@@ -59,7 +59,7 @@ DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
   if(!p_cols || !p_cols->numCols) {
     return false;
   }
-  return col_CheckPoint(p_cols, Eigen::Vector3d(oldX, oldY, oldZ), Eigen::Vector3d(x,y,z), p_resCnt, results);
+  return col_CheckPoint(p_cols, Eigen::Vector3f(oldX, oldY, oldZ), Eigen::Vector3f(x,y,z), p_resCnt, results);
 }
 
   DLL_EXPORT bool checkCollisionCol(const obj_transformedCollider *p_cols,
@@ -103,8 +103,10 @@ DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
       return err;
     }
     p_cols->p_sphere[idx].mid=p_obj->mid;
-    float64 rad=MAX(MAX(p_obj->max.x-p_obj->min.x, p_obj->max.y-p_obj->min.y),
- p_obj->max.z-p_obj->min.z)/2;
+    float32 x_delta=p_obj->max.x()-p_obj->min.x();
+    float32 y_delta=p_obj->max.y()-p_obj->min.y();
+    float32 z_delta=p_obj->max.z()-p_obj->min.z();
+    float32 rad=MAX(MAX(x_delta, y_delta), z_delta)/2;
     p_cols->p_sphere[idx].rad=rad;
     p_cols->p_radSquares[idx]=rad*rad;
     p_cols->p_flags[idx]=0;
@@ -130,8 +132,7 @@ DLL_EXPORT bool checkCollisionPoint(const obj_transformedCollider *p_cols,
     }
     col_objDelete(&p_obj);
     return ok;
-  }
-  
+  } 
 }
 
 void col_setPosition(float plotPos[])
@@ -213,7 +214,7 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
 	obj_3dPrimitive *curr_obj;
 	int i,j;
 	int temp;
-	obj_vertex mid, min, max;
+	Eigen::Vector3f mid, min, max;
 	obj_vertex *inverts=NULL;
 	int inverts_max;
 	obj_3dPrimitive *inprims;
@@ -253,9 +254,7 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
 	while (fgetc(file)!=0x0a);
 	while (fgetc(file)!=0x0a);
 
-	mid.x=0;
-	mid.y=0;
-	mid.z=0;
+	mid=Eigen::Vector3f(0.0f,0.0f,0.0f);
 
 	//begin reading in vertex coords
 	for (i=0;i<inverts_max;i++) {
@@ -264,21 +263,21 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
 	  inverts[i].x-=origin_offset.x;
 	  inverts[i].x*=obj_scaler;
 	  if(inverts_max) {
-	    mid.x+=inverts[i].x/inverts_max;
+	    mid.x()+=inverts[i].x/inverts_max;
 	  }
 	  while (fgetc(file)!=','); //skip second comma
 	  fscanf(file,"%f",&(inverts[i].y));
 	  inverts[i].y-=origin_offset.y;
 	  inverts[i].y*=obj_scaler;
 	  if(inverts_max) {
-	    mid.y+=inverts[i].y/inverts_max;
+	    mid.y()+=inverts[i].y/inverts_max;
 	  }
 	  while (fgetc(file)!=','); //skip third comma
 	  fscanf(file,"%f",&(inverts[i].z));
 	  inverts[i].z-=origin_offset.z;
 	  inverts[i].z*=obj_scaler;
 	  if(inverts_max) {
-	    mid.z+=inverts[i].z/inverts_max;
+	    mid.z()+=inverts[i].z/inverts_max;
 	  }
 	  while (fgetc(file)!=0x0a);//skip to next line
 	  inverts[i].shared=0;
@@ -288,38 +287,34 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
 	  inverts[i].norm.z=0.0f;
 
 	  if(i==0) {
-	    min.x=inverts[i].x;
-	    min.y=inverts[i].y;
-	    min.z=inverts[i].z;
-	    max.x=inverts[i].x;
-	    max.y=inverts[i].y;
-	    max.z=inverts[i].z;
+	    min=Eigen::Vector3f(inverts[i].x, inverts[i].y, inverts[i].z);
+	    max=Eigen::Vector3f(inverts[i].x, inverts[i].y, inverts[i].z);
 	  } else {
-	    if(inverts[i].x<min.x) {
-	      min.x=inverts[i].x;
+	    if(inverts[i].x<min.x()) {
+	      min.x()=inverts[i].x;
 	    }
-	    if(inverts[i].x>max.x) {
-	      max.x=inverts[i].x;
+	    if(inverts[i].x>max.x()) {
+	      max.x()=inverts[i].x;
 	    }
-	    if(inverts[i].y<min.y) {
-	      min.y=inverts[i].y;
+	    if(inverts[i].y<min.y()) {
+	      min.y()=inverts[i].y;
 	    }
-	    if(inverts[i].y>max.y) {
-	      max.y=inverts[i].y;
+	    if(inverts[i].y>max.y()) {
+	      max.y()=inverts[i].y;
 	    }
-	    if(inverts[i].z<min.z) {
-	      min.z=inverts[i].z;
+	    if(inverts[i].z<min.z()) {
+	      min.z()=inverts[i].z;
 	    }
-	    if(inverts[i].z>max.z) {
-	      max.z=inverts[i].z;
+	    if(inverts[i].z>max.z()) {
+	      max.z()=inverts[i].z;
 	    }
 	  }
 	  inverts[i].id=i;
 	}
 	if(!strncmp((*pp_mesh)->mesh_path, match_mesh, PATH_LEN)) {
-	  printf("min %s: %f %f %f\n", (*pp_mesh)->mesh_path, min.x, min.y, min.z);
-	  printf("max: %f %f %f\n", max.x, max.y, max.z);
-	  printf("mid: %f %f %f\n", mid.x, mid.y, mid.z);
+	  printf("min %s: %f %f %f\n", (*pp_mesh)->mesh_path, min.x(), min.y(), min.z());
+	  printf("max: %f %f %f\n", max.x(), max.y(), max.z());
+	  printf("mid: %f %f %f\n", mid.x(), mid.y(), mid.z());
 	}			
 	//printf("mid: %f %f %f\n", mid.x, mid.y, mid.z);
 	//skip 1 lines
@@ -488,7 +483,7 @@ oError col_objCreate(obj_3dMesh **pp_mesh,
 
 	fclose(file);
 //-----------------------------------------------------------
-	(*pp_mesh)->mid=Eigen::Vector3d(mid.x, mid.y, mid.z);
+	(*pp_mesh)->mid=mid;
 	(*pp_mesh)->min=min;
 	(*pp_mesh)->max=max;
 	*obj= new obj_3dPrimitive;
@@ -727,10 +722,10 @@ void col_objDelete(obj_3dMesh **pp_mesh) {
     }
   }
 
-inline bool col_PtCollisionCheck(const obj_transformedCollider *p_col, uint32 idx, const Eigen::Vector3d &oldPoint, const Eigen::Vector3d &point) {
-  float64 denom=(point-oldPoint).squaredNorm();
-  Eigen::Vector3d pPos=p_col->p_sphere[idx].mid;
-  float64 t=-(((oldPoint-pPos).dot(point-oldPoint))/denom);
+inline bool col_PtCollisionCheck(const obj_transformedCollider *p_col, uint32 idx, const Eigen::Vector3f &oldPoint, const Eigen::Vector3f &point) {
+  float32 denom=(point-oldPoint).squaredNorm();
+  Eigen::Vector3f pPos=p_col->p_sphere[idx].mid;
+  float32 t=-(((oldPoint-pPos).dot(point-oldPoint))/denom);
   
   //see http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html for explanation of how we calculated distance to line
   //we require that .5<=t<=1.5 as the time index of p_sphere[idx]->mid corresponds to where t=1.0 (the middle of this interval)
@@ -756,8 +751,8 @@ inline bool col_ColCollisionCheck(const obj_transformedCollider *p_me, uint32 me
 }
 
 bool col_CheckPoint(const obj_transformedCollider *p_col, 
-		    const Eigen::Vector3d oldPoint, 
-		    const Eigen::Vector3d point, 
+		    const Eigen::Vector3f oldPoint, 
+		    const Eigen::Vector3f point, 
 		    uint32 *p_resSize, uint32 results[]) {
   ColliderIt it(p_col, p_resSize, results);
   while(it.hasNext()) {
@@ -799,59 +794,17 @@ bool col_CheckCollider(const obj_transformedCollider *p_col,
   return it.collided();
 }
 
-//returns number of collided colliders (n), results has n valid elements from idx 0 to n-1
-//results[idx], where n>idx is the tag flag of a collider that has collided
-//results[0], where n>0 is the tag flag of big collider
-/*
-uint32 col_CollisionCheck(obj_transformedCollider *p_transCol,
-			  //bool (*colCheck)(obj_sphere *p_sphere),
-			  uint32 *p_resCnt, uint32[] results) {
-  if(!p_transCol || !p_transCol->numCols) {
-    return 0;
-  }
-  ColliderIt it(p_transCol, p_resSize, results);
-  while(it.hasNext()) {
-    uint32 colIdx=it.next();
-    it.result(checkSimpleColl(p_col, it.next(), point))
-  }
-  return it.collided();
-*/
-  /*
-  uint32 resultIdx=0;
-  if(p_transCol->iteration!=p_transCol->p_midIters[0]) {
-    p_transCol->p_sphere[0].mid=p_transCol->pos+rotVert(p_transCol->p_orig->p_sphere[0].mid, p_transCol->att);
-    p_transCol->p_midIters[0]=p_transCol->iteration;
-  }
-  if(colCheck(&p_transCol->p_sphere[0])) {
-    results[resultIdx++]=p_transCol->p_orig->p_flags[0];
-    if(p_transCol->numCols>1) {
-      for(int i=1; i<p_transCol->numCols; i++) {
-	if(p_transCol->iteration!=p_transCol->p_midIters[i]) {
-	  p_transCol->p_sphere[i].mid=p_transCol->pos+rotVert(p_transCol->p_orig->p_sphere[i].mid, p_transCol->att);
-	  p_transCol->p_midIters[i]=p_transCol->iteration;
-	}
-	if(colCheck(*p_transCol->p_sphere[i])) {
-	  results[resultIdx++]=p_transCol->p_orig->p_flags[i];
-	  break;
-	}
-      }
-    }
-  }
-  return resultIdx;
-  */
-//}
-
 void col_updateColliders(obj_transformedCollider *p_transCol,
 			 uint32 iteration,
-			 float64 xPos, float64 yPos, float64 zPos,
-			 float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt) {
+			 float32 xPos, float32 yPos, float32 zPos,
+			 float32 wAtt, float32 xAtt, float32 yAtt, float32 zAtt) {
   using namespace Eigen;
   if(!p_transCol) {
     return;
   }
   obj_collider *p_cols = p_transCol->p_orig;
-  p_transCol->att=Quaternion<float64>(wAtt, xAtt, yAtt, zAtt);
-  p_transCol->pos=Vector3d(xPos, yPos, zPos);
+  p_transCol->att=Quaternion<float32>(wAtt, xAtt, yAtt, zAtt);
+  p_transCol->pos=Vector3f(xPos, yPos, zPos);
   p_transCol->iteration=iteration;
 
   if(p_transCol->numCols) {

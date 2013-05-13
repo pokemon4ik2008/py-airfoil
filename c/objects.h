@@ -127,8 +127,8 @@ oError setupVBO(obj_3dMesh *p_meshes, uint32 num_meshes, obj_vbo *p_vbo);
   void setupRotation(float64 x,
 		     float64 y,
 		     float64 z,
-		     Eigen::Quaternion<float64> &angle_quat,
-		     Eigen::Vector3d &midPt, Eigen::Vector3d &rotOrig);
+		     Eigen::Quaternion<float32> &angle_quat,
+		     Eigen::Vector3f &midPt, Eigen::Vector3f &rotOrig);
 inline float32 max(float32 x, float32 y) {
   return x>y?x:y;
 }

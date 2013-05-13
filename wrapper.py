@@ -56,6 +56,8 @@ if api==PYGLET:
                 object3dLib.setupTex.restype=c_uint
                 setupTex=object3dLib.setupTex
                 getMid=object3dLib.getMid
+                getMin=object3dLib.getMin
+                getMax=object3dLib.getMax
                 
                 object3dLib.setupRotation.argtypes=[ c_double, c_double, c_double,
                                                      c_double, c_double, c_double, c_double,
@@ -72,19 +74,16 @@ if api==PYGLET:
                 object3dLib.draw.restype=None
                 draw=object3dLib.draw
                 
+                object3dLib.setOffset.argtypes=[ c_float, c_float, c_float ]
+                object3dLib.setOffset.restype=None
+                setOffset=object3dLib.setOffset
+                
                 object3dLib.drawRotated.argtypes=[ c_double, c_double, c_double,
                                                    c_double, c_double, c_double, c_double,
                                                    c_double, c_double, c_double, c_double,
                                                    c_void_p, c_float ]
                 object3dLib.drawRotated.restype=None
                 drawRotated=object3dLib.drawRotated
-                
-                object3dLib.drawRotatedCen.argtypes=[ c_double, c_double, c_double,
-                                                   c_double, c_double, c_double, c_double,
-                                                   c_double, c_double, c_double, c_double,
-                                                   c_double, c_double, c_double, c_float ]
-                object3dLib.drawRotatedCen.restype=None
-                drawRotatedCen=object3dLib.drawRotatedCen
                 
                 object3dLib.createTexture.argtypes=[ c_void_p, c_uint, c_void_p, c_uint, c_uint, c_uint ]
                 object3dLib.createTexture.restype=c_uint
@@ -275,9 +274,13 @@ else:
 	getUvPath=lambda mesh, uvId: None
 	setupTex=lambda mesh, uvId, texId: None
 	getMid=lambda centre_mesh, mid: None
+        getMin=lambda centre_mesh, minum: None
+        getMax=lambda centre_mesh, maxim: None
 	setupRotation=lambda x, y, z, wr, xr, yr, zr, xmid, ymid, zmid, xorig, yorig, zorig: None
 	drawToTex=lambda mesh, alpha, fbo, width, height, bg, boundPlane, top: None
 	draw=lambda mesh, alpha: None
+        setOffset=lambda x, y, z: None
+                
 	drawRotated=lambda xPos, yPos, zPos, wAtt, xAtt, yAtt, zAtt, wAng, xAng, yAng, zAng, p_centre_mesh, alpha: None
         createTexture=lambda mesh, uv_id, data, width, height, form: 0
         createFBO=lambda texId, width, height: 0

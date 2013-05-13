@@ -13,8 +13,10 @@ server=None
 global sound_effects
 sound_effects=False
 global opt
+global scale
+scale=3.0
 global vbo
-vbo=True
+vbo=False
 from time import time
 global now, delta, iteration
 iteration=0

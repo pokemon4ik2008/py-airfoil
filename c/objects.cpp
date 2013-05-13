@@ -22,6 +22,8 @@ float obj_cut_off_dist = 100;
 float obj_cut_off_angle = 20;
 float obj_ambient_light=0.5f;
 obj_light_source objlight={0,0,0,1.0f};
+Eigen::Vector3f trans(0.0f,0.0f,0.0f);
+bool offsettable=false;
 
 extern "C" 
 {
@@ -37,6 +39,22 @@ extern "C"
     mid[0]=static_cast<obj_3dMesh *>(p_mesh)->mid.x();
     mid[1]=static_cast<obj_3dMesh *>(p_mesh)->mid.y();
     mid[2]=static_cast<obj_3dMesh *>(p_mesh)->mid.z();
+  }
+
+  DLL_EXPORT void getMin(void *p_meshToPlot, float min[])
+  {
+    obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
+    min[0]=static_cast<obj_3dMesh *>(p_mesh)->min.x();
+    min[1]=static_cast<obj_3dMesh *>(p_mesh)->min.y();
+    min[2]=static_cast<obj_3dMesh *>(p_mesh)->min.z();
+  }
+
+  DLL_EXPORT void getMax(void *p_meshToPlot, float max[])
+  {
+    obj_3dMesh *p_mesh=static_cast<obj_3dMesh *>(p_meshToPlot);
+    max[0]=static_cast<obj_3dMesh *>(p_mesh)->max.x();
+    max[1]=static_cast<obj_3dMesh *>(p_mesh)->max.y();
+    max[2]=static_cast<obj_3dMesh *>(p_mesh)->max.z();
   }
 
   DLL_EXPORT uint8* getUvPath(void *p_meshToPlot, uint32 uv_id)
@@ -142,6 +160,13 @@ extern "C"
 			printf("ERROR: when drawing object\n");
 		}
 	}
+
+  DLL_EXPORT void setOffset(float32 x, float32 y, float32 z) {
+    trans.x()=x;
+    trans.y()=y;
+    trans.z()=z;
+    offsettable=true;
+  }
 
   DLL_EXPORT void draw(obj_3dMesh *p_meshToPlot, float32 alpha)
 	{
@@ -252,26 +277,18 @@ extern "C"
 			      float64 wAng, float64 xAng, float64 yAng, float64 zAng,
 			      obj_3dMesh *p_centre_mesh, float32 alpha) {
     using namespace Eigen;
-    Quaternion<float64> att(wAtt, xAtt, yAtt, zAtt);
-    Quaternion<float64> angle_quat(wAng, xAng, yAng, zAng);
-    Quaternion<float64> rot=att*angle_quat*SETUP_ROT;
-    Vector3d rotOrig=rotVert(p_centre_mesh->mid, att);
+    Quaternion<float32> att(wAtt, xAtt, yAtt, zAtt);
+    Quaternion<float32> angle_quat(wAng, xAng, yAng, zAng);
+    Quaternion<float32> rot=att*angle_quat*SETUP_ROT;
+    Vector3f mid;
+    if(offsettable) {
+      mid=p_centre_mesh->mid+trans;
+    } else {
+      mid=p_centre_mesh->mid;
+    }
+    Vector3f rotOrig=rotVert(mid, att);
     setupRotation(xPos, yPos, zPos,
-		  rot, p_centre_mesh->mid, rotOrig);
- }
-
-  DLL_EXPORT void drawRotatedCen(float64 xPos, float64 yPos, float64 zPos,
-			      float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt,
-			      float64 wAng, float64 xAng, float64 yAng, float64 zAng,
-			      float64 xCen, float64 yCen, float64 zCen, float32 alpha) {
-    using namespace Eigen;
-    Quaternion<float64> att(wAtt, xAtt, yAtt, zAtt);
-    Quaternion<float64> angle_quat(wAng, xAng, yAng, zAng);
-    Quaternion<float64> rot=att*angle_quat*SETUP_ROT;
-    Vector3d cen(xCen, yCen, zCen);
-    Vector3d rotOrig=rotVert(cen, att);
-    setupRotation(xPos, yPos, zPos,
-		  rot, cen, rotOrig);
+		  rot, mid, rotOrig);
  }
 
   DLL_EXPORT void setupRotation(float64 x, 
@@ -289,8 +306,8 @@ extern "C"
 			   float64 zorig)
   {
     using namespace Eigen;
-    Vector3d pos(x, y, z), midPt(xmid, ymid, zmid), rotOrig(xorig, yorig, zorig);
-    Quaternion<float64> angle_quat(wr, xr, yr, zr);
+    Vector3f pos(x, y, z), midPt(xmid, ymid, zmid), rotOrig(xorig, yorig, zorig);
+    Quaternion<float32> angle_quat(wr, xr, yr, zr);
     setupRotation(x, y, z, angle_quat, midPt, rotOrig);
   }
 
@@ -299,16 +316,16 @@ extern "C"
   void setupRotation(float64 x,
 		     float64 y,
 		     float64 z,
-		     Eigen::Quaternion<float64> &angle_quat,
-		     Eigen::Vector3d &midPt, Eigen::Vector3d &rotOrig) {
+		     Eigen::Quaternion<float32> &angle_quat,
+		     Eigen::Vector3f &midPt, Eigen::Vector3f &rotOrig) {
     using namespace Eigen;
-    Vector3d pos(x, y, z);
+    Vector3f pos(x, y, z);
     angle_quat.normalize();
-    AngleAxis<float64> angleAxis(angle_quat);
+    AngleAxis<float32> angleAxis(angle_quat);
 
-    Vector3d rotNew=angle_quat * midPt;
-    Vector3d axis=angleAxis.axis();
-    Vector3d offset=pos-(rotNew-rotOrig);
+    Vector3f rotNew=angle_quat * midPt;
+    Vector3f axis=angleAxis.axis();
+    Vector3f offset=pos-(rotNew-rotOrig);
 
     float32 fpos[3];
     fpos[0]=offset.x();
@@ -396,48 +413,8 @@ GLuint fboId=0xffffffff;
 uint32 fboUsed=false;
 oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize, uint32 ySize, uint32 bgTex, uint32 boundPlane, uint32 top) {
   obj_vertex eye, lookAt, zen;
-  obj_vertex *p_bound, *p_opp, *p_top;
-  /*
-  obj_vertex *p_bg[4];
-  uint32 min_faces[3][4]={{0,3,4,7},{0,1,2,3},{2,3,6,7}};
-  uint32 max_faces[3][4]={{1,2,5,6},{4,5,6,7},{0,1,4,5}};
-  uint32 *p_order;
-  uint32 *p_bg_verts;
-  obj_vertex box[8];
-  for(uint32 i=0; i<DIM(box); i++) {
-    switch(i) {
-    case 0:
-    case 3:
-    case 4:
-    case 7:
-      box[i].x=p_mesh->min.x;
-      break;
-    default:
-      box[i].x=p_mesh->max.x;
-    }
-    switch(i) {
-    case 2:
-    case 3:
-    case 6:
-    case 7:
-      box[i].y=p_mesh->min.y;
-      break;
-    default:
-      box[i].y=p_mesh->max.y;
-    }
-    switch(i) {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-      box[i].z=p_mesh->min.z;
-      break;
-    default:
-      box[i].z=p_mesh->max.z;
-    }
-  }
-  */
-
+  Eigen::Vector3f *p_bound, *p_opp, *p_top;
+  
   if(boundPlane & MIN_FLAG) {
     p_bound=&p_mesh->min;
     p_opp=&p_mesh->max;
@@ -455,114 +432,58 @@ oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize,
   const uint32 z_dim=4;
   //uint32 otherDim=x_dim|y_dim|z_dim;
 
-  float32 width=p_mesh->max.x-p_mesh->min.x;
-  float32 depth=p_mesh->max.z-p_mesh->min.z;
-  float32 height=p_mesh->max.y-p_mesh->min.y;
+  float32 width=p_mesh->max.x()-p_mesh->min.x();
+  float32 depth=p_mesh->max.z()-p_mesh->min.z();
+  float32 height=p_mesh->max.y()-p_mesh->min.y();
   float32 bound=0;
   float32 clip=0;
   uint32 dim=(boundPlane & DIM_MASK);
-  /*
-  p_bg_verts=(boundPlane & MIN_FLAG) ? max_faces[dim]: min_faces[dim];
-  for(uint32 i=0; i<4; i++) {
-    p_bg[i]=&box[p_bg_verts[i]];
-  }
-  */
+
   switch(dim) {
   case DIM_Z:
-    eye.x=(p_mesh->min.x+p_mesh->max.x)/2;
-    eye.y=p_bound->y;
-    eye.z=(p_mesh->min.z+p_mesh->max.z)/2;
+    eye.x=(p_mesh->min.x()+p_mesh->max.x())/2;
+    eye.y=p_bound->y();
+    eye.z=(p_mesh->min.z()+p_mesh->max.z())/2;
     bound=max(height, depth)/2.0;
-    /*
-    for(uint32 i=0; i<4; i++) {
-      if(p_bg[i]->x<p_mesh->mid.x) {
-	p_bg[i]->x=p_mesh->mid.x-bound;
-      } else {
-	p_bg[i]->x=p_mesh->mid.x+bound;
-      }
-      if(p_bg[i]->z<p_mesh->mid.z) {
-	p_bg[i]->z=p_mesh->mid.z-bound;
-      } else {
-	p_bg[i]->z=p_mesh->mid.z+bound;
-      }
-    }
-    */
     clip=depth/2.0;
-    //otherDim&=~z_dim;
-    //p_order=top_order_z;
     break;
   case DIM_Y:
-    eye.x=(p_mesh->min.x+p_mesh->max.x)/2;
-    eye.y=(p_mesh->min.y+p_mesh->max.y)/2;
-    eye.z=p_bound->z;
+    eye.x=(p_mesh->min.x()+p_mesh->max.x())/2;
+    eye.y=(p_mesh->min.y()+p_mesh->max.y())/2;
+    eye.z=p_bound->z();
     bound=max(height, depth)/2.0;
-    /*
-    for(uint32 i=0; i<4; i++) {
-      if(p_bg[i]->x<p_mesh->mid.x) {
-	p_bg[i]->x=p_mesh->mid.x-bound;
-      } else {
-	p_bg[i]->x=p_mesh->mid.x+bound;
-      }
-      if(p_bg[i]->y<p_mesh->mid.y) {
-	p_bg[i]->y=p_mesh->mid.y-bound;
-      } else {
-	p_bg[i]->y=p_mesh->mid.y+bound;
-      }
-    }
-    */
     clip=height/2.0;
-    //otherDim&=~y_dim;
-    //p_order=top_order_y;
     break;
   case DIM_X:
-    eye.x=p_bound->x;
-    eye.y=(p_mesh->min.y+p_mesh->max.y)/2;
-    eye.z=(p_mesh->min.z+p_mesh->max.z)/2;
+    eye.x=p_bound->x();
+    eye.y=(p_mesh->min.y()+p_mesh->max.y())/2;
+    eye.z=(p_mesh->min.z()+p_mesh->max.z())/2;
     bound=max(height, width)/2.0;
-    /*
-    for(uint32 i=0; i<4; i++) {
-      if(p_bg[i]->z<p_mesh->mid.z) {
-	p_bg[i]->z=p_mesh->mid.z-bound;
-      } else {
-	p_bg[i]->z=p_mesh->mid.z+bound;
-      }
-      if(p_bg[i]->y<p_mesh->mid.y) {
-	p_bg[i]->y=p_mesh->mid.y-bound;
-      } else {
-	p_bg[i]->y=p_mesh->mid.y+bound;
-      }
-    }
-    */
     clip=width/2;
-    //otherDim&=~x_dim;
-    //p_order=top_order_x;
     break;
   default:
     printf("invalid dim 0x%x\n", dim);
     assert(false);
   }
-  lookAt.x=(p_mesh->min.x+p_mesh->max.x)/2;
-  lookAt.y=(p_mesh->min.y+p_mesh->max.y)/2;
-  lookAt.z=(p_mesh->min.z+p_mesh->max.z)/2;
+  lookAt.x=(p_mesh->min.x()+p_mesh->max.x())/2;
+  lookAt.y=(p_mesh->min.y()+p_mesh->max.y())/2;
+  lookAt.z=(p_mesh->min.z()+p_mesh->max.z())/2;
   uint32 topDim=(top & DIM_MASK);
   switch(topDim) {
   case DIM_Z:
     zen.x=eye.x;
-    zen.y=p_top->y;
+    zen.y=p_top->y();
     zen.z=eye.z;
-    //otherDim&=~z_dim;
     break;
   case DIM_Y:
     zen.x=eye.x;
     zen.y=eye.y;
-    zen.z=p_top->z;
-    //otherDim&=~y_dim;
+    zen.z=p_top->z();
     break;
   case DIM_X:
-    zen.x=p_top->x;
+    zen.x=p_top->x();
     zen.y=eye.y;
     zen.z=eye.z;
-    //otherDim&=~x_dim;
     break;
   default:
     printf("invalid topDim 0x%x\n", topDim);
@@ -579,12 +500,8 @@ oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize,
   glPushMatrix();
   glLoadIdentity();
   
-  //GLint viewport[4];
-  //glGetIntegerv(GL_VIEWPORT, viewport);
-  //printf("viewport: x %u y %u width %u height %u\n", viewport[0], viewport[1], viewport[2], viewport[3]);
   glViewport(0, 0, xSize, ySize);
   gluLookAt(eye.x, eye.y, eye.z, lookAt.x, lookAt.y, lookAt.z, zen.x, zen.y, zen.z);
-  //printf("pos x %f y %f z %f\n", pos.x, pos.y, pos.z);
   if(alpha!=1.0) {
     glEnable(GL_BLEND); 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -593,44 +510,6 @@ oError objPlotToTex(obj_3dMesh *p_mesh, float32 alpha, uint32 fbo, uint32 xSize,
   }
   glLightfv(GL_LIGHT0, GL_POSITION, (float *)&objlight);
 
-  /*
-  glDisable( GL_DEPTH_TEST);
-  glDisable(GL_CULL_FACE);
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, bgTex);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-  GLfloat col[]={1.0f,
-		 1.0f,
-		 1.0f,1.0f};
-  glMaterialfv(GL_FRONT, GL_DIFFUSE, col); 
-  glColor4f(1.0, 1.0, 1.0, 1.0);
-
-  glDisable(GL_LIGHTING);
-  //if(alpha!=1.0) {
-  //  glEnable(GL_BLEND); 
-  //  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  //} else {
-    glDisable(GL_BLEND);
-    //}
-  uint32 dimBg=DIM(p_bg);
-  glBegin( GL_TRIANGLES );
-  uint32 idx;
-  uint32 i;
-
-  uint32 verts[]={0,1,2,1,2,3};
-  for(uint32 el=0; el<6; el++) {
-    i=verts[el];
-    glTexCoord2f(i>>1, (i==1 || i==2)?1.0:0.0);
-    idx=(i+p_order[top])%dimBg;
-    printf("i: %u x %f y %f z %f\n", i, p_bg[idx]->x, p_bg[idx]->y, p_bg[idx]->z);
-    glVertex3f(p_bg[idx]->x, p_bg[idx]->y, p_bg[idx]->z);	
-  }
-  glEnd();
-  */  
-  
   glTranslatef(col_getPos().x, col_getPos().y, col_getPos().z );
   if(rotAxis) {
     glRotatef(rotAngle, rotAxis[0], rotAxis[1], rotAxis[2]);
@@ -773,9 +652,15 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
 	} else {
 	  glColor4f(curr_prim->r, curr_prim->g, curr_prim->b, alpha);
 	}
-	glVertex3f(	curr_prim->vert[i]->x, 
+	if(offsettable) {
+	  glVertex3f(	curr_prim->vert[i]->x+trans.x(), 
+			curr_prim->vert[i]->y+trans.y(), 
+			curr_prim->vert[i]->z+trans.z());	
+	} else {
+	  glVertex3f(	curr_prim->vert[i]->x, 
 			curr_prim->vert[i]->y, 
 			curr_prim->vert[i]->z);	
+	}
       }
       if(curr_prim->uv_id!=UNTEXTURED) {
 	glEnd();
@@ -799,7 +684,8 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
     glEnableClientState(GL_COLOR_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
 
-    glVertexPointer(p_mesh->vbo.num_vert_components, GL_FLOAT, p_mesh->vbo.stride, (GLvoid*)((char*)NULL+p_mesh->vbo.num_col_components*sizeof(GLfloat)+p_mesh->vbo.num_norm_components*sizeof(GLfloat)));
+    glVertexPointer(p_mesh->vbo.num_vert_components, GL_FLOAT, p_mesh->vbo.stride, 
+		    (GLvoid*)((char*)NULL+p_mesh->vbo.num_col_components*sizeof(GLfloat)+p_mesh->vbo.num_norm_components*sizeof(GLfloat)));
     glColorPointer(p_mesh->vbo.num_col_components, GL_FLOAT, p_mesh->vbo.stride, (GLvoid*)((char*)NULL+p_mesh->vbo.num_norm_components*sizeof(GLfloat)));
     glNormalPointer(GL_FLOAT, p_mesh->vbo.stride, (GLvoid*)((char*)NULL));
     // This is the actual draw command
@@ -818,6 +704,7 @@ oError objPlot(obj_3dMesh *p_mesh, float32 alpha) {
       printf("err %u\n", error);
     }
   }
+  offsettable=false;
   return error;
 }
 

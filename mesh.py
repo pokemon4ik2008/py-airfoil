@@ -5,7 +5,7 @@ import glob
 import itertools
 from math import cos, degrees, sin
 import manage
-from manage import collider
+from manage import collider, cterrain
 import random
 import sys
 from traceback import print_exc
@@ -262,39 +262,10 @@ class Mesh(object):
                 new_details[(view_id, bot_id)]=self._bot_details[(view_id, bot_id)]
         self._bot_details=new_details
 
-    def setupRotation(self, pos, angle_quat, midPt, rotOrig=None):
-        if rotOrig is None:
-            rotOrig = midPt
-        #print 'python. pos: '+str(pos)
-        #print 'python. angle_quat: '+str(angle_quat)
-        #print 'python. midPt: '+str(midPt)
-        #print 'python. rotOrig: '+str(rotOrig)
-        angleAxis= angle_quat.get_angle_axis()
-
-        rotNew=angle_quat * (midPt)
-        axis = angleAxis[1].normalized()
-        offset=pos-(rotNew-rotOrig)
-        #print 'python. rotNew: '+str(rotNew)
-
-        fpos = (c_float * 3)()
-        fpos[0] = offset.x
-        fpos[1] = offset.y
-        fpos[2] = offset.z
-        collider.setPosition(fpos)
-        #print 'python. set pos: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
-        fpos[0] = axis.x
-        fpos[1] = axis.y
-        fpos[2] = axis.z
-        
-        collider.setAngleAxisRotation(c_float(degrees(angleAxis[0])), fpos)
-        #print 'python. set rot: '+str(degrees(angleAxis[0]))+' axis: '+str(fpos[0])+' '+str(fpos[1])+' '+str(fpos[2])
-
     def drawRotatedToTexAlpha(self, bot, angle_quat, centre_mesh, fbo, width, height, bg, alpha, boundPlane, top):
         rot=angle_quat
         mid = (c_float * 3)()
         wrapper.getMid(centre_mesh, mid)
-        #midPt=Vector3(mid[0], mid[1], mid[2])
-        #self.setupRotation(NULL_VEC, rot, midPt)
         wrapper.setupRotation(
             NULL_VEC.x, NULL_VEC.y, NULL_VEC.z,
             rot.x, rot.y, rot.z,
@@ -314,7 +285,7 @@ class Mesh(object):
         fpos[0] = setup_axis.x
         fpos[1] = setup_axis.y
         fpos[2] = setup_axis.z
-        collider.setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
+        setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
         wrapper.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
 
     def draw(self, bot, view_id):
@@ -508,11 +479,35 @@ class LittlePlaneMesh(Mesh):
     def __init__(self, *args, **kwargs):
         Mesh.__init__(self, *args, **kwargs)
         self.rep=MiniRep()
+
+        self.__pi_and_half=math.pi*1.5
+        minim=(c_float * 3)()
+        mapMesh=self._sibs['data/models/cockpit/I_Map.csv'].mesh
+        wrapper.getMin(mapMesh, minim)
+        maxim=(c_float * 3)()
+        wrapper.getMax(mapMesh, maxim)
+        self.__mapMin=(minim[0], minim[1], minim[2])
+        self.__mapMax=(maxim[0], maxim[1], maxim[2])
+        self.__mapSize=(self.__mapMax[0]-self.__mapMin[0], self.__mapMax[1]-self.__mapMin[1], self.__mapMax[2]-self.__mapMin[2])
+        
+        (self.__terrainXSize, self.__terrainYSize)=(cterrain.xSize(), cterrain.zSize())
         
     def draw(self, bot, view_id):
-        ang=-bot.getHeading()
+        ang=self.__pi_and_half-bot.getHeading()
+        #print 'ang: '+str(ang)
         self.rep.att=bot.getAttitude()
         pos=bot.getPos()
+
+        (x,y)=(pos.x/self.__terrainXSize, pos.z/self.__terrainYSize)
+        if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
+            return
+        
+        x_off=-(x*self.__mapSize[0])
+        y_off=-(y*self.__mapSize[1])
+        z_off=-(y*self.__mapSize[2])
+        #print 'max x, y: '+str((x_off,y_off))
+        #mapSize[0]=-3.6
+        wrapper.setOffset(x_off, y_off, z_off-0.1)
         self.rep.pos=Vector3(pos.x, pos.y, pos.z)
         #self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh)
         self.drawRotated(self.rep, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh)

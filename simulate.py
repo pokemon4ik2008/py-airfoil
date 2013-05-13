@@ -583,7 +583,7 @@ def init():
                 global botTracker
                 botTracker=BotTracker( factory, [ MyAirfoil.TYP, Bullet.TYP ] )
                 
-                scale=3.0
+                scale=manage.scale
                 colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
                 colliders=[ path for (path, scale) in colliders_map.values() ]
                 mesh.loadColliders( colliders_map )

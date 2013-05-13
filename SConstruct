@@ -77,4 +77,5 @@ if graphics is PYGLET:
         print 'will link to mini'
         terrEnv.Append(LIBS = ['Mini'])
 
-cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp", collider])
+#cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp", collider])
+cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp"])
