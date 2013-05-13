@@ -655,7 +655,7 @@ bool checkSimpleColl(const obj_transformedCollider *p_cols, uint32 colNum) {
 
 #ifdef OPEN_GL
   obj_sphere *p_sphere=&p_cols->p_sphere[colNum];
-  Eigen::Vector3d colPos=p_sphere->mid;
+  Eigen::Vector3f colPos=p_sphere->mid;
   float64 radius=p_cols->p_orig->p_sphere[colNum].rad;
   float64 x_col=colPos.x(), 
     y_col=colPos.y(), 

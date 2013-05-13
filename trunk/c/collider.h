@@ -65,9 +65,9 @@ typedef struct {
 class obj_3dMesh {
  public:
   obj_3dPrimitive *p_prim;
-  Eigen::Vector3d mid;
-  obj_vertex min;
-  obj_vertex max;
+  Eigen::Vector3f mid;
+  Eigen::Vector3f min;
+  Eigen::Vector3f max;
   uint32 num_uv_maps;
   uint32 *p_tex_ids;
   uint32 *p_tex_widths;
@@ -97,7 +97,7 @@ class obj_3dMesh {
 
 class obj_sphere {
  public:
-  Eigen::Vector3d mid;
+  Eigen::Vector3f mid;
   float64 rad;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     };
@@ -121,8 +121,8 @@ class obj_collider {
 
 class obj_transformedCollider {
  public:
-  Eigen::Quaternion<float64> att;
-  Eigen::Vector3d pos;
+  Eigen::Quaternion<float32> att;
+  Eigen::Vector3f pos;
   uint32 numCols;
   uint32 *p_midIters;
   obj_sphere *p_sphere;
@@ -133,7 +133,7 @@ class obj_transformedCollider {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-inline Eigen::Vector3d rotVert(const Eigen::Vector3d &v, const Eigen::Quaternion<float64> &att) {
+inline Eigen::Vector3f rotVert(const Eigen::Vector3f &v, const Eigen::Quaternion<float32> &att) {
   return att*SETUP_ROT*v;
 }
 class ColliderIt {
@@ -248,18 +248,18 @@ void col_identifyBigCollider(obj_collider *p_cols);
 void col_rotColliders(obj_collider *p_cols, obj_transformedCollider *p_transCol, uint32 iteration, float64 xPos, float64 yPos, float64 zPos, float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt);
 void col_updateColliders(obj_transformedCollider *p_transCol,
 			 uint32 iteration,
-			 float64 xPos, float64 yPos, float64 zPos,
-			 float64 wAtt, float64 xAtt, float64 yAtt, float64 zAtt);
+			 float32 xPos, float32 yPos, float32 zPos,
+			 float32 wAtt, float32 xAtt, float32 yAtt, float32 zAtt);
 
 bool col_CheckPoint(const obj_transformedCollider *p_col, 
-		    Eigen::Vector3d oldPoint, 
-		    Eigen::Vector3d point, 
+		    Eigen::Vector3f oldPoint, 
+		    Eigen::Vector3f point, 
 		    uint32 *p_resSize, uint32 results[]);
 bool col_CheckCollider(const obj_transformedCollider *p_col, 
 		       const obj_transformedCollider *p_other,
 		       uint32 *p_mySize, uint32 myResults[],
 		       uint32 *p_oSize, uint32 oResults[]);
-inline bool col_PtCollisionCheck(const obj_transformedCollider *p_col, uint32 idx, const Eigen::Vector3d &oldPoint, const Eigen::Vector3d &point);
+inline bool col_PtCollisionCheck(const obj_transformedCollider *p_col, uint32 idx, const Eigen::Vector3f &oldPoint, const Eigen::Vector3f &point);
 inline bool col_ColCollisionCheck(const obj_transformedCollider *p_me, uint32 meIdx, 
 				  const obj_transformedCollider *p_other, uint32 oIdx);
 void col_objDelete(obj_3dMesh **pp_mesh);
