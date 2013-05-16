@@ -9,7 +9,7 @@ from manage import collider, cterrain
 import random
 import sys
 from traceback import print_exc
-from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath
+from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath, QUART_PI, HALF_PI, PI2
 
 import wrapper
 from wrapper import *
@@ -24,10 +24,6 @@ all_vbos=[]
 vbos={}
 vbo_meshes={}
 manage.lookup_colliders={}
-
-QUART_PI=0.25*math.pi
-HALF_PI=0.5*math.pi
-PI2=2*math.pi
 
 YZ_SWAP_ROT=Quaternion.new_rotate_axis(HALF_PI, Vector3(1.0, 0.0, 0.0))
 SETUP_ROT=Quaternion(0.5, -0.5, 0.5, 0.5)
@@ -428,7 +424,7 @@ class CompassMesh(Mesh):
 
         (last_heading, speed, last_update) = self._bot_details[(view_id, ident)]
 
-        #handle wrapping by calculating the heading when greating than last_heading and when less
+        #handle wrapping by calculating the heading when greater than last_heading and when less
         if heading > last_heading:
             alt_heading = heading - PI2
         else:
@@ -460,8 +456,9 @@ class CompassMesh(Mesh):
         last_heading+=speed
         last_heading = last_heading % PI2
         last_update=manage.now
-        ang=-last_heading/2
-        self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
+        #ang=-last_heading/2
+        ang=last_heading
+        self.drawRotated(bot, Quaternion.new_rotate_axis(ang, Y_UNIT), self._sibs['data/models/cockpit/Cylinder.002.csv'].mesh)
         self._bot_details[(view_id, ident)]=(last_heading, speed, last_update)
 
 class MiniRep:
@@ -493,9 +490,9 @@ class LittlePlaneMesh(Mesh):
         (self.__terrainXSize, self.__terrainYSize)=(cterrain.xSize(), cterrain.zSize())
         
     def draw(self, bot, view_id):
-        ang=self.__pi_and_half-bot.getHeading()
-        #print 'ang: '+str(ang)
         self.rep.att=bot.getAttitude()
+        ang=bot.getHeading()
+        #print 'heading: '+str(ang/math.pi)
         pos=bot.getPos()
 
         (x,y)=(pos.x/self.__terrainXSize, pos.z/self.__terrainYSize)
@@ -507,11 +504,10 @@ class LittlePlaneMesh(Mesh):
         z_off=-(y*self.__mapSize[2])
         #print 'max x, y: '+str((x_off,y_off))
         #mapSize[0]=-3.6
+
         wrapper.setOffset(x_off, y_off, z_off-0.1)
         self.rep.pos=Vector3(pos.x, pos.y, pos.z)
-        #self.drawRotated(bot, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh)
-        self.drawRotated(self.rep, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.mesh)
-        #self.drawRotatedCen(self.rep, Quaternion(math.cos(ang), 0, math.sin(ang), 0), self.rep.pos.x, self.rep.pos.y, self.rep.pos.z)
+        self.drawRotated(self.rep, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
 
 def loadColliders( colliders ):
     print 'loadColliders start'

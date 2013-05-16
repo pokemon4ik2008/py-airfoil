@@ -96,15 +96,16 @@ class PlanePositionQuery(Query):
         MAX_POS=2
         NEXT_IDX=Query.NEXT_IDX+1
         [ __POS_IDX ]= range(Query.NEXT_IDX, NEXT_IDX)
-        PLANE_INITS=[(Point3(10600.0,100.0,4200.0), 
-              Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
-              Vector3(0,0,60),
-              0),
-             (Point3(10600,200.0,9200), 
-              Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
-              Vector3(0,0,-60),
-              0)]
 
+        PLANE_INITS=[(Point3(10600.0,100.0,4200.0), 
+                      Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
+                      Vector3(0,0,60),
+                      0),
+                (Point3(10600,200.0,9200), 
+                 Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
+                 Vector3(0,0,-60),
+                 0)]
+        
         def __init__(self, ident=None, proxy=None, uniq=None):
                 #print 'PlanePositionQuery.__init__'
                 assert len(PlanePositionQuery.PLANE_INITS)==PlanePositionQuery.MAX_POS
