@@ -1,8 +1,14 @@
+from __future__ import division
+
 from euclid import Quaternion, Vector3
 import glob
 import math
 import os
 import socket
+
+QUART_PI=0.25*math.pi
+HALF_PI=0.5*math.pi
+PI2=2*math.pi
 
 X_UNIT=Vector3(1.0, 0.0, 0.0)
 Y_UNIT=Vector3(0.0, 1.0, 0.0)
@@ -10,19 +16,40 @@ Z_UNIT=Vector3(0.0, 0.0, 1.0)
 NULL_VEC=Vector3(0.0,0.0,0.0)
 NULL_ROT=Quaternion.new_rotate_axis(0.0, Y_UNIT)
 
+def testAllAngleForXY():
+        testAngleForXY(57735, 100000, 1.0/6)
+        testAngleForXY(1732, 1000, 1.0/3)
+        testAngleForXY(1732, -1000, 4.0/6)
+        testAngleForXY(57735, -100000, 5.0/6)
+        testAngleForXY(0,1,2.0)
+        testAngleForXY(1,0,1.0/2)
+        testAngleForXY(0,-1,1.0)
+        testAngleForXY(-57735, -100000, 7.0/6)
+        testAngleForXY(-1732, -1000, 4.0/3)
+        testAngleForXY(-1732, 1000, 5.0/3)
+        testAngleForXY(-57735, 100000, 11.0/6)
+        testAngleForXY(-1,0,3.0/2)
+
+def testAngleForXY(x,y,correct):
+        result=getAngleForXY(x,y)
+        if abs((result/math.pi)-correct)<1.0/36:
+                print '%(x)04f, %(y)04f, ok' % {'x': x, 'y': y}
+        else:
+                print '%(x)04f, %(y)04f, returned %(result)04f correct %(correct)04f' % { 'x': x, 'y': y, 'result': (result/math.pi), 'correct': correct }
+        
 def getAngleForXY(x, y):
-    angle = 0.0
-    if x == 0:
-        angle = math.pi / 2
-    else:
-        angle = math.atan(math.fabs(y/x))
-    if x <= 0.0 and y >= 0.0:
-        angle = math.pi - angle
-    elif x <= 0.0 and y < 0.0:
-        angle = math.pi + angle
-    elif x > 0.0 and y < 0.0:
-        angle = math.pi * 2 - angle
-    return angle      
+        angle = 0.0
+        if x == 0:
+            angle = 0.0
+        else:
+            angle = HALF_PI - math.atan(math.fabs(y/x))
+        if x <= 0.0 and y >= 0.0:
+            angle = PI2 - angle
+        elif x <= 0.0 and y < 0.0:
+            angle = math.pi + angle
+        elif x > 0.0 and y < 0.0:
+            angle = math.pi - angle
+        return angle      
 
 def limitToMaxValue(input, max):
     if input > max:

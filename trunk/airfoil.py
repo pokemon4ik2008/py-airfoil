@@ -586,8 +586,10 @@ class Airfoil(Obj):
             self.__print_line = "" 
 
     def getHeading(self):
-        noseVector = self._attitude * Vector3(1.0,0.0,0.0)
-        return math.pi * 2 - getAngleForXY(noseVector.x, noseVector.z)
+        #Initial heading of 1st plane is moving up the z axis, no change in x.
+        #This should be North ie heading 0 or 2PI
+        noseVector = self._attitude * (-X_UNIT)
+        return getAngleForXY(noseVector.x, -noseVector.z)
 
     def collisionForType(self, ident):
         return mesh.collidedCollider(ident, self.getId())
