@@ -43,7 +43,7 @@ extern "C"
 
   DLL_EXPORT void initDefault()
   {		
-    init ("strip1.bmp", "map_output.hm2", 4.0f/3.0f, wireframe, map_expansion_const, y_scale_const);
+    init ("strip1.bmp", "map_output.hmp", 4.0f/3.0f, wireframe, map_expansion_const, y_scale_const);
   }
 
   DLL_EXPORT void draw(float povArg[], float aspectRatio)
@@ -60,6 +60,7 @@ extern "C"
     pov.z = povArg[2];
     glPushMatrix();
     glTranslatef(-shift ,0 ,-shift );
+    //glTranslatef(0 ,0 , 0 );
     float fovy=80.0f;
     float nearp=1.0f;
     float farp=2000.0f;
@@ -368,6 +369,25 @@ int fscanint(FILE* fin) {
   return in;
 }
 
+void printMap(uint32 pWidth, uint32 pHeight, int16* pp_array) {
+  uint32 idx=0;
+  for(uint32 h=0; h<pHeight; h++) {
+    uint32 indent=0;
+    for(uint32 w=0; w<pWidth; w++) {
+      printf("%02x ", pp_array[idx]);
+      idx++;
+      if(w%48==47) {
+	indent+=4;
+	printf("\n");
+	for(uint32 i=0; i<indent; i++) {
+	  printf(" ");
+	}
+      }
+    }
+    printf("\n");
+  }
+}
+
 int preloadTerrain(char *fname) {
   FILE *fptr;
   int dims[2]={-1};
@@ -385,23 +405,26 @@ int preloadTerrain(char *fname) {
     }
 
   if (fptr==NULL) {errorMsg("Cant find the heightmap.",1);return false;}
-  if ( !(strstr(fname,".hmp")) && !(strstr(fname,".hm2")) ) {
+  if ( !(strstr(fname,".hmp")) && !(strstr(fname,".hmp")) ) {
     errorMsg("Wrong file extension while loading heightmap.",1);
     return false;
   }
 	
-  if (strstr(fname,".hm2")!=NULL) {
+  if (strstr(fname,".hmp")!=NULL) {
 		
     size=fscanint(fptr);
     size=fscanint(fptr);
     map_precision=fscanint(fptr);
-    fgetc(fptr);
+    //fgetc(fptr);
+    for(uint32 offset=12; offset<100; offset+=4) {
+      fscanint(fptr);
+    }
 
     backg.r=FOG_GREY;//must make these map dependent later
     backg.g=FOG_GREY;
     backg.b=FOG_GREY;
 
-    hfield = new short int[size * size];
+    hfield = new int16[size * size];
 		
     for (j=0; j<size; j++) {
       for (i=0; i<size; i++) {
@@ -437,6 +460,7 @@ int preloadTerrain(char *fname) {
 		
 		
   }
+  printMap(size, size, hfield);
   terrain_size=size;
 
   hmap_tile.dim=map_expansion_const;

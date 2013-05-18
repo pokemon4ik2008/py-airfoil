@@ -3,6 +3,7 @@
 
 typedef unsigned char ubyte;
 typedef char uint8;
+typedef short int int16;
 typedef unsigned int uint32;
 typedef float float32;
 typedef double float64;

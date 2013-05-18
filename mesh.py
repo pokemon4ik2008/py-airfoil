@@ -9,7 +9,7 @@ from manage import collider, cterrain
 import random
 import sys
 from traceback import print_exc
-from util import NULL_VEC, NULL_ROT, X_UNIT, Y_UNIT, Z_UNIT, getNativePath, QUART_PI, HALF_PI, PI2
+from util import NULL_VEC, NULL_ROT, X_UNIT, NEG_Y_UNIT, Y_UNIT, Z_UNIT, getNativePath, QUART_PI, HALF_PI, PI2
 
 import wrapper
 from wrapper import *
@@ -91,9 +91,6 @@ def draw(bot, view):
     else:
         bot.draw()
 
-def drawHud(plane):
-    pass
-        
 NO_VBO_GROUP=0xffffffff
 def loadMeshes(mesh_paths, views):
     # mesh_paths = { <(TYP, view): (all, not)>* }
@@ -486,26 +483,40 @@ class LittlePlaneMesh(Mesh):
         self.__mapMin=(minim[0], minim[1], minim[2])
         self.__mapMax=(maxim[0], maxim[1], maxim[2])
         self.__mapSize=(self.__mapMax[0]-self.__mapMin[0], self.__mapMax[1]-self.__mapMin[1], self.__mapMax[2]-self.__mapMin[2])
+
+        wrapper.getMin(self.mesh, minim)
+        wrapper.getMax(self.mesh, minim)
+        self.__plane_mid=((maxim[0]-minim[0])/2.0, (maxim[1]-minim[1])/2.0)
         
         (self.__terrainXSize, self.__terrainYSize)=(cterrain.xSize(), cterrain.zSize())
+        print 'terrain size: '+str((self.__terrainXSize, self.__terrainYSize))
+        print 'map size: '+str(self.__mapSize)
         
     def draw(self, bot, view_id):
         self.rep.att=bot.getAttitude()
         ang=bot.getHeading()
-        #print 'heading: '+str(ang/math.pi)
         pos=bot.getPos()
 
-        (x,y)=(pos.x/self.__terrainXSize, pos.z/self.__terrainYSize)
-        if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
-            return
+        #coords in blender export are reversed
+        #ie vertices further to the rights have a smaller x coord
+        #the same goes for y coords in blender files (which are actually z coords in game).
+        #blender z coords work as expected though.
+        #The upshot of this is that we need to subtract normalised coords
+        #from 1 for expected behaviour.
+        (x,y)=((pos.x/self.__terrainXSize), (pos.z/self.__terrainYSize))
+        #if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
+        #    return
+        #x=0.0
         
         x_off=-(x*self.__mapSize[0])
         y_off=-(y*self.__mapSize[1])
         z_off=-(y*self.__mapSize[2])
         #print 'max x, y: '+str((x_off,y_off))
         #mapSize[0]=-3.6
+        #print 'heading: '+str(ang/math.pi)+' x: '+str(x)+' y: '+str(y)+' x off: '+str(x_off)+' y off: '+str(y_off)+' z off: '+str(z_off)
 
-        wrapper.setOffset(x_off, y_off, z_off-0.1)
+        #print 'plane mid: '+str(self.__plane_mid)
+        wrapper.setOffset(x_off, y_off, z_off)
         self.rep.pos=Vector3(pos.x, pos.y, pos.z)
         self.drawRotated(self.rep, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
 

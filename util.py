@@ -12,6 +12,7 @@ PI2=2*math.pi
 
 X_UNIT=Vector3(1.0, 0.0, 0.0)
 Y_UNIT=Vector3(0.0, 1.0, 0.0)
+NEG_Y_UNIT=-Y_UNIT
 Z_UNIT=Vector3(0.0, 0.0, 1.0)
 NULL_VEC=Vector3(0.0,0.0,0.0)
 NULL_ROT=Quaternion.new_rotate_axis(0.0, Y_UNIT)

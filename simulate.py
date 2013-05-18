@@ -57,11 +57,11 @@ def loadTerrain():
 	if os.name == 'nt':
             #cterrain = cdll.LoadLibrary("bin\cterrain.dll")
             colFileName = "data\\strip1.bmp"
-            mapFileName = "data\\map_output.hm2"
+            mapFileName = "data\\map_output.hmp"
 	else:
             #cterrain = cdll.LoadLibrary("bin/cterrain.so")
             colFileName = "data/strip1.bmp" 
-            mapFileName = "data/map_output.hm2"
+            mapFileName = "data/map_output.hmp"
 
 	cterrain.init(c_char_p(colFileName), 
 		      c_char_p(mapFileName), 
@@ -97,11 +97,11 @@ class PlanePositionQuery(Query):
         NEXT_IDX=Query.NEXT_IDX+1
         [ __POS_IDX ]= range(Query.NEXT_IDX, NEXT_IDX)
 
-        PLANE_INITS=[(Point3(10600.0,100.0,4200.0), 
+        PLANE_INITS=[(Point3(6400.0,100.0,4200.0), 
                       Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
                       Vector3(0,0,60),
                       0),
-                (Point3(10600,200.0,9200), 
+                (Point3(6400,200.0,9200), 
                  Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
                  Vector3(0,0,-60),
                  0)]
@@ -897,7 +897,6 @@ def timeSlice(dt):
 					#view.printToScreen('thrust = ' + str(my_plane.thrust))
 					#view.printToScreen('airspeed = ' + str(my_plane.getAirSpeed()))
 					#view.printToScreen("heading = " + str(my_plane.getHeading()/math.pi*180.0))
-                                        mesh.drawHud(my_plane);
 				#destructible_types=[MyAirfoil.Type]
 				#for destructible in man.proxy.getTypeObjs(destructible_tpes):
 				#	collider=destructible.collider
