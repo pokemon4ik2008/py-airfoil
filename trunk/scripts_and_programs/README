@@ -1,0 +1,7 @@
+blend2csv.py generates csv files from meshes in a .blend file. These can be loaded by py-airfoil during the creation of its own meshes.
+
+criticalCollider.py creates a ui control in blender to allow a user to specify that a mesh (only makes sense for spheres) is tagged as a collider.
+
+gradient-from-image.scm is a blender script-fu plugin. In the gradients dialog, in the context menu (gradient from image), create a gradient from a 1 pixel high cross-section of an image. Then by going to Colors -> Map -> Gradient Map we can colourise an image from this new gradiant. This proess will convert our grayscale terrain map bmp to colour to use as a texture in our hud. Downloaded from http://registry.gimp.org/node/15847. License GPL2
+
+hme.zip comtains a 3rd party height map editor released under GPL2 (or later). This is needed to generate the data/map_output.hmp file. It loads hmp files and bmp exported from the gimp with the compatability option disable colorspace selected. 
