@@ -10,6 +10,8 @@
 #include "objects.h"
 #include "types.h"
 
+#define RADS_2_DEGREES (180.0/3.141592653589793)
+
 extern uint32 top_order_x[MAX_ORDER]={0};
 extern uint32 top_order_y[MAX_ORDER]={0};
 extern uint32 top_order_z[MAX_ORDER]={0};
@@ -337,7 +339,7 @@ extern "C"
     fpos[1]=axis.y();
     fpos[2]=axis.z();
 
-    setAngleAxisRotation(angleAxis.angle() * (180.0/3.141592653589793), fpos);
+    setAngleAxisRotation(angleAxis.angle() * RADS_2_DEGREES, fpos);
   }
 
 void	objSetCutOff		(float dist, float angle) {
