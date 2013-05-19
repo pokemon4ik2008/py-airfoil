@@ -13,8 +13,6 @@ def CheckPKG(context, name):
      return ret
 
 # Configuration:
-
-
 objEnv = Environment()
 conf = Configure(objEnv, custom_tests = { 'CheckPKGConfig' : CheckPKGConfig,
                                        'CheckPKG' : CheckPKG })
@@ -46,21 +44,21 @@ except IOError as e:
         
 objEnv.Append(CPPPATH = ['c', 'c/Eigen'])
 eigenEnv=objEnv.Clone()
-eigenEnv.Append(CCFLAGS='-O3')
+eigenEnv.Append(CCFLAGS='-O3 -Wno-enum-compare')
 
 if graphics is PYGLET:
      try:
-          objEnv.Append(CCFLAGS='-O3 -DOPEN_GL')
+          objEnv.Append(CCFLAGS='-O3 -DOPEN_GL -Wno-enum-compare')
           objEnv.ParseConfig('pkg-config --cflags --libs glew')
           objEnv.ParseConfig('pkg-config --cflags --libs glu')
           objEnv.ParseConfig('pkg-config --cflags --libs gl')
      except:
           graphics=PYGAME
           objEnv=eigenEnv
-          objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
+          objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS -Wno-enum-compare')
      #     objEnv.ParseConfig('pkg-config --cflags --libs gl')
 else:
-        objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS')
+        objEnv.Append(CCFLAGS='-O3 -DNO_GRAPHICS -Wno-enum-compare')
         #objEnv.ParseConfig('pkg-config --cflags --libs gl')
         
 collider=objEnv.SharedLibrary(target = 'bin/collider', source = ["c/collider.cpp"])
@@ -77,5 +75,4 @@ if graphics is PYGLET:
         print 'will link to mini'
         terrEnv.Append(LIBS = ['Mini'])
 
-#cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp", collider])
 cterrain=terrEnv.SharedLibrary(target = 'bin/cterrain', source = ["c/cterrain.cpp"])

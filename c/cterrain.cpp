@@ -342,7 +342,7 @@ float getAngleForXY(float adj, float opp)
   return angle;
 }
 
-void errorMsg(char *msg,int error_type) {
+void errorMsg(const char *msg,int error_type) {
   if (error_type>=0) {
     fprintf(stderr,"Non-Fatal Error %i: %s\n",error_type,msg);
     printf("Non-Fatal Error %i: %s\n",error_type,msg);
