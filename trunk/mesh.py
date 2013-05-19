@@ -14,6 +14,8 @@ from util import NULL_VEC, NULL_ROT, X_UNIT, NEG_Y_UNIT, Y_UNIT, Z_UNIT, getNati
 import wrapper
 from wrapper import *
 
+BOTS=None    
+
 PRIMARY_COL=0x1
 WING_COL=0x2
 TAIL_COL=0x3
@@ -180,6 +182,25 @@ def deleteMeshes():
     all_meshes=[]
     deleteVBOs()
 
+class Bots(dict):
+    def __init__(self, factory, types):
+        dict.__init__(self)
+        self.types=types
+        factory.push_handlers(self)
+
+    def on_birth(self, bot):
+        if bot.TYP in self.types:
+            print 'Bots.on_birth: '+str(bot)
+            self.__setitem__(bot.getId(), bot)
+
+    def on_death(self, bot):
+        if bot.getId() in self:
+            del[self[bot.getId()]]
+
+def initBots(factory, types):
+    global BOTS
+    BOTS=Bots(factory, types)
+    
 class Mesh(object):
     def __init__(self, mesh, views, mesh_key, group=None):
         self.group=group
@@ -472,7 +493,7 @@ class MiniRep:
 class LittlePlaneMesh(Mesh):
     def __init__(self, *args, **kwargs):
         Mesh.__init__(self, *args, **kwargs)
-        self.rep=MiniRep()
+        #self.rep=MiniRep()
 
         self.__pi_and_half=math.pi*1.5
         minim=(c_float * 3)()
@@ -495,32 +516,34 @@ class LittlePlaneMesh(Mesh):
         print 'map size: '+str(self.__mapSize)
         
     def draw(self, bot, view_id):
-        self.rep.att=bot.getAttitude()
-        ang=bot.getHeading()
-        pos=bot.getPos()
+            #for bot in BOTS.values():
+            #print 'Little.draw. bot: '+str(bot.getId())
+            #self.rep.att=bot.getAttitude()
+            ang=bot.getHeading()
+            pos=bot.getPos()
 
-        #coords in blender export are reversed
-        #ie vertices further to the rights have a smaller x coord
-        #the same goes for y coords in blender files (which are actually z coords in game).
-        #blender z coords work as expected though.
-        #The upshot of this is that we need to subtract normalised coords
-        #from 1 for expected behaviour.
-        (x,y)=((pos.x/self.__terrainXSize), (pos.z/self.__terrainYSize))
-        if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
-            return
-        #x=0.0
-        
-        x_off=-(x*self.__mapSize[0])
-        y_off=-(y*self.__mapSize[1])
-        z_off=-(y*self.__mapSize[2])
-        #print 'max x, y: '+str((x_off,y_off))
-        #mapSize[0]=-3.6
-        #print 'heading: '+str(ang/math.pi)+' x: '+str(x)+' y: '+str(y)+' x off: '+str(x_off)+' y off: '+str(y_off)+' z off: '+str(z_off)
+            #coords in blender export are reversed
+            #ie vertices further to the rights have a smaller x coord
+            #the same goes for y coords in blender files (which are actually z coords in game).
+            #blender z coords work as expected though.
+            #The upshot of this is that we need to subtract normalised coords
+            #from 1 for expected behaviour.
+            (x,y)=((pos.x/self.__terrainXSize), (pos.z/self.__terrainYSize))
+            if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
+                return
+            #x=0.0
 
-        #print 'plane mid: '+str(self.__plane_mid)
-        wrapper.setOffset(x_off, y_off, z_off)
-        self.rep.pos=Vector3(pos.x, pos.y, pos.z)
-        self.drawRotated(self.rep, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
+            x_off=-(x*self.__mapSize[0])
+            y_off=-(y*self.__mapSize[1])
+            z_off=-(y*self.__mapSize[2])
+            #print 'max x, y: '+str((x_off,y_off))
+            #mapSize[0]=-3.6
+            #print 'heading: '+str(ang/math.pi)+' x: '+str(x)+' y: '+str(y)+' x off: '+str(x_off)+' y off: '+str(y_off)+' z off: '+str(z_off)
+
+            #print 'plane mid: '+str(self.__plane_mid)
+            wrapper.setOffset(x_off, y_off, z_off)
+            #self.rep.pos=Vector3(pos.x, pos.y, pos.z)
+            self.drawRotated(bot, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
 
 def loadColliders( colliders ):
     print 'loadColliders start'

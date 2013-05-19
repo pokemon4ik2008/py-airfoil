@@ -6,6 +6,7 @@
 #include <GL/glut.h>
 #endif
 
+uint8 mapFileName[PATH_LEN];
 int terrain_max_x=0;	//max size of terrain map data array in x direction
 int terrain_max_z=0;	//max size of terrain map data array in z direction
 terrain_mesh_point *terrain;
@@ -39,11 +40,6 @@ extern "C"
     aspectRatio = aspectRatioArg;
     load_hm_colour_ref(colourRefFilename);
     preloadTerrain(mapFilename);
-  }
-
-  DLL_EXPORT void initDefault()
-  {		
-    init ("strip1.bmp", "map_output.hmp", 4.0f/3.0f, wireframe, map_expansion_const, y_scale_const);
   }
 
   DLL_EXPORT void draw(float povArg[], float aspectRatio)
@@ -393,7 +389,9 @@ int preloadTerrain(char *fname) {
   int dims[2]={-1};
   int x,z,i,j;
   byte_ptr input_file;
-  fptr = fopen(fname,"rb");
+
+  strncpy(mapFileName, fname, PATH_LEN-1);
+  fptr = fopen(mapFileName,"rb");
   int size;
   short* hfield;
 
@@ -405,12 +403,12 @@ int preloadTerrain(char *fname) {
     }
 
   if (fptr==NULL) {errorMsg("Cant find the heightmap.",1);return false;}
-  if ( !(strstr(fname,".hmp")) && !(strstr(fname,".hmp")) ) {
+  if ( !(strstr(mapFileName,".hmp")) && !(strstr(mapFileName,".hmp")) ) {
     errorMsg("Wrong file extension while loading heightmap.",1);
     return false;
   }
 	
-  if (strstr(fname,".hmp")!=NULL) {
+  if (strstr(mapFileName,".hmp")!=NULL) {
 		
     size=fscanint(fptr);
     size=fscanint(fptr);
@@ -460,7 +458,7 @@ int preloadTerrain(char *fname) {
 		
 		
   }
-  printMap(size, size, hfield);
+  //printMap(size, size, hfield);
   terrain_size=size;
 
   hmap_tile.dim=map_expansion_const;
