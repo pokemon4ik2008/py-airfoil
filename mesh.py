@@ -480,9 +480,11 @@ class LittlePlaneMesh(Mesh):
         wrapper.getMin(mapMesh, minim)
         maxim=(c_float * 3)()
         wrapper.getMax(mapMesh, maxim)
-        self.__mapMin=(minim[0], minim[1], minim[2])
-        self.__mapMax=(maxim[0], maxim[1], maxim[2])
-        self.__mapSize=(self.__mapMax[0]-self.__mapMin[0], self.__mapMax[1]-self.__mapMin[1], self.__mapMax[2]-self.__mapMin[2])
+        mapMin=(minim[0], minim[1], minim[2])
+        mapMax=(maxim[0], maxim[1], maxim[2])
+        #always have a border of 16 around entire length of map texture. Border will be same colour as wings
+        #(16+16) / 256 = 1/8 of length and width. This also means than 1/8 of height is not used either.
+        self.__mapSize=((mapMax[0]-mapMin[0])*0.875, (mapMax[1]-mapMin[1])*0.875, (mapMax[2]-mapMin[2])*0.875)
 
         wrapper.getMin(self.mesh, minim)
         wrapper.getMax(self.mesh, minim)
@@ -504,8 +506,8 @@ class LittlePlaneMesh(Mesh):
         #The upshot of this is that we need to subtract normalised coords
         #from 1 for expected behaviour.
         (x,y)=((pos.x/self.__terrainXSize), (pos.z/self.__terrainYSize))
-        #if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
-        #    return
+        if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
+            return
         #x=0.0
         
         x_off=-(x*self.__mapSize[0])
