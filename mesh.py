@@ -512,16 +512,10 @@ class LittlePlaneMesh(Mesh):
         print 'map size: '+str(self.__mapSize)
         
     def resetDraw(self, me, view_id):
-            #bot=BOTS[b.getId()]
-            #print 'bot: '+str(type(bot))+' '+'b: '+str(type(b))
-            #print 'bot: '+str(bot.getPos())+' '+'b: '+str(b.getPos())
-
         for bot in BOTS.values():
+            if bot.getId()==me.getId() and (manage.now % 1) >= 0.5:
+                continue
             glPushMatrix()
-            #print 'Little.draw. bot: '+str(bot.getId())
-            #if bot.getId()==me.getId():
-            #   continue
-            #self.rep.att=bot.getAttitude()
             ang=bot.getHeading()
             pos=bot.getPos()
 
@@ -534,19 +528,12 @@ class LittlePlaneMesh(Mesh):
             (x,y)=((pos.x/self.__terrainXSize), (pos.z/self.__terrainYSize))
             if x<0.0 or x>=1.0 or y<0.0 or y>=1.0:
                 return
-            #x=0.0
 
             x_off=-(x*self.__mapSize[0])
             y_off=-(y*self.__mapSize[1])
             z_off=-(y*self.__mapSize[2])
-            #print 'max x, y: '+str((x_off,y_off))
-            #mapSize[0]=-3.6
-            #print 'heading: '+str(ang/math.pi)+' x: '+str(x)+' y: '+str(y)+' x off: '+str(x_off)+' y off: '+str(y_off)+' z off: '+str(z_off)
 
-            #print 'plane mid: '+str(self.__plane_mid)
             wrapper.setOffset(x_off, y_off, z_off)
-            #print 'plot: '+str((x, y))
-            #self.rep.pos=Vector3(pos.x, pos.y, pos.z)
             self.drawRotated(me, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
             glPopMatrix()
 
