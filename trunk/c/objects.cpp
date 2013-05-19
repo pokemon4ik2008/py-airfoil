@@ -12,9 +12,9 @@
 
 #define RADS_2_DEGREES (180.0/3.141592653589793)
 
-extern uint32 top_order_x[MAX_ORDER]={0};
-extern uint32 top_order_y[MAX_ORDER]={0};
-extern uint32 top_order_z[MAX_ORDER]={0};
+uint32 top_order_x[MAX_ORDER]={0};
+uint32 top_order_y[MAX_ORDER]={0};
+uint32 top_order_z[MAX_ORDER]={0};
 
 float rotAngle = 0;
 float *rotAxis = NULL;

@@ -8,7 +8,7 @@
 #define MIN(a,b) (a>b?b:a)
 #define MAX(a,b) (a<b?b:a)
 
-static Eigen::Quaternion<float32> SETUP_ROT(0.5, -0.5, 0.5, 0.5);
+static Eigen::Quaternion<float32> SETUP_ROT(0.5f, -0.5f, 0.5f, 0.5f);
 
 inline void memZero(void *p_mem, uint32 bytes) {
     for(uint32 *p_ptr=(uint32 *)p_mem, *p_end=(uint32 *)(((uint8 *)p_mem)+bytes); p_ptr<p_end; p_ptr++) {
