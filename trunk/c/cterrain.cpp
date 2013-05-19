@@ -1,6 +1,7 @@
 #include <Eigen/Geometry>
 #include "collider.h"
 #include "cterrain.h"
+#include "rtu.h"
 
 #ifdef OPEN_GL
 #include <GL/glut.h>
@@ -25,7 +26,8 @@ terrain_tile hmap_tile = {0};
 float aspectRatio;
 bool wireframe = true;
 float map_expansion_const = 5.0f; //how much the multiply the x and z coords by before plotting
-float y_scale_const = .02f*32.0f/32*5;	//how much to scale the y values before plotting
+float y_scale_const = 0.02f*32.0f/32*5;	//how much to scale the y values before plotting
+const float farp=MAX(7000.0f, (y_scale_const * 1400.0f));
 IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
 
 // Export an interface with standard C calling conventions so that it can 
@@ -59,7 +61,6 @@ extern "C"
     //glTranslatef(0 ,0 , 0 );
     float fovy=80.0f;
     float nearp=1.0f;
-    float farp=2000.0f;
     float res=100.0f;
 
     glEnable(GL_DEPTH_TEST);

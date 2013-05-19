@@ -15,6 +15,9 @@ sound_effects=False
 global opt
 global scale
 scale=3.0
+global y_terrain_scale
+y_terrain_scale=3.0
+
 global vbo
 vbo=False
 from time import time

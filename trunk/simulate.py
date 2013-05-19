@@ -50,6 +50,8 @@ from view import EXTERNAL, INTERNAL, View
 import wrapper
 from wrapper import *
 
+man=manage
+
 def loadTerrain():
 	global cterrain
 	colFileName = ''
@@ -67,9 +69,9 @@ def loadTerrain():
 		      c_char_p(mapFileName), 
 		      c_float(4.0/3.0*2.0),
 		      c_int(0),
-		      c_float(manage.map_expansion_const),
-		      c_float(1.0))
-        man=manage
+		      c_float(man.map_expansion_const),
+		      c_float(man.y_terrain_scale))
+
         man.map_y_size=cterrain.xSize()
         man.map_z_size=cterrain.zSize()
 
@@ -97,11 +99,11 @@ class PlanePositionQuery(Query):
         NEXT_IDX=Query.NEXT_IDX+1
         [ __POS_IDX ]= range(Query.NEXT_IDX, NEXT_IDX)
 
-        PLANE_INITS=[(Point3(6400.0,100.0,4200.0), 
+        PLANE_INITS=[(Point3(6400.0, 100.0*man.y_terrain_scale, 4200.0), 
                       Quaternion.new_rotate_axis(-mesh.HALF_PI, Y_UNIT), 
                       Vector3(0,0,60),
                       0),
-                (Point3(6400,200.0,9200), 
+                (Point3(6400, 200.0*man.y_terrain_scale, 9200), 
                  Quaternion.new_rotate_axis(mesh.HALF_PI, Y_UNIT), 
                  Vector3(0,0,-60),
                  0)]
@@ -182,7 +184,7 @@ class Bullet(Obj, ControlledSer):
     def localInit(self):
         ControlledSer.localInit(self)
 	(self._just_born, self._just_dead)=(True, False)
-	self.__start=manage.now
+	self.__start=man.now
 	if self not in Bullet.__IN_FLIGHT:
 		Bullet.__IN_FLIGHT.add(self)
 		if(len(self.__class__.__IN_FLIGHT)%25==0):

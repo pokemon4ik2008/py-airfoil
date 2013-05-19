@@ -1,5 +1,6 @@
 from control import Controller
 from euclid import *
+import manage
 from util import X_UNIT, Y_UNIT, Z_UNIT
 from wrapper import *
 
@@ -199,7 +200,7 @@ class View(EventDispatcher):
         glViewport(self.__xOrig, self.__yOrig, self.__width, height)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        gluPerspective(70, 1.0*self.__width/height, 0.1, self.__opt.width * 1.2)
+        gluPerspective(70, 1.0*self.__width/height, 0.1, self.__opt.width * 0.6 * max(manage.y_terrain_scale, 5))
         #glOrtho(-self.__width/2,self.__width/2,-height/2,height/2,-1280.0,1280.0);
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()

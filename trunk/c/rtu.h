@@ -4,6 +4,10 @@
 #include <Eigen/Geometry>
 #include "types.h"
 
+#define DIM(a) (sizeof(a)/sizeof(a[0]))
+#define MIN(a,b) (a>b?b:a)
+#define MAX(a,b) (a<b?b:a)
+
 static Eigen::Quaternion<float32> SETUP_ROT(0.5, -0.5, 0.5, 0.5);
 
 inline void memZero(void *p_mem, uint32 bytes) {

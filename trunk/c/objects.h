@@ -1,4 +1,7 @@
 #ifndef objs_h
+
+#include "rtu.h"
+
 #define objs_h
 
 //if bits 0 and 1 are unset then
@@ -32,10 +35,6 @@
 #define MAX_Y MAX_FLAG|DIM_Y
 #define MIN_Z MIN_FLAG|DIM_Z
 #define MAX_Z MAX_FLAG|DIM_Z
-
-#define DIM(a) (sizeof(a)/sizeof(a[0]))
-#define MIN(a,b) (a>b?b:a)
-#define MAX(a,b) (a<b?b:a)
 
 //all objects within this dist from viewer will be plotted.
 //this ensure's that object when looking directly up or down
