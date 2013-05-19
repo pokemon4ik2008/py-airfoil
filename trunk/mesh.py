@@ -515,7 +515,6 @@ class LittlePlaneMesh(Mesh):
         for bot in BOTS.values():
             if bot.getId()==me.getId() and (manage.now % 1) >= 0.5:
                 continue
-            glPushMatrix()
             ang=bot.getHeading()
             pos=bot.getPos()
 
@@ -533,6 +532,7 @@ class LittlePlaneMesh(Mesh):
             y_off=-(y*self.__mapSize[1])
             z_off=-(y*self.__mapSize[2])
 
+            glPushMatrix()
             wrapper.setOffset(x_off, y_off, z_off)
             self.drawRotated(me, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
             glPopMatrix()
