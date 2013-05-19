@@ -87,9 +87,7 @@ def draw(bot, view):
     if (bot.TYP, v_type) in meshes:
         count=0
         for m in meshes[(bot.TYP, v_type)]:
-            glPushMatrix()
-            m.draw(bot, view.view_id)
-            glPopMatrix()
+            m.resetDraw(bot, view.view_id)
     else:
         bot.draw()
 
@@ -302,6 +300,11 @@ class Mesh(object):
         setAngleAxisRotation(c_float(setup_angle_axis[0]), fpos)
         wrapper.drawToTex(self.mesh, alpha, fbo, width, height, bgTex, boundPlane, top)
 
+    def resetDraw(self, bot, view_id):
+        glPushMatrix()
+        self.draw(bot, view_id)
+        glPopMatrix()
+        
     def draw(self, bot, view_id):
         transformBot(bot)
         wrapper.draw(self.mesh, 1.0)
@@ -314,13 +317,6 @@ class Mesh(object):
                                 angle_quat.w, angle_quat.x, angle_quat.y, angle_quat.z,
                                 centre_mesh, alpha);
         wrapper.draw(self.mesh, alpha)
-
-    def drawRotatedCen(self, bot, angle_quat, xCen, yCen, zCen, alpha=1.0):
-        p=bot.getPos();
-        a=bot.getAttitude();
-        wrapper.drawRotatedCen(p.x, p.y, p.z, a.w, a.x, a.y, a.z, angle_quat.w, angle_quat.x, angle_quat.y, angle_quat.z, xCen, yCen, zCen, alpha)
-        wrapper.draw(self.mesh, alpha)
-
 
 class PropMesh(Mesh):
     def __init__(self, *args, **kwargs):
@@ -515,9 +511,16 @@ class LittlePlaneMesh(Mesh):
         print 'terrain size: '+str((self.__terrainXSize, self.__terrainYSize))
         print 'map size: '+str(self.__mapSize)
         
-    def draw(self, bot, view_id):
-            #for bot in BOTS.values():
+    def resetDraw(self, me, view_id):
+            #bot=BOTS[b.getId()]
+            #print 'bot: '+str(type(bot))+' '+'b: '+str(type(b))
+            #print 'bot: '+str(bot.getPos())+' '+'b: '+str(b.getPos())
+
+        for bot in BOTS.values():
+            glPushMatrix()
             #print 'Little.draw. bot: '+str(bot.getId())
+            #if bot.getId()==me.getId():
+            #   continue
             #self.rep.att=bot.getAttitude()
             ang=bot.getHeading()
             pos=bot.getPos()
@@ -542,8 +545,10 @@ class LittlePlaneMesh(Mesh):
 
             #print 'plane mid: '+str(self.__plane_mid)
             wrapper.setOffset(x_off, y_off, z_off)
+            #print 'plot: '+str((x, y))
             #self.rep.pos=Vector3(pos.x, pos.y, pos.z)
-            self.drawRotated(bot, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
+            self.drawRotated(me, Quaternion.new_rotate_axis(ang, Y_UNIT), self.mesh)
+            glPopMatrix()
 
 def loadColliders( colliders ):
     print 'loadColliders start'

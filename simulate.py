@@ -747,10 +747,10 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
 						(Controller.PITCH, KeyAction(key.S, key.W)),
 						(Controller.ROLL, KeyAction(key.A, key.D))], 
 			       win),
-				    Controller([(Controller.THRUST, KeyAction(key.PAGEDOWN, key.PAGEUP)),
-						(Controller.FIRE, MouseButAction(MouseButAction.LEFT)),
-						(Controller.PITCH, MouseAction(-0.00010, MouseAction.Y)),
-						(Controller.ROLL, MouseAction(-0.00010, MouseAction.X))], 
+				    Controller([(Controller.THRUST, KeyAction(key.NUM_6, key.NUM_4)),
+						(Controller.FIRE, KeyAction(key.RSHIFT)),
+						(Controller.PITCH, KeyAction(key.NUM_2, key.NUM_5)),
+						(Controller.ROLL, KeyAction(key.NUM_1, key.NUM_2))], 
 					      win)])
 	else:
 			player_keys.append(Controller([(Controller.THRUST, KeyAction(key.E, key.Q)),
