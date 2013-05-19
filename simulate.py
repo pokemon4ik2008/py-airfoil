@@ -583,6 +583,7 @@ def init():
 
                 global botTracker
                 botTracker=BotTracker( factory, [ MyAirfoil.TYP, Bullet.TYP ] )
+                mesh.initBots(factory, [ MyAirfoil.TYP ]);
                 
                 scale=manage.scale
                 colliders_map={ MyAirfoil.TYP: ("data/models/cockpit/C_*.csv", scale) }
@@ -764,8 +765,8 @@ def setupWin(num_players, plane_ids, fs=True, w=800, h=600, num_views=None):
 						(Controller.CAM_Z, KeyAction(key.C, key.V)),
 						(Controller.CAM_X, KeyAction(key.Z, key.X)),
 						(Controller.CAM_ZOOM, KeyAction(key.G, key.H)),
-						(Controller.CAM_MOUSE_LOOK_X, NULL_ACTION),
-						(Controller.CAM_MOUSE_LOOK_Y, NULL_ACTION),
+						(Controller.CAM_MOUSE_LOOK_X, MouseAction(-0.00003, MouseAction.X)),
+						(Controller.CAM_MOUSE_LOOK_Y, MouseAction(-0.00002, MouseAction.Y)),
                                                 (Controller.CAM_SUBJECT_CHANGE, KeyAction(key._4, key._5, onPress=True))], 
 			       win),
 				    Controller([(Controller.CAM_FIXED, KeyAction(key._8)),
