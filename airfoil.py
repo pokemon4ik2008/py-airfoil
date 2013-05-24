@@ -306,7 +306,7 @@ class Obj(object):
 class Airfoil(Obj):
     #_FIRING_PERIOD is in seconds
     _FIRING_PERIOD=0.2
-    MAX_THRUST=20000.0
+    MAX_THRUST=25000.0
 
     def reset(self):
         self.__init__()
@@ -320,6 +320,7 @@ class Airfoil(Obj):
         self.__thrust = thrust
         #self._scales = [40.0, 20.0, 2.0]
         self._scales = [0.62, 0.32, 0.03]
+        self.max_level_vel=195.0*(self.MAX_THRUST/20000.0)
         self.__print_line = ""
 
         # Roll

@@ -2,6 +2,7 @@ from wrapper import key, mouse
 #from pyglet.window import mouse
 from time import time
 from util import repeat
+from wrapper import EventDispatcher
 
 class Enum:
     def __init__(self):
@@ -227,4 +228,76 @@ class Controller:
             self.__vals[i] = self.__controls[i].getState()
 
         return self.__vals
+
+class SimpleNPC(EventDispatcher):
+        def __init__(self):
+                def parseMotionEvent(event):
+                        (x, y)=event.pos
+                        (dx, dy)=event.rel
+                        return (x, y, dx, dy)
+                eventActions[pygame.ACTIVEEVENT]=lambda event: None
+                eventActions[pygame.VIDEORESIZE]=lambda event: None
+                eventActions[pygame.MOUSEMOTION]=lambda event: self.on_mouse_motion(*parseMotionEvent(event))
+                mousePressButtons=[None, 
+                              lambda x, y, mods: self.on_mouse_press(x, y, MouseButAction.LEFT, mods), 
+                              lambda x, y, mods: self.on_mouse_press(x, y, MouseButAction.MID, mods), 
+                              lambda x, y, mods: self.on_mouse_press(x, y, MouseButAction.RIGHT, mods), 
+                              lambda x, y, mods: self.on_mouse_scroll(x, y, 0, -1),
+                              lambda x, y, mods: self.on_mouse_scroll(x, y, 0, 1)]
+                mouseReleaseButtons=[None, 
+                              lambda x, y, mods: self.on_mouse_release(x, y, MouseButAction.LEFT, mods), 
+                              lambda x, y, mods: self.on_mouse_release(x, y, MouseButAction.MID, mods), 
+                              lambda x, y, mods: self.on_mouse_release(x, y, MouseButAction.RIGHT, mods), 
+                              ]
+                def deMultiPlexMouseButton(event, mouseButtons):
+                        (x, y)=event.pos
+                        yScroll=0
+                        if event.button>=len(mouseButtons):
+                                return
+                        mouseButtons[event.button](x, y, 0)
+                eventActions[pygame.MOUSEBUTTONDOWN]=lambda event: deMultiPlexMouseButton(event, mousePressButtons)
+                eventActions[pygame.MOUSEBUTTONUP]=lambda event: deMultiPlexMouseButton(event, mouseReleaseButtons)
+
+                pygame2PygletKey=defaultdict(lambda : (lambda arg1, arg2: None))
+                for (pygame_key, pyglet_key) in pygame2PygletKeyList:
+                        def scopeLimit(pyg_key):
+                                pygame2PygletKey[pygame_key]=lambda event, mod: self.dispatch_event(event, pyg_key, mod)
+                        scopeLimit(pyglet_key)
+                pygame2PygletKey[k.K_ESCAPE]=lambda event, mod: self.finish()
+
+
+                eventActions[pygame.KEYDOWN]=lambda event: (pygame2PygletKey[event.key]('on_key_press', event.mod))
+                eventActions[pygame.KEYUP]=lambda event: (pygame2PygletKey[event.key]('on_key_release', event.mod))
+
+        def on_mouse_motion(self, x, y, dx, dy):
+             pass
+
+        def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+             pass
+
+        def on_mouse_press(self, x, y, button, modifiers):
+             pass
+
+        def on_mouse_release(self, x, y, button, modifiers):
+             pass
+
+        def on_key_press(self, symbol, mods):
+             print 'on_key_press. sym: '+str(symbol)+' mods: '+str(mods)
+
+        def on_key_release(self, symbol, mods):
+             pass
+
+        def set_vsync(self, vsync):
+                pass
+
+        def set_exclusive_mouse(self, mouse):
+                pass
+
+SimpleNPC.register_event_type('on_mouse_drag');
+SimpleNPC.register_event_type('on_mouse_motion');
+SimpleNPC.register_event_type('on_mouse_scroll');
+SimpleNPC.register_event_type('on_mouse_press');
+SimpleNPC.register_event_type('on_mouse_release');
+SimpleNPC.register_event_type('on_key_press');
+SimpleNPC.register_event_type('on_key_release');
 

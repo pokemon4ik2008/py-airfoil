@@ -51,7 +51,7 @@ def getRPMFraction(bot):
         return 0.0
     #return (bot.getVelocity().magnitude()/max_vel + t/bot.MAX_THRUST)*0.3
     #print 'rpm. '+str((bot.getVelocity().magnitude()/195.0 + (t/bot.MAX_THRUST)*6)/6)+' vel: '+str((t/bot.MAX_THRUST)*6)+' thrust: '+str(bot.getVelocity().magnitude()/max_vel)
-    return (bot.getVelocity().magnitude()/195.0 + (bot.thrust/bot.MAX_THRUST)*2)/3
+    return (bot.getVelocity().magnitude()/bot.max_level_vel + (bot.thrust/bot.MAX_THRUST)*2)/3
 
 pos_rot_unchanged=False
 def setPosRotUnchanged(flag):
